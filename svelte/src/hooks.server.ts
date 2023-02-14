@@ -1,3 +1,5 @@
+import type { Handle } from "@sveltejs/kit";
+
 import { minify } from "html-minifier";
 import { building } from "$app/environment";
 
@@ -23,8 +25,7 @@ const minification_options = {
 	sortClassName: true
 };
 
-/** @type {import("@sveltejs/kit").Handle} */
-export async function handle({ event, resolve }) {
+export const handle = (async ({ event, resolve }) => {
 	const response = await resolve(event);
  
 	if (building && response.headers.get("content-type") === "text/html") {
@@ -35,4 +36,4 @@ export async function handle({ event, resolve }) {
 	}
  
 	return response;
-};
+}) satisfies Handle;

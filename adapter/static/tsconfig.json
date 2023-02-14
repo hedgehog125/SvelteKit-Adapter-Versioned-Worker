@@ -1,0 +1,17 @@
+/* This is only used for generating JavaScript versions for when TypeScript isn't being used.
+Since these don't have exports, d.ts files aren't generated */
+
+{
+	"compilerOptions": {
+		"target": "es2016",
+		"module": "ES2020",
+		"moduleResolution": "node",
+		"forceConsistentCasingInFileNames": true,
+		"strict": true,
+		"skipLibCheck": true,
+
+		"outDir": "jsBuild",
+		"declaration": false,
+		"declarationMap": false
+	}
+}
