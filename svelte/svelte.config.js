@@ -31,7 +31,9 @@ const config = {
 			$vid: demoFolder + "vids"
 		},
 
-		adapter: adapter()
+		adapter: adapter({
+			lastInfo: _ => {}
+		})
 	}
 };
 
