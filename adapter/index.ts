@@ -6,7 +6,8 @@ import type {
 	ResolvedManifestPluginConfig,
 	
 	Nullable,
-	VersionedWorkerLogger
+	VersionedWorkerLogger,
+	InfoFile
 } from "./src/types.js";
 import type { Plugin, ResolvedConfig } from "vite"; 
 
@@ -15,7 +16,8 @@ import {
 	adapterFilesPath,
 	getFilesToStat,
 	VersionedWorkerError,
-	wrapLogger
+	wrapLogger,
+	createInitialInfo
 } from "./src/helper.js";
 import {
 	applyAdapterConfigDefaults,
@@ -32,7 +34,6 @@ export {
 };
 
 let viteConfig: Nullable<ResolvedConfig> = null; // From manifestGenerator
-let manifestPluginActive = false;
 let manifestPluginConfig: Nullable<ResolvedManifestPluginConfig> = null;
 
 export function adapter(inputConfig: AdapterConfig) : Adapter {
@@ -72,7 +73,6 @@ export function adapter(inputConfig: AdapterConfig) : Adapter {
 	};
 };
 export function manifestGenerator(inputConfig: ManifestPluginConfig = {}): Plugin {
-	manifestPluginActive = true;
 	manifestPluginConfig = applyManifestPluginConfigDefaults(inputConfig);
 
 	return {
@@ -83,6 +83,23 @@ export function manifestGenerator(inputConfig: ManifestPluginConfig = {}): Plugi
 	};
 };
 
-async function init() {
-	
+async function init(config: ResolvedAdapterConfig) {
+	await Promise.all([
+		(async _ => {
+			// TODO: create a logger interface
+			let lastInfo: Nullable<InfoFile> = null;
+			let fileContents = await config.lastInfo();
+			if (fileContents == null) lastInfo = createInitialInfo();
+			else {
+				let parsed: Nullable<InfoFile> = null;
+				try {
+					parsed = JSON.parse(fileContents);
+				}
+				catch {
+					throw new VersionedWorkerError(`Couldn't parse the info file from the last build. Contents:\n${lastInfo}`);
+				}
+				lastInfo = parsed;
+			}
+		})()
+	]);
 };

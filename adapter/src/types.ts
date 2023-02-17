@@ -41,17 +41,8 @@ export interface ManifestPluginConfig {
 	outputFile?: string
 };
 
-// #region AnnoyinglyRepeatedCode
-
-// These are the same, just with the optional fields made required
-export interface ResolvedAdapterConfig extends AdapterConfig {
-	warnOnViteConfigUnresolved: boolean 
-};
-export interface ResolvedManifestPluginConfig extends ManifestPluginConfig {
-	src: string,
-	outputFile: string
-};
-// #endregion
+export type ResolvedAdapterConfig = Required<AdapterConfig>;
+export type ResolvedManifestPluginConfig = Required<ManifestPluginConfig>;
 
 export type Nullable<T> = T | null;
 
@@ -62,4 +53,15 @@ export interface VersionedWorkerLogger { // Copied from SvelteKit's files since 
 	minor(msg: string): void,
 	info(msg: string): void,
 	message(msg: string): void
+};
+
+export interface InfoFile {
+	formatVersion: number,
+	version: number,
+	versions: InfoFileVersion[],
+	hashes: Record<string, string>
+};
+
+export interface InfoFileVersion {
+	// TODO
 };

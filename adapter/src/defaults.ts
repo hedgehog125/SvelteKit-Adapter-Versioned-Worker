@@ -17,7 +17,7 @@ export function applyManifestPluginConfigDefaults(config: ManifestPluginConfig):
 	});
 };
 
-function applyDefaults(obj: any, defaults: any): any {
+function applyDefaults(obj: Record<string, any>, defaults: Record<string, any>): any {
 	for (const [key, defaultValue] of Object.entries(defaults)) {
 		if (obj[key] === undefined) obj[key] = defaultValue;
 	}

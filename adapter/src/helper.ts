@@ -1,4 +1,4 @@
-import type { VersionedWorkerLogger } from "./types.js";
+import type { InfoFile, VersionedWorkerLogger } from "./types.js";
 
 import * as fs from "fs/promises";
 import * as path from "path";
@@ -64,3 +64,12 @@ export function getFilesToStat(hooksPath: string, manifestPath: string): string[
 };
 
 export const adapterFilesPath = path.join(dirname(fileURLToPath(import.meta.url)), "../../");
+
+export function createInitialInfo(): InfoFile {
+	return {
+		formatVersion: 2,
+		version: -1,
+		versions: [],
+		hashes: {}
+	};
+};
