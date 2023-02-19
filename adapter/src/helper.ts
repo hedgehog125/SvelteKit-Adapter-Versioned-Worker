@@ -4,35 +4,49 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import { dirname } from "path";
 import { fileURLToPath } from "url";
+import colors from "kleur";
 
 export class VersionedWorkerError extends Error {
 	constructor(message: string) {
 		super(`VersionedWorkerError: ${message}`);
 	}
 };
-export function wrapLogger(logger: any): VersionedWorkerLogger {
-	const prefix = (msg: string) => `Versioned-Worker: ${msg}`;
-	const wrapped = {
-		success(msg: string) {
-			logger.success(prefix(msg));
+export function createLogger(verbose: boolean): VersionedWorkerLogger { // Credit: largely adapted from SvelteKit's logger
+	return {
+		message(msg: string) {
+			console.log(indentAndPrefix(msg))
 		},
-		info(msg: string) {
-			logger.info(prefix(msg));
+		success(msg: string) {
+			console.log(colors.green(
+				indentAndPrefix(`✔ ${msg}`)
+			));
 		},
 		error(msg: string) {
-			logger.error(prefix(msg));
+			console.error(colors.bold().red(
+				indentAndPrefix(msg)
+			));
 		},
 		warn(msg: string) {
-			logger.warn(prefix(msg));
+			console.warn(colors.bold().yellow(
+				indentAndPrefix(msg)
+			));
 		},
+
 		minor(msg: string) {
-			logger.minor(prefix(msg));
+			if (! verbose) return;
+			console.log(colors.gray(msg));
 		},
-		message(msg: string) {
-			logger(prefix(msg));
-		}
+		info(msg: string) {
+			if (! verbose) return;
+			console.log(msg);
+		},
+		verbose
 	};
-	return wrapped;
+
+	function indentAndPrefix(msg: string) {
+		debugger;
+		return `${colors.bold().cyan("Versioned-Worker")}: ${msg}`.replace(/^/gm, "  "); // Indents each line
+	};
 };
 
 export async function fileExists(filePath: string): Promise<boolean> {

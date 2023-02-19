@@ -32,7 +32,7 @@ const config = {
 		},
 
 		adapter: adapter({
-			lastInfo: _ => {}
+			lastInfo: () => {}
 		})
 	}
 };

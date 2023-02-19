@@ -7,7 +7,8 @@ import type {
 	
 	Nullable,
 	VersionedWorkerLogger,
-	InfoFile
+	InfoFile,
+	InfoFileVersion
 } from "./src/types.js";
 import type { Plugin, ResolvedConfig } from "vite"; 
 
@@ -16,7 +17,7 @@ import {
 	adapterFilesPath,
 	getFilesToStat,
 	VersionedWorkerError,
-	wrapLogger,
+	createLogger,
 	createInitialInfo
 } from "./src/helper.js";
 import {
@@ -30,28 +31,38 @@ export {
 	AdapterConfig,
 	ResolvedAdapterConfig,
 	ManifestPluginConfig,
-	ResolvedManifestPluginConfig
+	ResolvedManifestPluginConfig,
+	VersionedWorkerLogger,
+	InfoFile,
+	InfoFileVersion
 };
 
 let viteConfig: Nullable<ResolvedConfig> = null; // From manifestGenerator
 let manifestPluginConfig: Nullable<ResolvedManifestPluginConfig> = null;
+let lastInfo: InfoFile;
+
+let usingAdapter = false; // Only used to prevent double calling
+let usingManifestPlugin = false;
+
+const log = createLogger(true);
 
 export function adapter(inputConfig: AdapterConfig) : Adapter {
+	if (usingAdapter) throw new VersionedWorkerError("This adapter can only be called once per build.");
+	usingAdapter = true;
+
 	if (typeof inputConfig !== "object" || typeof inputConfig.lastInfo !== "function") {
 		throw new VersionedWorkerError("This adapter requires a configuration object with a \"lastInfo\" function.");
 	}
 	const config = applyAdapterConfigDefaults(inputConfig);
 
 	const adapterInstance = adapterStatic();
-	const initTask = init();
-	let log: Nullable<VersionedWorkerLogger>;
+	const initTask = init(config);
 
 	return {
 		name: "adapter-versioned-worker",
 		async adapt(builder: Builder) {
-			log = wrapLogger(builder.log);
-
 			await adapterInstance.adapt(builder);
+			console.log("");
 			log.message("Waiting for lastInfo to resolve...");
 			await initTask;
 
@@ -73,30 +84,32 @@ export function adapter(inputConfig: AdapterConfig) : Adapter {
 	};
 };
 export function manifestGenerator(inputConfig: ManifestPluginConfig = {}): Plugin {
+	usingManifestPlugin = true;
+
 	manifestPluginConfig = applyManifestPluginConfigDefaults(inputConfig);
 
 	return {
 		name: "vite-plugin-vw-manifest",
 		configResolved(_viteConfig) {
 			viteConfig = _viteConfig;
+
+			log.verbose = viteConfig.logLevel === "info";
 		}
 	};
 };
 
 async function init(config: ResolvedAdapterConfig) {
 	await Promise.all([
-		(async _ => {
-			// TODO: create a logger interface
-			let lastInfo: Nullable<InfoFile> = null;
-			let fileContents = await config.lastInfo();
+		(async() => {
+			let fileContents = await config.lastInfo(log);
 			if (fileContents == null) lastInfo = createInitialInfo();
 			else {
-				let parsed: Nullable<InfoFile> = null;
+				let parsed: InfoFile;
 				try {
 					parsed = JSON.parse(fileContents);
 				}
 				catch {
-					throw new VersionedWorkerError(`Couldn't parse the info file from the last build. Contents:\n${lastInfo}`);
+					throw new VersionedWorkerError(`Couldn't parse the info file from the last build. Contents:\n${fileContents}`);
 				}
 				lastInfo = parsed;
 			}

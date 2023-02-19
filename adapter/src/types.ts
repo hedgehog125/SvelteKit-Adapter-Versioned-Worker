@@ -5,9 +5,9 @@ import type { Logger } from "vite"
 export interface AdapterConfig {
 	/* Required */
 	/**
-	 * TODO
+	 * Most of the time, you can import and call "fetchLast" or "readLast" to return a function for this property. But you can also make a custom one by returning a promise that resolves to the contents of the versionedWorker.json file, or null if there isn't one. Generally, you should emit a warning using the "warn" method on the provided VersionedWorkerLogger in this case, unless you have some way of verifying that this is the first build (both the built-in methods don't). You can also immediately return the contents or null, rather than returning a promise for one.
 	 */
-	lastInfo(): Promise<Nullable<string>> | Nullable<string>,
+	lastInfo(log: VersionedWorkerLogger): Promise<Nullable<string>> | Nullable<string>,
 
 	/**
 	 * Enables and disables the warning when the Vite config can't be resolved due to the manifest generator plugin being missing 
@@ -46,13 +46,15 @@ export type ResolvedManifestPluginConfig = Required<ManifestPluginConfig>;
 
 export type Nullable<T> = T | null;
 
-export interface VersionedWorkerLogger { // Copied from SvelteKit's files since I feel like that's better than importing an internal type
+export interface VersionedWorkerLogger {
+	message(msg: string): void,
 	success(msg: string): void,
 	error(msg: string): void,
 	warn(msg: string): void,
+
 	minor(msg: string): void,
 	info(msg: string): void,
-	message(msg: string): void
+	verbose: boolean
 };
 
 export interface InfoFile {
@@ -63,5 +65,6 @@ export interface InfoFile {
 };
 
 export interface InfoFileVersion {
-	// TODO
+	formatVersion: number,
+	updated: string[][]
 };
