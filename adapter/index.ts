@@ -14,13 +14,16 @@ import type {
 import type { Plugin, ResolvedConfig } from "vite"; 
 
 import {
-	fileExists,
-	adapterFilesPath,
-	getFilesToStat,
-	VersionedWorkerError,
-	createLogger,
-	createInitialInfo
+	log
+} from "./src/globals.js";
+import {
+	VersionedWorkerError
 } from "./src/helper.js";
+import {
+	getLastInfo,
+	checkInfoFile,
+	processInfoFile
+} from "./src/subFunctions.js";
 import {
 	applyAdapterConfigDefaults,
 	applyManifestPluginConfigDefaults
@@ -43,30 +46,35 @@ let manifestPluginConfig: Nullable<ResolvedManifestPluginConfig> = null;
 let lastInfo: InfoFile;
 
 
-let usingAdapter = false; // Only used to prevent double calling
 let usingManifestPlugin = false;
-
-const log = createLogger(true);
+let initTask: Nullable<Promise<void>> = null;
+let initTaskDone = false;
 
 export function adapter(inputConfig: AdapterConfig) : Adapter {
-	if (usingAdapter) throw new VersionedWorkerError("This adapter can only be called once per build.");
-	usingAdapter = true;
-
 	if (typeof inputConfig !== "object" || typeof inputConfig.lastInfo !== "function") {
 		throw new VersionedWorkerError("This adapter requires a configuration object with a \"lastInfo\" function.");
 	}
 	const config = applyAdapterConfigDefaults(inputConfig);
 
 	const adapterInstance = adapterStatic();
-	const initTask = init(config);
+	if (initTask == null) initTask = config.enableBackgroundInit? init(config) : null;
 
 	return {
 		name: "adapter-versioned-worker",
 		async adapt(builder: Builder) {
 			await adapterInstance.adapt(builder);
-			console.log("");
-			log.message("Waiting for lastInfo to resolve...");
-			await initTask;
+			log.blankLine();
+
+			if (initTask == null) {
+				log.message("Running background tasks late (the build will be quicker if you set \"enableBackgroundInit\" to true)...");
+				await init(config);
+			}
+			else {
+				if (! initTaskDone) {
+					log.message("Waiting for background tasks...");
+					await initTask;
+				}
+			}
 
 			const [projectRoute, viteManifestFilename] = viteConfig?
 				[viteConfig.root, viteConfig.build.manifest]
@@ -106,47 +114,13 @@ async function init(config: ResolvedAdapterConfig) {
 			let unprocessed = await getLastInfo(config);
 			checkInfoFile(unprocessed);
 			lastInfo = processInfoFile(unprocessed);
+
+			console.log(lastInfo)
 		})(),
 		(async () => { // TODO: load handler file
 			// TODO: once the extension of the handler file is known, load the correct worker file
 		})()
 	]);
-};
-async function getLastInfo(config: ResolvedAdapterConfig): Promise<UnprocessedInfoFile> {
-	let fileContents = await config.lastInfo(log);
-	if (fileContents == null) return createInitialInfo();
 
-	let parsed: UnprocessedInfoFile;
-	try {
-		parsed = JSON.parse(fileContents);
-	}
-	catch {
-		throw new VersionedWorkerError(`Couldn't parse the info file from the last build. Contents:\n${fileContents}`);
-	}
-	return parsed;
-};
-function checkInfoFile(infoFile: UnprocessedInfoFile) {
-	if (infoFile.formatVersion !== 2) {
-		if (infoFile.formatVersion === 1) {
-			throw new VersionedWorkerError("Please release an update using the previous SvelteKit-Plugin-Versioned-Worker before using this adapter, as only that supports upgrading info files from version 1 to 2.");
-		}
-		else {
-			throw new VersionedWorkerError(`Unsupported version ${infoFile.formatVersion} in the info file from the last build.`);
-		}
-	}
-};
-function processInfoFile(infoFile: UnprocessedInfoFile): InfoFile {
-	const {
-		formatVersion,
-		version,
-		versions,
-		hashes
-	} = infoFile;
-	
-	return {
-		formatVersion,
-		version,
-		versions,
-		hashes: new Map(Object.entries(hashes))
-	};
+	initTaskDone = true;
 };

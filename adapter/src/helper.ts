@@ -14,7 +14,7 @@ export class VersionedWorkerError extends Error {
 export function createLogger(verbose: boolean): VersionedWorkerLogger { // Credit: largely adapted from SvelteKit's logger
 	return {
 		message(msg: string) {
-			console.log(indentAndPrefix(msg))
+			console.log(indentAndPrefix(msg));
 		},
 		success(msg: string) {
 			console.log(colors.green(
@@ -40,11 +40,13 @@ export function createLogger(verbose: boolean): VersionedWorkerLogger { // Credi
 			if (! verbose) return;
 			console.log(msg);
 		},
+		blankLine() {
+			console.log("");
+		},
 		verbose
 	};
 
 	function indentAndPrefix(msg: string) {
-		debugger;
 		return `${colors.bold().cyan("Versioned-Worker")}: ${msg}`.replace(/^/gm, "  "); // Indents each line
 	};
 };

@@ -5,6 +5,8 @@ import type { Logger } from "vite"
 export interface AdapterConfig {
 	/* Required */
 	/**
+	 * Provides the contents of the versionedWorker.json file from the last build
+	 * 
 	 * Most of the time, you can import and call "fetchLast" or "readLast" to return a function for this property. But you can also make a custom one by returning a promise that resolves to the contents of the versionedWorker.json file, or null if there isn't one. Generally, you should emit a warning using the "warn" method on the provided VersionedWorkerLogger in this case, unless you have some way of verifying that this is the first build (both the built-in methods don't). You can also immediately return the contents or null, rather than returning a promise for one.
 	 */
 	lastInfo(log: VersionedWorkerLogger): Promise<Nullable<string>> | Nullable<string>,
@@ -17,7 +19,47 @@ export interface AdapterConfig {
 	 * 
 	 * @default true
 	 */
-	warnOnViteConfigUnresolved?: boolean
+	warnOnViteConfigUnresolved?: boolean,
+
+	/**
+	 * Enables and disables running the initialisation logic in the background, as opposed to running it in the adapt hook
+	 * 
+	 * @note
+	 * Generally you should leave this enabled to get faster build times. However, there are some situations where you should probably set this to false, mainly when publishing Svelte components (as opposed to building the demo site). For this, you'll probably want to write some logic like in the example. However, doing this isn't too important, as it justs prevents some unnecessary code, and sometimes network requests, from running.
+	 * 
+	 * @default true
+	 * 
+	 * @example
+	 * // svelte.config.js
+	 * const libBuild = process.env.IS_LIB_BUILD === "true";
+	 * const config = {
+	 *   kit: {
+	 *     // ...
+	 *     adapter: adapter({
+	 *       // ...
+	 *       enableBackgroundInit: ! libBuild
+	 *       // ...
+	 *     })
+	 *     // ...
+	 *   }
+	 * }
+	 * // ...
+	 * 
+	 * // package.json
+	 * {
+	 *   // ...
+	 *   "scripts": {
+	 *     // ...
+	 *     "build": "cross-env IS_LIB_BUILD=true svelte-kit sync && svelte-package",
+	 *     // ...
+	 *   }
+	 *   // ...
+	 * }
+	 * 
+	 * // And you'll also need to run:
+	 * // npm i cross-env -D
+	 */
+	enableBackgroundInit?: boolean
 };
 export interface ManifestPluginConfig {
 	/**
@@ -26,7 +68,10 @@ export interface ManifestPluginConfig {
 	 * @note
 	 * Ending the path with .json/.webmanifest extension is optional. The file is looked for with both extensions
 	 * 
-	 * @default "manifest.webmanifest" // (and also .json)
+	 * @example
+	 * TODO
+	 * 
+	 * @default "manifest.webmanifest" // (which also means manifest.json)
 	 */
 	src?: string,
 
@@ -34,7 +79,7 @@ export interface ManifestPluginConfig {
 	 * Where to output the file in the build folder/the route on the development server
 	 * 
 	 * @note
-	 * Either extension can be used here (one is required though), but ".webmanifest" is the official standard (compared to .json)
+	 * Either extension can be used here (one is required though), but ".webmanifest" is the official standard (compared to the more commonly used ".json").
 	 * 
 	 * @default "manifest.webmanifest"
 	 */
@@ -54,6 +99,7 @@ export interface VersionedWorkerLogger {
 
 	minor(msg: string): void,
 	info(msg: string): void,
+	blankLine(): void,
 	verbose: boolean
 };
 

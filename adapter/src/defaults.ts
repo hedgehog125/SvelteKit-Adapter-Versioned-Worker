@@ -6,21 +6,23 @@ import type {
 } from "./types.js";
 
 export function applyAdapterConfigDefaults(config: AdapterConfig): ResolvedAdapterConfig {
-	return applyDefaults(config, {
-		warnOnViteConfigUnresolved: true
-	});
+	return applyDefaults<AdapterConfig>(config, {
+		warnOnViteConfigUnresolved: true,
+		enableBackgroundInit: true
+	}) as ResolvedAdapterConfig;
 };
 export function applyManifestPluginConfigDefaults(config: ManifestPluginConfig): ResolvedManifestPluginConfig {
-	return applyDefaults(config, {
+	return applyDefaults<ManifestPluginConfig>(config, {
 		src: "manifest.webmanifest",
 		outputFile: "manifest.webmanifest"
-	});
+	}) as ResolvedManifestPluginConfig;
 };
 
-function applyDefaults(obj: Record<string, any>, defaults: Record<string, any>): any {
+function applyDefaults<T>(source: T, defaults: Record<string, any>): T {
+	const obj = source as Record<string, any>;
 	for (const [key, defaultValue] of Object.entries(defaults)) {
 		if (obj[key] === undefined) obj[key] = defaultValue;
 	}
 
-	return obj;
+	return obj as T;
 };
