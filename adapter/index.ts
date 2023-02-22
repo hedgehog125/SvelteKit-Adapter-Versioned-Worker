@@ -7,8 +7,9 @@ import type {
 	
 	Nullable,
 	VersionedWorkerLogger,
+	UnprocessedInfoFile,
 	InfoFile,
-	InfoFileVersion
+	InfoFileVersion,
 } from "./src/types.js";
 import type { Plugin, ResolvedConfig } from "vite"; 
 
@@ -33,13 +34,14 @@ export {
 	ManifestPluginConfig,
 	ResolvedManifestPluginConfig,
 	VersionedWorkerLogger,
-	InfoFile,
+	UnprocessedInfoFile,
 	InfoFileVersion
 };
 
 let viteConfig: Nullable<ResolvedConfig> = null; // From manifestGenerator
 let manifestPluginConfig: Nullable<ResolvedManifestPluginConfig> = null;
 let lastInfo: InfoFile;
+
 
 let usingAdapter = false; // Only used to prevent double calling
 let usingManifestPlugin = false;
@@ -70,7 +72,7 @@ export function adapter(inputConfig: AdapterConfig) : Adapter {
 				[viteConfig.root, viteConfig.build.manifest]
 				: [process.cwd(), "vite-manifest.json"]
 			;
-			if (viteConfig === null) { // TODO: don't warn if one was provided
+			if (viteConfig == null) { // TODO: don't warn if one was provided
 				if (config.warnOnViteConfigUnresolved) {
 					log.warn("Couldn't get Vite's config because you're not using the (built-in) manifest generator plugin. If you don't want to use the manifest plugin for whatever reason, you can probably disable this warning. However, if the current working directory doesn't match Vite's route or if Vite's manifest filename is different to the SvelteKit default (vite-manifest.json), you'll need to provide one with the \"getViteManifest\" config argument.");
 				}
@@ -100,19 +102,51 @@ export function manifestGenerator(inputConfig: ManifestPluginConfig = {}): Plugi
 
 async function init(config: ResolvedAdapterConfig) {
 	await Promise.all([
-		(async() => {
-			let fileContents = await config.lastInfo(log);
-			if (fileContents == null) lastInfo = createInitialInfo();
-			else {
-				let parsed: InfoFile;
-				try {
-					parsed = JSON.parse(fileContents);
-				}
-				catch {
-					throw new VersionedWorkerError(`Couldn't parse the info file from the last build. Contents:\n${fileContents}`);
-				}
-				lastInfo = parsed;
-			}
+		(async () => {
+			let unprocessed = await getLastInfo(config);
+			checkInfoFile(unprocessed);
+			lastInfo = processInfoFile(unprocessed);
+		})(),
+		(async () => { // TODO: load handler file
+			// TODO: once the extension of the handler file is known, load the correct worker file
 		})()
 	]);
+};
+async function getLastInfo(config: ResolvedAdapterConfig): Promise<UnprocessedInfoFile> {
+	let fileContents = await config.lastInfo(log);
+	if (fileContents == null) return createInitialInfo();
+
+	let parsed: UnprocessedInfoFile;
+	try {
+		parsed = JSON.parse(fileContents);
+	}
+	catch {
+		throw new VersionedWorkerError(`Couldn't parse the info file from the last build. Contents:\n${fileContents}`);
+	}
+	return parsed;
+};
+function checkInfoFile(infoFile: UnprocessedInfoFile) {
+	if (infoFile.formatVersion !== 2) {
+		if (infoFile.formatVersion === 1) {
+			throw new VersionedWorkerError("Please release an update using the previous SvelteKit-Plugin-Versioned-Worker before using this adapter, as only that supports upgrading info files from version 1 to 2.");
+		}
+		else {
+			throw new VersionedWorkerError(`Unsupported version ${infoFile.formatVersion} in the info file from the last build.`);
+		}
+	}
+};
+function processInfoFile(infoFile: UnprocessedInfoFile): InfoFile {
+	const {
+		formatVersion,
+		version,
+		versions,
+		hashes
+	} = infoFile;
+	
+	return {
+		formatVersion,
+		version,
+		versions,
+		hashes: new Map(Object.entries(hashes))
+	};
 };
