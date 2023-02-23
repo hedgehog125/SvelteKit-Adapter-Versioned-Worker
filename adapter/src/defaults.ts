@@ -7,8 +7,7 @@ import type {
 
 export function applyAdapterConfigDefaults(config: AdapterConfig): ResolvedAdapterConfig {
 	return applyDefaults<AdapterConfig>(config, {
-		warnOnViteConfigUnresolved: true,
-		enableBackgroundInit: true
+		warnOnViteConfigUnresolved: true
 	}) as ResolvedAdapterConfig;
 };
 export function applyManifestPluginConfigDefaults(config: ManifestPluginConfig): ResolvedManifestPluginConfig {

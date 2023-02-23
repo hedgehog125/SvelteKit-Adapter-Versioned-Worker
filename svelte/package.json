@@ -3,7 +3,7 @@
 	"scripts": {
 		"dev": "vite dev",
 		"debugDev": "npm --node-options=--inspect-brk run dev",
-		"build": "cross-env IS_LIB_BUILD=true svelte-kit sync && svelte-package",
+		"build": "svelte-kit sync && svelte-package",
 		"buildSite": "vite build",
 		"testBuild": "cross-env DISABLE_BASE_URL=true vite build",
 		"debugDuringBuild": "cross-env DISABLE_BASE_URL=true npm --node-options=--inspect-brk run buildSite",

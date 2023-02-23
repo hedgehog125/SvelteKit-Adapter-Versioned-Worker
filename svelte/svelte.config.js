@@ -4,7 +4,6 @@ import { adapter } from "internal-adapter";
 import { vitePreprocess } from "@sveltejs/kit/vite";
 
 const dev = process.env.NODE_ENV != "production";
-const libBuild = process.env.IS_LIB_BUILD === "true";
 const disableBaseURL = process.env.DISABLE_BASE_URL == null? false : process.env.DISABLE_BASE_URL === "true";
 const baseURL = (
 	dev
@@ -32,7 +31,6 @@ const config = {
 		},
 
 		adapter: adapter({
-			enableBackgroundInit: ! libBuild,
 			lastInfo: () => {}
 		})
 	}

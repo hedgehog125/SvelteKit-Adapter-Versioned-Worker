@@ -19,47 +19,7 @@ export interface AdapterConfig {
 	 * 
 	 * @default true
 	 */
-	warnOnViteConfigUnresolved?: boolean,
-
-	/**
-	 * Enables and disables running the initialisation logic in the background, as opposed to running it in the adapt hook
-	 * 
-	 * @note
-	 * Generally you should leave this enabled to get faster build times. However, there are some situations where you should probably set this to false, mainly when publishing Svelte components (as opposed to building the demo site). For this, you'll probably want to write some logic like in the example. However, doing this isn't too important, as it justs prevents some unnecessary code, and sometimes network requests, from running.
-	 * 
-	 * @default true
-	 * 
-	 * @example
-	 * // svelte.config.js
-	 * const libBuild = process.env.IS_LIB_BUILD === "true";
-	 * const config = {
-	 *   kit: {
-	 *     // ...
-	 *     adapter: adapter({
-	 *       // ...
-	 *       enableBackgroundInit: ! libBuild
-	 *       // ...
-	 *     })
-	 *     // ...
-	 *   }
-	 * }
-	 * // ...
-	 * 
-	 * // package.json
-	 * {
-	 *   // ...
-	 *   "scripts": {
-	 *     // ...
-	 *     "build": "cross-env IS_LIB_BUILD=true svelte-kit sync && svelte-package",
-	 *     // ...
-	 *   }
-	 *   // ...
-	 * }
-	 * 
-	 * // And you'll also need to run:
-	 * // npm i cross-env -D
-	 */
-	enableBackgroundInit?: boolean
+	warnOnViteConfigUnresolved?: boolean
 };
 export interface ManifestPluginConfig {
 	/**

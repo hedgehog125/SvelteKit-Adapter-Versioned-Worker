@@ -42,8 +42,11 @@ export {
 };
 
 let viteConfig: Nullable<ResolvedConfig> = null; // From manifestGenerator
+let adapterConfig: Nullable<ResolvedAdapterConfig> = null;
 let manifestPluginConfig: Nullable<ResolvedManifestPluginConfig> = null;
 let lastInfo: InfoFile;
+let isSSR: boolean;
+let isDev: boolean;
 
 
 let usingManifestPlugin = false;
@@ -55,18 +58,19 @@ export function adapter(inputConfig: AdapterConfig) : Adapter {
 		throw new VersionedWorkerError("This adapter requires a configuration object with a \"lastInfo\" function.");
 	}
 	const config = applyAdapterConfigDefaults(inputConfig);
+	adapterConfig = config;
 
 	const adapterInstance = adapterStatic();
-	if (initTask == null) initTask = config.enableBackgroundInit? init(config) : null;
 
 	return {
 		name: "adapter-versioned-worker",
 		async adapt(builder: Builder) {
+			log.message("Running the static adapter...");
 			await adapterInstance.adapt(builder);
 			log.blankLine();
 
 			if (initTask == null) {
-				log.message("Running background tasks late (the build will be quicker if you set \"enableBackgroundInit\" to true)...");
+				log.message("Running background tasks late due to the manifest plugin not being used...");
 				await init(config);
 			}
 			else {
@@ -100,10 +104,20 @@ export function manifestGenerator(inputConfig: ManifestPluginConfig = {}): Plugi
 
 	return {
 		name: "vite-plugin-vw-manifest",
-		configResolved(_viteConfig) {
-			viteConfig = _viteConfig;
+		configResolved(providedViteConfig) {
+			viteConfig = providedViteConfig;
 
 			log.verbose = viteConfig.logLevel === "info";
+			isSSR = !!viteConfig.build.ssr;
+			if (isSSR) return;
+			isDev = ! viteConfig.isProduction;
+
+		},
+		async buildStart() {
+			if (isSSR) return;
+			if (isDev) return;
+
+			if (adapterConfig != null) initTask = init(adapterConfig);
 		}
 	};
 };
