@@ -7,11 +7,13 @@ import type {
 
 export function applyAdapterConfigDefaults(config: AdapterConfig): ResolvedAdapterConfig {
 	return applyDefaults<AdapterConfig>(config, {
+		hooksFile: "hooks.worker.ts",
 		warnOnViteConfigUnresolved: true
 	}) as ResolvedAdapterConfig;
 };
 export function applyManifestPluginConfigDefaults(config: ManifestPluginConfig): ResolvedManifestPluginConfig {
 	return applyDefaults<ManifestPluginConfig>(config, {
+		enabled: true,
 		src: "manifest.webmanifest",
 		outputFile: "manifest.webmanifest"
 	}) as ResolvedManifestPluginConfig;

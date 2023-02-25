@@ -4,47 +4,62 @@ import type {
 	ResolvedAdapterConfig,
 	ManifestPluginConfig,
 	ResolvedManifestPluginConfig,
+	MinimalViteConfig,
 	
-	Nullable,
 	VersionedWorkerLogger,
-	UnprocessedInfoFile,
-	InfoFile,
-	InfoFileVersion,
+	LastInfoProvider,
+	LastInfoProviderConfigs
 } from "./src/types.js";
+import {
+	Nullable,
+
+	InfoFile,
+	InputFiles
+} from "./src/internalTypes.js";
 import type { Plugin, ResolvedConfig } from "vite"; 
 
-import {
-	log
-} from "./src/globals.js";
+import { log } from "./src/globals.js";
 import {
 	VersionedWorkerError
 } from "./src/helper.js";
 import {
 	getLastInfo,
 	checkInfoFile,
-	processInfoFile
+	processInfoFile,
+
+	getInputFiles,
+	checkInputFiles,
+	getInputFilesConfiguration
 } from "./src/subFunctions.js";
 import {
 	applyAdapterConfigDefaults,
 	applyManifestPluginConfigDefaults
 } from "./src/defaults.js";
 import adapterStatic from "@sveltejs/adapter-static";
+import * as path from "path";
 import * as fs from "fs/promises";
+import { installPolyfills } from "@sveltejs/kit/node/polyfills";
+installPolyfills();
 
 export {
 	AdapterConfig,
 	ResolvedAdapterConfig,
 	ManifestPluginConfig,
 	ResolvedManifestPluginConfig,
+	MinimalViteConfig,
+
 	VersionedWorkerLogger,
-	UnprocessedInfoFile,
-	InfoFileVersion
+	LastInfoProvider,
+	LastInfoProviderConfigs
 };
 
 let viteConfig: Nullable<ResolvedConfig> = null; // From manifestGenerator
+let minimalViteConfig: MinimalViteConfig; 
 let adapterConfig: Nullable<ResolvedAdapterConfig> = null;
 let manifestPluginConfig: Nullable<ResolvedManifestPluginConfig> = null;
+
 let lastInfo: InfoFile;
+let inputFiles: InputFiles;
 let isSSR: boolean;
 let isDev: boolean;
 
@@ -53,6 +68,12 @@ let usingManifestPlugin = false;
 let initTask: Nullable<Promise<void>> = null;
 let initTaskDone = false;
 
+/**
+ * When called with an `AdapterConfig` object, this function returns a SvelteKit adapter that builds your service worker
+ * 
+ * @param inputConfig The required configuration object for this adapter. It should have a `fetchLast` property
+ * @returns A SvelteKit adapter that builds your service worker
+ */
 export function adapter(inputConfig: AdapterConfig) : Adapter {
 	if (typeof inputConfig !== "object" || typeof inputConfig.lastInfo !== "function") {
 		throw new VersionedWorkerError("This adapter requires a configuration object with a \"lastInfo\" function.");
@@ -65,31 +86,17 @@ export function adapter(inputConfig: AdapterConfig) : Adapter {
 	return {
 		name: "adapter-versioned-worker",
 		async adapt(builder: Builder) {
+			const initRanLate = initTask == null;
+			if (initRanLate) initTask = init(config);
+
 			log.message("Running the static adapter...");
 			await adapterInstance.adapt(builder);
 			log.blankLine();
 
-			if (initTask == null) {
-				log.message("Running background tasks late due to the manifest plugin not being used...");
-				await init(config);
+			if (! initTaskDone) {
+				log.message("Waiting for background tasks..." + initRanLate? " (they were started late due to the manifest plugin not being used)" : "");
+				await initTask;
 			}
-			else {
-				if (! initTaskDone) {
-					log.message("Waiting for background tasks...");
-					await initTask;
-				}
-			}
-
-			const [projectRoute, viteManifestFilename] = viteConfig?
-				[viteConfig.root, viteConfig.build.manifest]
-				: [process.cwd(), "vite-manifest.json"]
-			;
-			if (viteConfig == null) { // TODO: don't warn if one was provided
-				if (config.warnOnViteConfigUnresolved) {
-					log.warn("Couldn't get Vite's config because you're not using the (built-in) manifest generator plugin. If you don't want to use the manifest plugin for whatever reason, you can probably disable this warning. However, if the current working directory doesn't match Vite's route or if Vite's manifest filename is different to the SvelteKit default (vite-manifest.json), you'll need to provide one with the \"getViteManifest\" config argument.");
-				}
-			}
-
 			
 			// I know the different write methods return arrays of files, but I don't feel like maintaining a fork of adapter-static just to do that. So listing the files in the directory it is
 
@@ -97,6 +104,13 @@ export function adapter(inputConfig: AdapterConfig) : Adapter {
 		}
 	};
 };
+
+/**
+ * Call this function, optionally with a `ManifestPluginConfig` object, to get a Vite plugin that manages your web app manifest (and also improves the usability of the adapter, even when `enabled` is set to false)
+ * 
+ * @param inputConfig An optional configuration object for this Vite plugin
+ * @returns A Vite manifest generator plugin
+ */
 export function manifestGenerator(inputConfig: ManifestPluginConfig = {}): Plugin {
 	usingManifestPlugin = true;
 
@@ -123,18 +137,135 @@ export function manifestGenerator(inputConfig: ManifestPluginConfig = {}): Plugi
 };
 
 async function init(config: ResolvedAdapterConfig) {
+	minimalViteConfig = viteConfig?
+		{
+			root: viteConfig.root,
+			manifest: viteConfig.build.manifest
+		}
+		: {
+			root: process.cwd(),
+			manifest: "vite-manifest.json"
+		}
+	;
+	if (viteConfig == null) { // TODO: don't warn if one was provided
+		if (config.warnOnViteConfigUnresolved) {
+			log.warn("Couldn't get Vite's config because you're not using the (built-in) manifest generator plugin. If you don't want to use the manifest plugin for whatever reason, you can probably disable this warning. However, if the current working directory doesn't match Vite's route or if Vite's manifest filename is different to the SvelteKit default (vite-manifest.json), you'll need to provide one with the \"getViteManifest\" config argument.");
+		}
+	}
+
 	await Promise.all([
 		(async () => {
-			let unprocessed = await getLastInfo(config);
+			let unprocessed = await getLastInfo({
+				viteConfig,
+				minimalViteConfig,
+				adapterConfig: config,
+				manifestPluginConfig
+			});
 			checkInfoFile(unprocessed);
 			lastInfo = processInfoFile(unprocessed);
-
-			console.log(lastInfo)
 		})(),
-		(async () => { // TODO: load handler file
-			// TODO: once the extension of the handler file is known, load the correct worker file
+		(async () => {
+			const [hooksFilesContents, manifestFilesContents] = await getInputFiles(config, manifestPluginConfig, minimalViteConfig);
+			checkInputFiles(hooksFilesContents, manifestFilesContents);
+			inputFiles = getInputFilesConfiguration(hooksFilesContents, manifestFilesContents);
+
+			
 		})()
 	]);
 
 	initTaskDone = true;
+};
+
+/**
+ * A premade `LastInfoProvider` for use with the `lastInfo` property in the adapter config. Call this function with the URL of your versionedWorker.json file (or the URL of where it *will* be) and then set `lastInfo` to the return value
+ * 
+ * @param url The URL of your versionedWorker.json file (or where it *will* be)
+ * @returns A `LastInfoProvider` that gets your versionedWorker.json file using the Fetch API
+ * 
+ * @example
+ * // svelte.config.js
+ * import { adapter, fetchLast } from "sveltekit-adapter-versioned-worker";
+ * // ...
+ * 
+ * const config = {
+ *   kit: {
+ *     // ...
+ *     adapter: adapter({
+ *       lastInfo: fetchLast("https://hedgehog125.github.io/SvelteKit-Plugin-Versioned-Worker/versionedWorker.json"),
+ *       // ...
+ *     })
+ *     // ...
+ *   }
+ * };
+ * // ...
+ */
+export function fetchLast(url: string): LastInfoProvider {
+	return async (log: VersionedWorkerLogger): Promise<Nullable<string>> => {
+		let response;
+		try {
+			response = await fetch(url);
+		}
+		catch {
+			log.warn("\nCouldn't download the versionedWorker.json file from the last build due a network error. So that this build can finish, this will be treated as the first build. You probably don't want to deploy this.");
+			return null;
+		}
+
+		if (response.ok) return await response.text();
+		else {
+			if (response.status == 404) {
+				log.warn("\nAssuming this is the first version, as attempting to download the versionedWorker.json file from the last build resulted in a 404.");
+				return null;
+			}
+			else {
+				throw new VersionedWorkerError(`Got a ${response.status} HTTP error while trying to download the last versionedWorker.json file.`);
+			}
+		}
+	};
+};
+
+/**
+ * Another premade `LastInfoProvider` for use with the `lastInfo` property in the adapter config. Call this function with absolute or relative file path to your versionedWorker.json (or where it *will* be) file and then set `lastInfo` to the return value. Or, you can call with no arguments if your build directory is the default of "build"
+ * 
+ * @note
+ * For production builds, you'll probably want to use `fetchLast`, as that will prevent you publishing useless information about test builds (i.e the number of them and the files changed between them). However, this is good to use for test builds, as it means you can check the update behaviour
+ * 
+ * @param filePath The absolute or relative file path to your versionedWorker.json file (or where it *will* be). **Default**: "build/versionedWorker.json"
+ * @returns A `LastInfoProvider` that gets your versionedWorker.json file by reading it from the disk
+ * 
+ * @example
+ * // svelte.config.js
+ * import { adapter, readLast, fetchLast } from "sveltekit-adapter-versioned-worker";
+ * 
+ * const isDev = process.env.NODE_ENV != "production";
+ * // ...
+ * 
+ * const config = {
+ *   kit: {
+ *     // ...
+ *     adapter: adapter({
+ *       lastInfo: isDev?
+ *         readLast() // The default is "build/versionedWorker.json"
+ *         : fetchLast("https://hedgehog125.github.io/SvelteKit-Plugin-Versioned-Worker/versionedWorker.json"),
+ *       // ...
+ *     })
+ *     // ...
+ *   }
+ * };
+ * // ...
+ */
+export function readLast(filePath: string = "build/versionedWorker.json"): LastInfoProvider {
+	return async (log: VersionedWorkerLogger, { minimalViteConfig }): Promise<Nullable<string>> => {
+		if (! path.isAbsolute(filePath)) filePath = path.join(minimalViteConfig.root, filePath);
+
+		let contents;
+		try {
+			contents = await fs.readFile(filePath, { encoding: "utf8" });
+		}
+		catch {
+			log.warn("\nAssuming this is the first version as the versionedWorker.json file doesn't exist at that path.");
+			return null;
+		}
+
+		return contents;
+	};
 };

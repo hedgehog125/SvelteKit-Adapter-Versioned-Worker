@@ -1,6 +1,6 @@
 const URL_PREFIX = "SvelteKit-Adapter-Versioned-Worker"; // <-- Set this to the repository name if you're hosting on GitHub Pages (unless it's your homepage site), as all the URLs will need to be prefixed with it. If you don't want a prefix, set it to an empty string
 
-import { adapter } from "internal-adapter";
+import { adapter, readLast, fetchLast } from "internal-adapter";
 import { vitePreprocess } from "@sveltejs/kit/vite";
 
 const dev = process.env.NODE_ENV != "production";
@@ -31,7 +31,7 @@ const config = {
 		},
 
 		adapter: adapter({
-			lastInfo: () => {}
+			lastInfo: dev? readLast() : fetchLast("https://hedgehog125.github.io/SvelteKit-Plugin-Versioned-Worker/versionedWorker.json")
 		})
 	}
 };
