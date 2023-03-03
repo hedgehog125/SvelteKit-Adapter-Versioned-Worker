@@ -92,3 +92,12 @@ export function createInitialInfo(): UnprocessedInfoFile {
 		hashes: {}
 	};
 };
+
+/**
+ * This is a slightly wacky method that allows you to use undefined where you normally wouldn't be able to. This is mainly used so defaults don't need to be specified for required config properties
+ * 
+ * @returns undefined casted to the provided type
+ */
+export function requiredProperty<T>(): T {
+	return undefined as any as T;
+};
