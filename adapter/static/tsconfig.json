@@ -6,7 +6,7 @@ Since these don't have exports, d.ts files aren't generated */
 		"./worker"
 	],
 	"compilerOptions": {
-		"target": "es2018",
+		"target": "es2020",
 		"module": "ESNext",
 		"moduleResolution": "node",
 		"forceConsistentCasingInFileNames": true,

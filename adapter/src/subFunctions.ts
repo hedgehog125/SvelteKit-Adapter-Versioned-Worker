@@ -4,27 +4,38 @@ import type {
 	MinimalViteConfig,
 	
 	VersionedWorkerLogger,
-	LastInfoProviderConfigs
-} from "./types.js";
-import {
+	LastInfoProviderConfigs,
+
+	FileSortMode,
+
 	Nullable,
+	FileSorterConfigs,
+} from "./types.js";
+import type {
 	UnprocessedInfoFile,
 	InfoFile,
 
-	InputFiles
+	InputFiles,
+	CategorizedBuildFiles
 } from "./internalTypes.js";
+import type { OutputBundle } from "rollup";
+import type { Builder } from "@sveltejs/kit";
 
 import {
 	VersionedWorkerError,
 
 	createInitialInfo,
 	getFileNamesToStat,
-	fileExists
+	fileExists,
+	hash
 } from "./helper.js";
 import { log } from "./globals.js";
 
 import * as fs from "fs/promises";
 import * as path from "path";
+import { normalizePath } from "vite";
+import { lookup } from "mime-types";
+import rReadDir from "recursive-readdir";
 
 
 export async function getLastInfo(configs: LastInfoProviderConfigs): Promise<UnprocessedInfoFile> {
@@ -103,4 +114,84 @@ export function getInputFilesConfiguration(hooksFilesContents: Nullable<string>[
 
 		manifestSource: manifestJSONExtUsed? hooksFilesContents[1] : hooksFilesContents[0]
 	};
+};
+
+export async function listAllBuildFiles(configs: FileSorterConfigs): Promise<string[]> {
+	const { minimalViteConfig, adapterConfig } = configs;
+
+	const buildDirPath = path.join(minimalViteConfig.root, adapterConfig.outDir);
+	const list = await rReadDir(buildDirPath);	
+
+	return list.map(fullFilePath => normalizePath(path.relative(buildDirPath, fullFilePath)));
+};
+export async function categorizeFilesIntoModes(completeFileList: string[], configs: FileSorterConfigs): Promise<CategorizedBuildFiles> {
+	const { minimalViteConfig, adapterConfig } = configs;
+
+	const fileModes = await Promise.all(completeFileList.map(async (filePath: string): Promise<FileSortMode> => {
+		const mimeType = lookup(filePath) || null;
+
+		if (path.basename(filePath).startsWith(".")) return "never-cache";
+		if (filePath === minimalViteConfig.manifest) return "never-cache";
+		// if (filePath === svelteConfig.kit.appDir + "/version.json") return "never-cache"; // TODO: can this be excluded?
+		if (filePath === "robots.txt") return "never-cache";
+
+		if (adapterConfig.sortFile == null) return "pre-cache";
+
+		return await adapterConfig.sortFile(filePath, mimeType, configs);
+	}));
+
+	let precache: string[] = [];
+	let lazy: string[] = [];
+	let staleLazy: string[] = [];
+	let strictLazy: string[] = [];
+	let semiLazy: string[] = [];
+	let completeList: string[] = [];
+	for (let fileID = 0; fileID < completeFileList.length; fileID++) {
+		const fileName = completeFileList[fileID];
+		const fileMode = fileModes[fileID];
+
+		if (fileMode === "never-cache") continue;
+		
+		completeList.push(fileName);
+		if (fileMode === "pre-cache") precache.push(fileName);
+		else if (fileMode === "lazy") lazy.push(fileName);
+		else if (fileMode === "stale-lazy") staleLazy.push(fileName);
+		else if (fileMode === "strict-lazy") strictLazy.push(fileName);
+		else if (fileMode === "semi-lazy") semiLazy.push(fileName);
+	}
+
+	return {
+		precache,
+		lazy,
+		staleLazy,
+		strictLazy,
+		semiLazy,
+
+		completeList
+	};
+};
+export async function hashFiles(filteredFileList: string[], viteBundle: Nullable<OutputBundle>, builder: Builder, configs: FileSorterConfigs): Promise<Map<string, string>> {
+	const { minimalViteConfig, adapterConfig } = configs;
+	const buildDirPath = path.join(minimalViteConfig.root, adapterConfig.outDir);
+	
+	const routeFiles = new Set(Array.from(builder.prerendered.pages).map(([, { file }]) => file));
+	const fileHashes = await Promise.all(filteredFileList.map(async (filePath): Promise<Nullable<string>> => {
+		if (routeFiles.has(filePath)) return null; // They're assumed to have changed
+
+		const bundleInfo = viteBundle?.[filePath];
+		if (bundleInfo?.name) return null; // Has a hash in its filename
+
+		const contents = bundleInfo?.type === "chunk"? bundleInfo.code : await fs.readFile(path.join(buildDirPath, filePath));
+		return hash(contents);
+	}));
+
+	let asMap = new Map<string, string>();
+	for (let fileID = 0; fileID < filteredFileList.length; fileID++) {
+		const fileName = filteredFileList[fileID];
+		const fileHash = fileHashes[fileID];
+		if (fileHash == null) continue;
+
+		asMap.set(fileName, fileHash);
+	}
+	return asMap;
 };

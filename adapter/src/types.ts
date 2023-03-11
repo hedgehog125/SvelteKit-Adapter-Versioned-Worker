@@ -1,8 +1,12 @@
+import type { Builder } from "@sveltejs/kit";
 import type { ResolvedConfig } from "vite";
-import type { Nullable } from "./internalTypes.js";
+import type { OutputAsset, OutputChunk } from "rollup";
 
-// Complex types are inlined in the config objects so you can read them properly, since there's no TypeScript in the config files
+// To make things a bit less confusing
+export type SvelteConfig = Builder["config"];
+export type ViteConfig = ResolvedConfig;
 
+export type Nullable<T> = T | null;
 export interface AdapterConfig {
 	/* Required */
 	/**
@@ -18,6 +22,16 @@ export interface AdapterConfig {
 	 * TODO
 	 */
 	hooksFile?: string,
+
+	/**
+	 * TODO
+	 */
+	sortFile?: FileSorter | null,
+
+	/**
+	 * TODO
+	 */
+	outDir?: string,
 
 	/**
 	 * Enables and disables the warning when the Vite config can't be resolved due to the manifest generator plugin being missing 
@@ -75,11 +89,32 @@ export interface VersionedWorkerLogger {
 
 export type LastInfoProvider = (log: VersionedWorkerLogger, configs: LastInfoProviderConfigs) => Promise<Nullable<string>> | Nullable<string>;
 export interface LastInfoProviderConfigs {
-	viteConfig: Nullable<ResolvedConfig>,
+	viteConfig: Nullable<ViteConfig>,
 	minimalViteConfig: MinimalViteConfig,
 	adapterConfig: ResolvedAdapterConfig,
 	manifestPluginConfig: Nullable<ResolvedManifestPluginConfig>
 };
+export type FileSorter = (normalizedFilePath: string, mimeType: Nullable<string>, configs: FileSorterConfigs) => FileSortMode | Promise<FileSortMode>;
+/**
+ * TODO
+ * "pre-cache" resources should always be available as they're downloaded during the worker install. They're also updated with the new worker (if they've actually changed).
+ * "lazy" tries to get the resource from the network if it's outdated, it'll only send the stale response if the network is unavailable.
+ * "stale-lazy" (stale while revalidate) serves the resource from the cache, even if it's outdated, but tried to download it in the background for the next request.
+ * "strict-lazy" discards the resource if it becomes out of date, so internet will be required to access them again, but they won't be stale.
+ * "semi-lazy-cache" keeps the resource up to date if it had already been requested and cached before. Mostly useful for web app manifest icons. 
+ * "never-cache" always gets the resource using the network and doesn't cache the responses at all.
+ */
+export type FileSortMode = "pre-cache" | "lazy" | "stale-lazy" | "strict-lazy" | "semi-lazy" | "never-cache";
+export interface FileSorterConfigs extends LastInfoProviderConfigs {
+	svelteConfig: SvelteConfig
+};
+export interface FileInfo {
+	mime: Nullable<string>,
+	isStatic: boolean,
+	isRoute: boolean,
+	viteInfo: OutputAsset | OutputChunk
+};
+
 export interface MinimalViteConfig {
 	root: string,
 	manifest: string | boolean

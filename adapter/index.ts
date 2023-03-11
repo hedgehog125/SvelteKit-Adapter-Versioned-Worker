@@ -8,15 +8,21 @@ import type {
 	
 	VersionedWorkerLogger,
 	LastInfoProvider,
-	LastInfoProviderConfigs
-} from "./src/types.js";
-import {
-	Nullable,
+	LastInfoProviderConfigs,
 
+	FileSorterConfigs,
+
+	Nullable,
+	ViteConfig,
+	SvelteConfig
+} from "./src/types.js";
+import type {
 	InfoFile,
-	InputFiles
+	InputFiles,
+	CategorizedBuildFiles
 } from "./src/internalTypes.js";
-import type { Plugin, ResolvedConfig } from "vite"; 
+import type { Plugin } from "vite"; 
+import type { OutputOptions, OutputBundle } from "rollup";
 
 import { log } from "./src/globals.js";
 import {
@@ -29,7 +35,11 @@ import {
 
 	getInputFiles,
 	checkInputFiles,
-	getInputFilesConfiguration
+	getInputFilesConfiguration,
+
+	listAllBuildFiles,
+	categorizeFilesIntoModes,
+	hashFiles
 } from "./src/subFunctions.js";
 import {
 	applyAdapterConfigDefaults,
@@ -38,6 +48,7 @@ import {
 import adapterStatic from "@sveltejs/adapter-static";
 import * as path from "path";
 import * as fs from "fs/promises";
+
 import { installPolyfills } from "@sveltejs/kit/node/polyfills";
 installPolyfills();
 
@@ -47,13 +58,18 @@ export {
 	ManifestPluginConfig,
 	ResolvedManifestPluginConfig,
 	MinimalViteConfig,
-
+	
 	VersionedWorkerLogger,
 	LastInfoProvider,
-	LastInfoProviderConfigs
+	LastInfoProviderConfigs,
+	FileSorterConfigs,
+
+	Nullable
 };
 
-let viteConfig: Nullable<ResolvedConfig> = null; // From manifestGenerator
+let viteConfig: Nullable<ViteConfig> = null; // From manifestGenerator
+let viteBundle: Nullable<OutputBundle> = null;
+
 let minimalViteConfig: MinimalViteConfig; 
 let adapterConfig: Nullable<ResolvedAdapterConfig> = null;
 let manifestPluginConfig: Nullable<ResolvedManifestPluginConfig> = null;
@@ -81,7 +97,7 @@ export function adapter(inputConfig: AdapterConfig) : Adapter {
 	const config = applyAdapterConfigDefaults(inputConfig);
 	adapterConfig = config;
 
-	const adapterInstance = adapterStatic();
+	const adapterInstance = adapterStatic({ pages: adapterConfig.outDir });
 
 	return {
 		name: "adapter-versioned-worker",
@@ -94,13 +110,18 @@ export function adapter(inputConfig: AdapterConfig) : Adapter {
 			log.blankLine();
 
 			if (! initTaskDone) {
-				log.message("Waiting for background tasks..." + initRanLate? " (they were started late due to the manifest plugin not being used)" : "");
+				log.message("Waiting for background tasks..." + (initRanLate? " (they were started late due to the manifest plugin not being used)" : ""));
 				await initTask;
 			}
 			
 			// I know the different write methods return arrays of files, but I don't feel like maintaining a fork of adapter-static just to do that. So listing the files in the directory it is
 
-			log.message("Building file list...");
+			log.message("Processing build...");
+			const [categorizedFiles, staticFileHashes] =  await processBuild(config, builder);
+			log.message("Building worker...");
+			await buildWorker();
+			log.message("Finishing up...");
+			await finishUp();
 		}
 	};
 };
@@ -125,13 +146,15 @@ export function manifestGenerator(inputConfig: ManifestPluginConfig = {}): Plugi
 			isSSR = !!viteConfig.build.ssr;
 			if (isSSR) return;
 			isDev = ! viteConfig.isProduction;
-
 		},
 		async buildStart() {
 			if (isSSR) return;
 			if (isDev) return;
 
 			if (adapterConfig != null) initTask = init(adapterConfig);
+		},
+		generateBundle(_: OutputOptions, _bundle: OutputBundle) {
+			viteBundle = _bundle;
 		}
 	};
 };
@@ -147,9 +170,9 @@ async function init(config: ResolvedAdapterConfig) {
 			manifest: "vite-manifest.json"
 		}
 	;
-	if (viteConfig == null) { // TODO: don't warn if one was provided
+	if (viteConfig == null) {
 		if (config.warnOnViteConfigUnresolved) {
-			log.warn("Couldn't get Vite's config because you're not using the (built-in) manifest generator plugin. If you don't want to use the manifest plugin for whatever reason, you can probably disable this warning. However, if the current working directory doesn't match Vite's route or if Vite's manifest filename is different to the SvelteKit default (vite-manifest.json), you'll need to provide one with the \"getViteManifest\" config argument.");
+			log.warn("Couldn't get Vite's config because you're not using the (built-in) manifest generator plugin. If you don't want to use the manifest plugin for whatever reason, I'd strongly suggest still having the plugin in your Vite config, just with the plugin's \"enabled\" option set to false in its config object. Otherwise you'll likely experience longer build times and generally more funkiness.\n\nIf you like, you can disable this warning by setting \"warnOnViteConfigUnresolved\" in the adapter's config object to false.");
 		}
 	}
 
@@ -168,12 +191,32 @@ async function init(config: ResolvedAdapterConfig) {
 			const [hooksFilesContents, manifestFilesContents] = await getInputFiles(config, manifestPluginConfig, minimalViteConfig);
 			checkInputFiles(hooksFilesContents, manifestFilesContents);
 			inputFiles = getInputFilesConfiguration(hooksFilesContents, manifestFilesContents);
-
-			
 		})()
 	]);
 
 	initTaskDone = true;
+};
+async function processBuild(config: ResolvedAdapterConfig, builder: Builder): Promise<[CategorizedBuildFiles, Map<string, string>]> {
+	const svelteConfig = builder.config;
+	const configs = {
+		viteConfig,
+		svelteConfig,
+		minimalViteConfig,
+		adapterConfig: config,
+		manifestPluginConfig
+	};
+
+	const fullFileList = await listAllBuildFiles(configs);
+	const categorizedFiles = await categorizeFilesIntoModes(fullFileList, configs);
+	const staticFileHashes = await hashFiles(categorizedFiles.completeList, viteBundle, builder, configs);
+
+	return [categorizedFiles, staticFileHashes];
+};
+async function buildWorker() {
+	
+};
+async function finishUp() {
+
 };
 
 /**

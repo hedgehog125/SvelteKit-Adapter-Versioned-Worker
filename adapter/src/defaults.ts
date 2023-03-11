@@ -2,8 +2,7 @@ import type {
 	AdapterConfig,
 	ResolvedAdapterConfig,
 	ManifestPluginConfig,
-	ResolvedManifestPluginConfig,
-	LastInfoProvider
+	ResolvedManifestPluginConfig
 } from "./types.js";
 import { requiredProperty } from "./helper.js";
 
@@ -11,7 +10,9 @@ export function applyAdapterConfigDefaults(config: AdapterConfig): ResolvedAdapt
 	return applyDefaults<AdapterConfig>(config, {
 		lastInfo: requiredProperty(),
 
+		sortFile: null,
 		hooksFile: "hooks.worker.ts",
+		outDir: "build",
 		warnOnViteConfigUnresolved: true
 	}) as ResolvedAdapterConfig;
 };

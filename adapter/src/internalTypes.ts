@@ -1,4 +1,4 @@
-export type Nullable<T> = T | null;
+import type { Nullable } from "./types.js";
 
 interface InfoFileBase {
 	formatVersion: number,
@@ -23,4 +23,15 @@ export interface InputFiles {
 	handlerSource: Nullable<string>,
 
 	manifestSource: Nullable<string>
+};
+
+export interface CategorizedBuildFiles {
+	precache: string[],
+	lazy: string[],
+	staleLazy: string[],
+	strictLazy: string[],
+	semiLazy: string[],
+
+	completeList: string[]
+	// never-cache just isn't included
 };

@@ -5,6 +5,7 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import { dirname } from "path";
 import { fileURLToPath } from "url";
+import * as crypto from "crypto";
 import colors from "kleur";
 
 export class VersionedWorkerError extends Error {
@@ -47,7 +48,7 @@ export function createLogger(verbose: boolean): VersionedWorkerLogger { // Credi
 		verbose
 	};
 
-	function indentAndPrefix(msg: string) {
+	function indentAndPrefix(msg: string): string {
 		return `${colors.bold().cyan("Versioned-Worker")}: ${msg}`.replace(/^/gm, "  "); // Indents each line
 	};
 };
@@ -81,6 +82,9 @@ export function getFileNamesToStat(hooksPath: string, manifestPath?: string): st
 		return suffixes.map(suffix => withoutSuffix + suffix);
 	};
 };
+export async function findUniqueFileName(baseName: string): Promise<string> {
+	
+};
 
 export const adapterFilesPath = path.join(dirname(fileURLToPath(import.meta.url)), "../../");
 
@@ -100,4 +104,13 @@ export function createInitialInfo(): UnprocessedInfoFile {
  */
 export function requiredProperty<T>(): T {
 	return undefined as any as T;
+};
+
+export function hash(data: string | Buffer): string {
+	const hasher = crypto.createHash("md5");
+	hasher.update(data);
+	return hasher.digest("hex");
+};
+export function removeNulls<T>(arr: T[]): T[] {
+	return arr.filter(item => item != null);	
 };
