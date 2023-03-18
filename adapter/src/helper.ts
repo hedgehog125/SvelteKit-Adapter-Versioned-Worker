@@ -82,8 +82,21 @@ export function getFileNamesToStat(hooksPath: string, manifestPath?: string): st
 		return suffixes.map(suffix => withoutSuffix + suffix);
 	};
 };
-export async function findUniqueFileName(baseName: string): Promise<string> {
-	
+export async function findUniqueFileName(dir: string, baseName: string, extension: string): Promise<string> {
+	const characters = "abcdefghijklmnopqrstuvwxyz0123456789";
+
+	while (true) {
+		const randomCharacters = new Array(5).fill(null).map(() => randomItemOfString(characters)).join("");
+		const fileName = `${baseName}-${randomCharacters}.${extension}`;
+
+		if (! (await fileExists(path.join(dir, fileName)))) return fileName;
+	}
+};
+export function randomItemOfString(str: string): string {
+	return str[Math.floor(Math.random() * str.length)];
+};
+export function randomItemOfArray<T>(arr: T[]): T {
+	return arr[Math.floor(Math.random() * arr.length)];
 };
 
 export const adapterFilesPath = path.join(dirname(fileURLToPath(import.meta.url)), "../../");

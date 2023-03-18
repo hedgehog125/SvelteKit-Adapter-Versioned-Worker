@@ -94,7 +94,7 @@ export interface LastInfoProviderConfigs {
 	adapterConfig: ResolvedAdapterConfig,
 	manifestPluginConfig: Nullable<ResolvedManifestPluginConfig>
 };
-export type FileSorter = (normalizedFilePath: string, mimeType: Nullable<string>, configs: FileSorterConfigs) => FileSortMode | Promise<FileSortMode>;
+export type FileSorter = (normalizedFilePath: string, mimeType: Nullable<string>, configs: AllConfigs) => FileSortMode | Promise<FileSortMode>;
 /**
  * TODO
  * "pre-cache" resources should always be available as they're downloaded during the worker install. They're also updated with the new worker (if they've actually changed).
@@ -105,7 +105,7 @@ export type FileSorter = (normalizedFilePath: string, mimeType: Nullable<string>
  * "never-cache" always gets the resource using the network and doesn't cache the responses at all.
  */
 export type FileSortMode = "pre-cache" | "lazy" | "stale-lazy" | "strict-lazy" | "semi-lazy" | "never-cache";
-export interface FileSorterConfigs extends LastInfoProviderConfigs {
+export interface AllConfigs extends LastInfoProviderConfigs {
 	svelteConfig: SvelteConfig
 };
 export interface FileInfo {

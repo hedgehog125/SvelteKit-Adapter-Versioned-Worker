@@ -1,0 +1,3 @@
+import "./ImportTest.js";
+
+export {};

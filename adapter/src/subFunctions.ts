@@ -9,7 +9,7 @@ import type {
 	FileSortMode,
 
 	Nullable,
-	FileSorterConfigs,
+	AllConfigs,
 } from "./types.js";
 import type {
 	UnprocessedInfoFile,
@@ -24,10 +24,12 @@ import type { Builder } from "@sveltejs/kit";
 import {
 	VersionedWorkerError,
 
+	adapterFilesPath,
 	createInitialInfo,
 	getFileNamesToStat,
 	fileExists,
-	hash
+	hash,
+	findUniqueFileName
 } from "./helper.js";
 import { log } from "./globals.js";
 
@@ -97,10 +99,10 @@ export async function getInputFiles(
 	};
 };
 export function checkInputFiles(hooksFilesContents: Nullable<string>[], manifestFilesContents: Nullable<string>[]) {
-	if (! (hooksFilesContents[0] == null && hooksFilesContents[1] == null)) {
+	if (! (hooksFilesContents[0] == null || hooksFilesContents[1] == null)) {
 		throw new VersionedWorkerError("You can only have 1 hooks file. Please delete either the .js or .ts one.");
 	}
-	if (! (manifestFilesContents[0] == null && manifestFilesContents[1] == null)) {
+	if (! (manifestFilesContents[0] == null || manifestFilesContents[1] == null)) {
 		throw new VersionedWorkerError("You can only have 1 input web manifest file. Please delete either the .json or .webmanifest one.");
 	}
 };
@@ -116,7 +118,7 @@ export function getInputFilesConfiguration(hooksFilesContents: Nullable<string>[
 	};
 };
 
-export async function listAllBuildFiles(configs: FileSorterConfigs): Promise<string[]> {
+export async function listAllBuildFiles(configs: AllConfigs): Promise<string[]> {
 	const { minimalViteConfig, adapterConfig } = configs;
 
 	const buildDirPath = path.join(minimalViteConfig.root, adapterConfig.outDir);
@@ -124,7 +126,7 @@ export async function listAllBuildFiles(configs: FileSorterConfigs): Promise<str
 
 	return list.map(fullFilePath => normalizePath(path.relative(buildDirPath, fullFilePath)));
 };
-export async function categorizeFilesIntoModes(completeFileList: string[], configs: FileSorterConfigs): Promise<CategorizedBuildFiles> {
+export async function categorizeFilesIntoModes(completeFileList: string[], configs: AllConfigs): Promise<CategorizedBuildFiles> {
 	const { minimalViteConfig, adapterConfig } = configs;
 
 	const fileModes = await Promise.all(completeFileList.map(async (filePath: string): Promise<FileSortMode> => {
@@ -170,7 +172,7 @@ export async function categorizeFilesIntoModes(completeFileList: string[], confi
 		completeList
 	};
 };
-export async function hashFiles(filteredFileList: string[], viteBundle: Nullable<OutputBundle>, builder: Builder, configs: FileSorterConfigs): Promise<Map<string, string>> {
+export async function hashFiles(filteredFileList: string[], viteBundle: Nullable<OutputBundle>, builder: Builder, configs: AllConfigs): Promise<Map<string, string>> {
 	const { minimalViteConfig, adapterConfig } = configs;
 	const buildDirPath = path.join(minimalViteConfig.root, adapterConfig.outDir);
 	
@@ -194,4 +196,19 @@ export async function hashFiles(filteredFileList: string[], viteBundle: Nullable
 		asMap.set(fileName, fileHash);
 	}
 	return asMap;
+};
+
+export async function writeWorkerEntry(inputFiles: InputFiles, configs: AllConfigs): Promise<string> {
+	const { minimalViteConfig, adapterConfig: config } = configs;
+
+	const handlerFolder = path.join(minimalViteConfig.root, "src", path.dirname(config.hooksFile));
+	const entryFileName = await findUniqueFileName(handlerFolder, "tmp-vw-entry", inputFiles.handlerIsTS? "ts" : "js");
+	const entryPath = path.join(handlerFolder, entryFileName);
+
+	const entrySourcePath = path.join(
+		adapterFilesPath,
+		inputFiles.handlerIsTS? "static/worker/index.ts" : "static/worker/jsBuild/index.js"
+	);
+	await fs.copyFile(entrySourcePath, entryPath);
+	return entryPath;
 };

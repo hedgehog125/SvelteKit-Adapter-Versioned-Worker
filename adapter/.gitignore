@@ -1,7 +1,7 @@
 .DS_Store
 node_modules
 /build
-/static/jsBuild
+/static/worker/jsBuild
 /.svelte-kit
 /package
 .env

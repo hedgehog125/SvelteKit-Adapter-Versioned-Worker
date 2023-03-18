@@ -10,7 +10,7 @@ import type {
 	LastInfoProvider,
 	LastInfoProviderConfigs,
 
-	FileSorterConfigs,
+	AllConfigs,
 
 	Nullable,
 	ViteConfig,
@@ -39,7 +39,8 @@ import {
 
 	listAllBuildFiles,
 	categorizeFilesIntoModes,
-	hashFiles
+	hashFiles,
+	writeWorkerEntry
 } from "./src/subFunctions.js";
 import {
 	applyAdapterConfigDefaults,
@@ -62,7 +63,7 @@ export {
 	VersionedWorkerLogger,
 	LastInfoProvider,
 	LastInfoProviderConfigs,
-	FileSorterConfigs,
+	AllConfigs,
 
 	Nullable
 };
@@ -102,6 +103,14 @@ export function adapter(inputConfig: AdapterConfig) : Adapter {
 	return {
 		name: "adapter-versioned-worker",
 		async adapt(builder: Builder) {
+			const configs = {
+				viteConfig,
+				svelteConfig: builder.config,
+				minimalViteConfig,
+				adapterConfig: config,
+				manifestPluginConfig
+			} satisfies AllConfigs;
+
 			const initRanLate = initTask == null;
 			if (initRanLate) initTask = init(config);
 
@@ -117,9 +126,9 @@ export function adapter(inputConfig: AdapterConfig) : Adapter {
 			// I know the different write methods return arrays of files, but I don't feel like maintaining a fork of adapter-static just to do that. So listing the files in the directory it is
 
 			log.message("Processing build...");
-			const [categorizedFiles, staticFileHashes] =  await processBuild(config, builder);
+			const [categorizedFiles, staticFileHashes] =  await processBuild(configs, builder);
 			log.message("Building worker...");
-			await buildWorker();
+			await buildWorker(configs);
 			log.message("Finishing up...");
 			await finishUp();
 		}
@@ -196,24 +205,15 @@ async function init(config: ResolvedAdapterConfig) {
 
 	initTaskDone = true;
 };
-async function processBuild(config: ResolvedAdapterConfig, builder: Builder): Promise<[CategorizedBuildFiles, Map<string, string>]> {
-	const svelteConfig = builder.config;
-	const configs = {
-		viteConfig,
-		svelteConfig,
-		minimalViteConfig,
-		adapterConfig: config,
-		manifestPluginConfig
-	};
-
+async function processBuild(configs: AllConfigs, builder: Builder): Promise<[CategorizedBuildFiles, Map<string, string>]> {	
 	const fullFileList = await listAllBuildFiles(configs);
 	const categorizedFiles = await categorizeFilesIntoModes(fullFileList, configs);
 	const staticFileHashes = await hashFiles(categorizedFiles.completeList, viteBundle, builder, configs);
 
 	return [categorizedFiles, staticFileHashes];
 };
-async function buildWorker() {
-	
+async function buildWorker(configs: AllConfigs) {
+	console.log(await writeWorkerEntry(inputFiles, configs));
 };
 async function finishUp() {
 
