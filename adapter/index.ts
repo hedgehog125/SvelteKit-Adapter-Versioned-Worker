@@ -40,7 +40,9 @@ import {
 	listAllBuildFiles,
 	categorizeFilesIntoModes,
 	hashFiles,
-	writeWorkerEntry
+	writeWorkerEntry,
+	rollupBuild,
+	configureTypescript
 } from "./src/subFunctions.js";
 import {
 	applyAdapterConfigDefaults,
@@ -98,7 +100,7 @@ export function adapter(inputConfig: AdapterConfig) : Adapter {
 	const config = applyAdapterConfigDefaults(inputConfig);
 	adapterConfig = config;
 
-	const adapterInstance = adapterStatic({ pages: adapterConfig.outDir });
+	const adapterInstance = adapterStatic({ pages: adapterConfig.outputDir });
 
 	return {
 		name: "adapter-versioned-worker",
@@ -197,9 +199,9 @@ async function init(config: ResolvedAdapterConfig) {
 			lastInfo = processInfoFile(unprocessed);
 		})(),
 		(async () => {
-			const [hooksFilesContents, manifestFilesContents] = await getInputFiles(config, manifestPluginConfig, minimalViteConfig);
-			checkInputFiles(hooksFilesContents, manifestFilesContents);
-			inputFiles = getInputFilesConfiguration(hooksFilesContents, manifestFilesContents);
+			const inputFileContents = await getInputFiles(config, manifestPluginConfig, minimalViteConfig);
+			checkInputFiles(inputFileContents);
+			inputFiles = getInputFilesConfiguration(inputFileContents);
 		})()
 	]);
 
@@ -213,7 +215,9 @@ async function processBuild(configs: AllConfigs, builder: Builder): Promise<[Cat
 	return [categorizedFiles, staticFileHashes];
 };
 async function buildWorker(configs: AllConfigs) {
-	console.log(await writeWorkerEntry(inputFiles, configs));
+	const entryFilePath = await writeWorkerEntry(inputFiles, configs);
+	const typescriptConfig = await configureTypescript(configs);
+	await rollupBuild(entryFilePath, typescriptConfig, inputFiles, configs);
 };
 async function finishUp() {
 

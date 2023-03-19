@@ -62,7 +62,7 @@ export async function fileExists(filePath: string): Promise<boolean> {
 	}
 	return true;
 };
-export function getFileNamesToStat(hooksPath: string, manifestPath?: string): string[][] {
+export function getFileNamesToRead(hooksPath: string, manifestPath?: string): string[][] {
 	const suffixes = [
 		createSuffixes(hooksPath, [".ts", ".js"])
 	];

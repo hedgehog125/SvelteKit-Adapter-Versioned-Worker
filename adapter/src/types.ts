@@ -31,7 +31,17 @@ export interface AdapterConfig {
 	/**
 	 * TODO
 	 */
-	outDir?: string,
+	outputDir?: string,
+
+	/**
+	 * TODO
+	 */
+	workerFile?: string,
+
+	/**
+	 * TODO
+	 */
+	workerDir?: string,
 
 	/**
 	 * Enables and disables the warning when the Vite config can't be resolved due to the manifest generator plugin being missing 

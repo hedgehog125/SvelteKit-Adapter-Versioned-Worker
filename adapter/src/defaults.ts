@@ -12,7 +12,9 @@ export function applyAdapterConfigDefaults(config: AdapterConfig): ResolvedAdapt
 
 		sortFile: null,
 		hooksFile: "hooks.worker.ts",
-		outDir: "build",
+		outputDir: "build",
+		workerDir: "sw",
+		workerFile: "sw.js",
 		warnOnViteConfigUnresolved: true
 	}) as ResolvedAdapterConfig;
 };

@@ -1,14 +1,4 @@
-import {
-	InstallEvent,
-	ActivateEvent,
-	FetchEvent,
-
-	clients,
-	registration,
-	skipWaiting
-} from "./builtInTypes.js";
 import type { VersionFile } from "sveltekit-adapter-versioned-worker/worker";
-
 
 import {
 	ROUTES,

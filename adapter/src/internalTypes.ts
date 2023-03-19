@@ -18,6 +18,10 @@ export interface InfoFileVersion {
 	updated: string[][]
 };
 
+/**
+ * The first tuple is for the hooks file, the second is for the manifest file. 
+ */
+export type InputFileContents = [[Nullable<string>, Nullable<string>], [Nullable<string>, Nullable<string>]];
 export interface InputFiles {
 	handlerIsTS: boolean,
 	handlerSource: Nullable<string>,

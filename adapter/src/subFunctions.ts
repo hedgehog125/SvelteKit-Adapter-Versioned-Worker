@@ -15,18 +15,20 @@ import type {
 	UnprocessedInfoFile,
 	InfoFile,
 
+	InputFileContents,
 	InputFiles,
 	CategorizedBuildFiles
 } from "./internalTypes.js";
-import type { OutputBundle } from "rollup";
+import type { OutputBundle, RollupLog, WarningHandler } from "rollup";
 import type { Builder } from "@sveltejs/kit";
+import type { RollupTypescriptOptions } from "@rollup/plugin-typescript";
 
 import {
 	VersionedWorkerError,
 
 	adapterFilesPath,
 	createInitialInfo,
-	getFileNamesToStat,
+	getFileNamesToRead,
 	fileExists,
 	hash,
 	findUniqueFileName
@@ -38,6 +40,11 @@ import * as path from "path";
 import { normalizePath } from "vite";
 import { lookup } from "mime-types";
 import rReadDir from "recursive-readdir";
+import { rollup } from "rollup";
+import pluginVirtual from "@rollup/plugin-virtual";
+import nodeResolve from "@rollup/plugin-node-resolve";
+import esbuild from "rollup-plugin-esbuild";
+import typescriptPlugin from "@rollup/plugin-typescript";
 
 
 export async function getLastInfo(configs: LastInfoProviderConfigs): Promise<UnprocessedInfoFile> {
@@ -82,8 +89,8 @@ export function processInfoFile(infoFile: UnprocessedInfoFile): InfoFile {
 export async function getInputFiles(
 	adapterConfig: ResolvedAdapterConfig, manifestConfig: Nullable<ResolvedManifestPluginConfig>,
 	viteConfig: MinimalViteConfig
-): Promise<Nullable<string>[][]> {
-	const nestedFileNames = getFileNamesToStat(adapterConfig.hooksFile, manifestConfig?.src);
+): Promise<InputFileContents> {
+	const nestedFileNames = getFileNamesToRead(adapterConfig.hooksFile, manifestConfig?.src);
 
 	// I don't really want to flatten these so this is a bit overly complicated
 	return await Promise.all(nestedFileNames.map(fileList => readGroup(fileList)));
@@ -98,7 +105,9 @@ export async function getInputFiles(
 		}));
 	};
 };
-export function checkInputFiles(hooksFilesContents: Nullable<string>[], manifestFilesContents: Nullable<string>[]) {
+export function checkInputFiles(inputFileContents: InputFileContents) {
+	const [hooksFilesContents, manifestFilesContents] = inputFileContents;
+
 	if (! (hooksFilesContents[0] == null || hooksFilesContents[1] == null)) {
 		throw new VersionedWorkerError("You can only have 1 hooks file. Please delete either the .js or .ts one.");
 	}
@@ -106,7 +115,9 @@ export function checkInputFiles(hooksFilesContents: Nullable<string>[], manifest
 		throw new VersionedWorkerError("You can only have 1 input web manifest file. Please delete either the .json or .webmanifest one.");
 	}
 };
-export function getInputFilesConfiguration(hooksFilesContents: Nullable<string>[], manifestFilesContents: Nullable<string>[]): InputFiles {
+export function getInputFilesConfiguration(inputFileContents: InputFileContents): InputFiles {
+	const [hooksFilesContents, manifestFilesContents] = inputFileContents;
+
 	const handlerIsTS = hooksFilesContents[0] != null;
 	const manifestJSONExtUsed = manifestFilesContents[1] != null;
 
@@ -121,7 +132,7 @@ export function getInputFilesConfiguration(hooksFilesContents: Nullable<string>[
 export async function listAllBuildFiles(configs: AllConfigs): Promise<string[]> {
 	const { minimalViteConfig, adapterConfig } = configs;
 
-	const buildDirPath = path.join(minimalViteConfig.root, adapterConfig.outDir);
+	const buildDirPath = path.join(minimalViteConfig.root, adapterConfig.outputDir);
 	const list = await rReadDir(buildDirPath);	
 
 	return list.map(fullFilePath => normalizePath(path.relative(buildDirPath, fullFilePath)));
@@ -174,7 +185,7 @@ export async function categorizeFilesIntoModes(completeFileList: string[], confi
 };
 export async function hashFiles(filteredFileList: string[], viteBundle: Nullable<OutputBundle>, builder: Builder, configs: AllConfigs): Promise<Map<string, string>> {
 	const { minimalViteConfig, adapterConfig } = configs;
-	const buildDirPath = path.join(minimalViteConfig.root, adapterConfig.outDir);
+	const buildDirPath = path.join(minimalViteConfig.root, adapterConfig.outputDir);
 	
 	const routeFiles = new Set(Array.from(builder.prerendered.pages).map(([, { file }]) => file));
 	const fileHashes = await Promise.all(filteredFileList.map(async (filePath): Promise<Nullable<string>> => {
@@ -207,8 +218,61 @@ export async function writeWorkerEntry(inputFiles: InputFiles, configs: AllConfi
 
 	const entrySourcePath = path.join(
 		adapterFilesPath,
-		inputFiles.handlerIsTS? "static/worker/index.ts" : "static/worker/jsBuild/index.js"
+		inputFiles.handlerIsTS? "static/src/worker/index.ts" : "static/jsBuild/worker/index.js"
 	);
 	await fs.copyFile(entrySourcePath, entryPath);
 	return entryPath;
+};
+export async function configureTypescript(configs: AllConfigs): Promise<Nullable<RollupTypescriptOptions>> {
+	// TODO: allow asynchronously configuring TypeScript
+	return {
+		include: [
+			path.join(adapterFilesPath, "static/src/worker/modules/virtualModules.d.ts")
+		],
+		compilerOptions: {
+			target: "es2020",
+			module: "ESNext",
+			moduleResolution: "node",
+			forceConsistentCasingInFileNames: true,
+			strict: true,
+			skipLibCheck: true,
+	
+			declaration: false,
+			declarationMap: false
+		},
+		tsconfig: false
+	};
+};
+export async function rollupBuild(entryFilePath: string, typescriptConfig: Nullable<RollupTypescriptOptions>, inputFiles: InputFiles, configs: AllConfigs) {
+	const { adapterConfig, minimalViteConfig } = configs;
+
+	const tsPluginInstance = typescriptConfig? typescriptPlugin(typescriptConfig) : null;
+	const bundle = await rollup({
+		input: entryFilePath,
+		plugins: [
+			pluginVirtual({
+				"sveltekit-adapter-versioned-worker/worker": "TODO", // TODO
+				"sveltekit-adapter-versioned-worker/internal/hooks": "TODO"
+			}),
+			nodeResolve({
+				browser: true
+			}),
+			esbuild({ minify: true }),
+			tsPluginInstance
+		],
+
+		onwarn(warning: RollupLog, warn: WarningHandler) {
+			if (
+				warning.code === "MISSING_EXPORT"
+				&& warning.exporter === "sveltekit-adapater-versioned-worker/internal/hooks"
+			) return; // There's a null check so missing exports are fine
+
+			warn(warning);
+		}
+	});
+	await bundle.write({
+		file: path.join(minimalViteConfig.root, adapterConfig.outputDir, adapterConfig.workerFile),
+		format: "iife"
+	});
+	await bundle.close();
 };

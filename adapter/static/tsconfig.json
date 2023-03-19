@@ -3,7 +3,7 @@ Since these don't have exports, d.ts files aren't generated */
 
 {
 	"include": [
-		"./worker"
+		"./src/"
 	],
 	"compilerOptions": {
 		"target": "es2020",
@@ -13,8 +13,9 @@ Since these don't have exports, d.ts files aren't generated */
 		"strict": true,
 		"skipLibCheck": true,
 
-		"outDir": "jsBuild",
-		"declaration": true,
-		"declarationMap": true
+		"rootDir": "./src",
+		"outDir": "./jsBuild",
+		"declaration": false,
+		"declarationMap": false
 	}
 }
