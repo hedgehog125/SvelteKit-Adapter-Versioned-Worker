@@ -1,5 +1,5 @@
 import type { Nullable, VersionedWorkerLogger } from "./types.js";
-import type { UnprocessedInfoFile, FilesToStat } from "./internalTypes.js";
+import type { UnprocessedInfoFile } from "./internalTypes.js";
 
 import * as fs from "fs/promises";
 import * as path from "path";
@@ -62,26 +62,16 @@ export async function fileExists(filePath: string): Promise<boolean> {
 	}
 	return true;
 };
-export function getFileNamesToStat(hooksPath: string, manifestPath?: string): FilesToStat {
-	return  [
-		createSuffixes(hooksPath, [".ts", ".js"]) as [string, string],
-		(manifestPath?
-			createSuffixes(manifestPath, [".webmanifest", ".json"])
-			: null
-		) as Nullable<[string, string]>
-	];
-
-	function createSuffixes(inputtedPath: string, suffixes: string[]): string[] {
-		let withoutSuffix: string;
-		for (let suffix of suffixes) {
-			if (inputtedPath.endsWith(suffix)) {
-				withoutSuffix = inputtedPath.slice(0, -suffix.length);
-				break;
-			}
+export function createSuffixes(inputtedPath: string, suffixes: string[]): string[] {
+	let withoutSuffix: string;
+	for (let suffix of suffixes) {
+		if (inputtedPath.endsWith(suffix)) {
+			withoutSuffix = inputtedPath.slice(0, -suffix.length);
+			break;
 		}
+	}
 
-		return suffixes.map(suffix => withoutSuffix + suffix);
-	};
+	return suffixes.map(suffix => withoutSuffix + suffix);
 };
 export async function findUniqueFileName(dir: string, baseName: string, extension: string): Promise<string> {
 	const characters = "abcdefghijklmnopqrstuvwxyz0123456789";

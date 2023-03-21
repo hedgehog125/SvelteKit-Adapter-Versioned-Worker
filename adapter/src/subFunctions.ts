@@ -9,7 +9,8 @@ import type {
 	FileSortMode,
 
 	Nullable,
-	AllConfigs
+	AllConfigs,
+	AdapterConfig
 } from "./types.js";
 import type {
 	UnprocessedInfoFile,
@@ -32,7 +33,7 @@ import {
 
 	adapterFilesPath,
 	createInitialInfo,
-	getFileNamesToStat,
+	createSuffixes,
 	fileExists,
 	hash,
 	findUniqueFileName
@@ -50,7 +51,7 @@ import pluginVirtual from "@rollup/plugin-virtual";
 import nodeResolve from "@rollup/plugin-node-resolve";
 import esbuild from "rollup-plugin-esbuild";
 import typescriptPlugin from "@rollup/plugin-typescript";
-import alias from "@rollup/plugin-alias";
+import pluginAlias from "@rollup/plugin-alias";
 
 
 export async function getLastInfo(configs: LastInfoProviderConfigs): Promise<UnprocessedInfoFile> {
@@ -96,24 +97,39 @@ export async function getInputFiles(
 	adapterConfig: ResolvedAdapterConfig, manifestConfig: Nullable<ResolvedManifestPluginConfig>,
 	viteConfig: MinimalViteConfig
 ): Promise<InputFilesContents> {
-	const nestedFileNames = getFileNamesToStat(adapterConfig.hooksFile, manifestConfig?.src);	
-
 	// I don't really want to flatten these so this is a bit overly complicated
-	return await Promise.all(nestedFileNames.map(fileList => fileList? readGroup(fileList) : null)) as InputFilesContents;
+	const asArrays = await Promise.all([
+		(async (): Promise<boolean[]> => {
+			const fileList = createSuffixes(adapterConfig.hooksFile, [".ts", ".js"]);
+			const contents = await readGroup(fileList, true);
+			return [contents[0] != null, contents[1] != null];
+		})(),
 
-	function readGroup(fileList: string[]): Promise<Nullable<string>[]> {
+		(async (): Promise<Nullable<
+			Nullable<string>[]
+		>> => {
+			if (manifestConfig == null) return null;
+
+			const fileList = createSuffixes(adapterConfig.hooksFile, [".webmanifest", ".json"]);
+			return await readGroup(fileList);
+		})()
+	]);
+	return asArrays as InputFilesContents;
+
+	function readGroup(fileList: string[], justStat = false): Promise<Nullable<string>[]> {
 		return Promise.all(fileList.map(async (fileName): Promise<Nullable<string>> => {
 			const filePath = path.join(viteConfig.root, "src", fileName);
 			if (! (await fileExists(filePath))) return null;
 
+			if (justStat) return "";
 			return await fs.readFile(filePath, { encoding: "utf8" });
 		}));
 	};
 };
 export function checkInputFiles(inputFileContents: InputFilesContents) {
-	const [hooksFilesContents, manifestFilesContents] = inputFileContents;
+	const [existingHooksFiles, manifestFilesContents] = inputFileContents;
 
-	if (! (hooksFilesContents[0] == null || hooksFilesContents[1] == null)) {
+	if (! (existingHooksFiles[0] || existingHooksFiles[1])) {
 		throw new VersionedWorkerError("You can only have 1 hooks file. Please delete either the .js or .ts one.");
 	}
 	if (manifestFilesContents) {
@@ -122,19 +138,28 @@ export function checkInputFiles(inputFileContents: InputFilesContents) {
 		}
 	}
 };
-export function getInputFilesConfiguration(inputFileContents: InputFilesContents): InputFiles {
-	const [hooksFilesContents, manifestFilesContents] = inputFileContents;
+export function getInputFilesConfiguration(inputFileContents: InputFilesContents, config: ResolvedAdapterConfig): InputFiles {
+	const [existingHooksFiles, manifestFilesContents] = inputFileContents;
 
-	const hooksIsTS = hooksFilesContents[0] != null;
+	const hooksIsTS = existingHooksFiles[0]; // The ts one exists
+	const hooksFileNames = createSuffixes(config.hooksFile, [".ts", ".js"]);
+	let hooksFileName = null;
+	if (hooksIsTS) {
+		hooksFileName = hooksFileNames[0];
+	}
+	else if (hooksFileNames[1]) hooksFileName = hooksFileNames[1];
+
 	const manifestJSONExtUsed = manifestFilesContents?.[1] != null;
+	let manifestSource = null;
+	if (manifestFilesContents) { // The plugin is being used
+		manifestSource =  manifestJSONExtUsed? manifestFilesContents[1] : manifestFilesContents[0];
+	}
 
 	return {
-		hooksIsTS: hooksIsTS,
-		hooksSource: hooksIsTS? hooksFilesContents[0] : hooksFilesContents[1],
+		hooksFileName,
+		hooksIsTS,
 
-		manifestSource: manifestFilesContents?
-			manifestJSONExtUsed? manifestFilesContents[1] : manifestFilesContents[0]
-			: null
+		manifestSource
 	};
 };
 
@@ -262,10 +287,9 @@ export function createWorkerConstants(
 		BASE_URL: baseURL
 	};
 };
-export function generateVirtualModules(inputFiles: InputFiles, workerConstants: WorkerConstants): VirtualModuleSources {
+export function generateVirtualModules(workerConstants: WorkerConstants): VirtualModuleSources {
 	return [
-		Object.entries(workerConstants).map(([name, value]) => `export const ${name} = ${JSON.stringify(value)};`).join(""),
-		inputFiles.hooksSource?? ""
+		Object.entries(workerConstants).map(([name, value]) => `export const ${name} = ${JSON.stringify(value)};`).join("")
 	];
 };
 export async function configureTypescript(configs: AllConfigs): Promise<Nullable<RollupTypescriptOptions>> {
@@ -290,28 +314,35 @@ export async function configureTypescript(configs: AllConfigs): Promise<Nullable
 };
 export async function rollupBuild(
 	entryFilePath: string, typescriptConfig: Nullable<RollupTypescriptOptions>,
-	virtualModules: VirtualModuleSources, configs: AllConfigs
+	virtualModulesSources: VirtualModuleSources, inputFiles: InputFiles, configs: AllConfigs
 ) {
 	const { adapterConfig, minimalViteConfig } = configs;
 
 	const tsPluginInstance = typescriptConfig? typescriptPlugin(typescriptConfig) : null;
+	let virtualModules: Record<string, string> = {
+		"sveltekit-adapter-versioned-worker/worker": virtualModulesSources[0]
+	};
+
+	let hooksPath: Nullable<string> = null;
+	if (inputFiles.hooksFileName == null) { // Replace it with an empty module if it doesn't exist
+		virtualModules["sveltekit-adapter-versioned-worker/internal/hooks"] = "export {};";
+	}
+	else {
+		hooksPath = path.join(minimalViteConfig.root, "src", inputFiles.hooksFileName);
+	}
+
 	const bundle = await rollup({
 		input: entryFilePath,
 		plugins: [
-			pluginVirtual({
-				"sveltekit-adapter-versioned-worker/worker": virtualModules[0],
-				"sveltekit-adapter-versioned-worker/internal/hooks": virtualModules[1]
-			}),
-			/*
-			alias({
+			pluginVirtual(virtualModules),
+			hooksPath != null && pluginAlias({
 				entries: [
 					{
 						find: "sveltekit-adapter-versioned-worker/internal/hooks",
-						replacement: "TODO"
+						replacement: hooksPath
 					}
 				]
 			}),
-			*/
 			nodeResolve({
 				browser: true
 			}),
@@ -320,10 +351,14 @@ export async function rollupBuild(
 		],
 
 		onwarn(warning: RollupLog, warn: WarningHandler) {
-			if (
-				warning.code === "MISSING_EXPORT"
-				&& warning.exporter === "virtual:sveltekit-adapter-versioned-worker/internal/hooks"
-			) return; // There's a null check so missing exports are fine
+			if (warning.code === "MISSING_EXPORT") {
+				const isHooksModule = (
+					warning.exporter === "virtual:sveltekit-adapter-versioned-worker/internal/hooks"
+					|| (inputFiles.hooksFileName && warning.exporter === hooksPath)
+				);
+
+				if (isHooksModule) return; // There's a null check so missing exports are fine
+			}
 
 			warn(warning);
 		}

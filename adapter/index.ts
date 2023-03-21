@@ -203,7 +203,7 @@ async function init(config: ResolvedAdapterConfig) {
 		(async () => {
 			const inputFileContents = await getInputFiles(config, manifestPluginConfig, minimalViteConfig);
 			checkInputFiles(inputFileContents);
-			inputFiles = getInputFilesConfiguration(inputFileContents);
+			inputFiles = getInputFilesConfiguration(inputFileContents, config);
 		})()
 	]);
 
@@ -220,10 +220,10 @@ async function buildWorker(categorizedFiles: CategorizedBuildFiles, builder: Bui
 	const entryFilePath = await writeWorkerEntry(inputFiles, configs);
 
 	const workerConstants = createWorkerConstants(categorizedFiles, builder, lastInfo, configs);
-	const virtualModules = generateVirtualModules(inputFiles, workerConstants);
+	const virtualModules = generateVirtualModules(workerConstants);
 	const typescriptConfig = await configureTypescript(configs);
 
-	await rollupBuild(entryFilePath, typescriptConfig, virtualModules, configs);
+	await rollupBuild(entryFilePath, typescriptConfig, virtualModules, inputFiles, configs);
 };
 async function finishUp() {
 

@@ -18,17 +18,17 @@ export interface InfoFileVersion {
 	updated: string[][]
 };
 
-export type FilesToStat = [[string, string], Nullable<[string, string]>];
 /**
- * The first tuple is for the hooks file, the second is for the manifest file. Each item of each is a filename.
+ * The first tuple is if each extension exists or not (ts followed by js).
+ * The second tuple is the contents of each extension (webmanifest followed by json), or null if it doesn't exist. 
  * 
  * @note
  * The second tuple will be null if the manifest plugin isn't being used or if it's disabled.
  */
-export type InputFilesContents = [[Nullable<string>, Nullable<string>], Nullable<[Nullable<string>, Nullable<string>]>];
+export type InputFilesContents = [[boolean, boolean], Nullable<[Nullable<string>, Nullable<string>]>];
 export interface InputFiles {
+	hooksFileName: Nullable<string>,
 	hooksIsTS: boolean,
-	hooksSource: Nullable<string>,
 
 	manifestSource: Nullable<string>
 };
@@ -62,6 +62,6 @@ export interface WorkerConstants {
 };
 
 /**
- * First item is the constants and the second is the hooks file.
+ * First item is the constants
  */
-export type VirtualModuleSources = [string, string];
+export type VirtualModuleSources = [string];
