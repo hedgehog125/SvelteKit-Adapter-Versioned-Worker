@@ -1,5 +1,5 @@
-import type { VersionedWorkerLogger } from "./types.js";
-import type { UnprocessedInfoFile } from "./internalTypes.js";
+import type { Nullable, VersionedWorkerLogger } from "./types.js";
+import type { UnprocessedInfoFile, FilesToStat } from "./internalTypes.js";
 
 import * as fs from "fs/promises";
 import * as path from "path";
@@ -62,13 +62,14 @@ export async function fileExists(filePath: string): Promise<boolean> {
 	}
 	return true;
 };
-export function getFileNamesToRead(hooksPath: string, manifestPath?: string): string[][] {
-	const suffixes = [
-		createSuffixes(hooksPath, [".ts", ".js"])
+export function getFileNamesToStat(hooksPath: string, manifestPath?: string): FilesToStat {
+	return  [
+		createSuffixes(hooksPath, [".ts", ".js"]) as [string, string],
+		(manifestPath?
+			createSuffixes(manifestPath, [".webmanifest", ".json"])
+			: null
+		) as Nullable<[string, string]>
 	];
-	if (manifestPath != null) suffixes.push(createSuffixes(manifestPath, [".webmanifest", ".json"]));
-
-	return suffixes;
 
 	function createSuffixes(inputtedPath: string, suffixes: string[]): string[] {
 		let withoutSuffix: string;

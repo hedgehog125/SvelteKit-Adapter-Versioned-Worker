@@ -2,17 +2,21 @@ type HandleHook = (path: string, isPage: boolean, e: import("../builtInTypes.js"
 type Nullable<T> = T | null;
 
 declare module "sveltekit-adapter-versioned-worker/worker" {
-	export declare const ROUTES: string[];
-	export declare const PRECACHE: string[];
-	export declare const LAZY_CACHE: string[];
-	export declare const STORAGE_PREFIX: string;
-	export declare const VERSION: number;
-	export declare const VERSION_FOLDER: string;
-	export declare const VERSION_FILE_BATCH_SIZE: number;
-	export declare const MAX_VERSION_FILES: number;
-	export declare const BASE_URL: string;
+	export const ROUTES: string[];
+	
+	export const PRECACHE: string[];
+	export const LAZY_CACHE: string[];
+	export const STALE_LAZY: string[];
+	export const STRICT_LAZY: string[];
+	export const SEMI_LAZY: string[];
 
-	export * from "./builtInTypes.js";
+	export const STORAGE_PREFIX: string;
+	export const VERSION: number;
+	export const VERSION_FOLDER: string;
+	export const VERSION_FILE_BATCH_SIZE: number;
+	export const MAX_VERSION_FILES: number;
+	export const BASE_URL: string;
+
 	export type HandleHook = HandleHook;
 	export interface VersionFile {
 		formatVersion: number,

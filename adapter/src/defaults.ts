@@ -13,8 +13,8 @@ export function applyAdapterConfigDefaults(config: AdapterConfig): ResolvedAdapt
 		sortFile: null,
 		hooksFile: "hooks.worker.ts",
 		outputDir: "build",
-		workerDir: "sw",
-		workerFile: "sw.js",
+		outputVersionDir: "sw",
+		outputWorkerFileName: "sw.js",
 		warnOnViteConfigUnresolved: true
 	}) as ResolvedAdapterConfig;
 };
@@ -22,7 +22,7 @@ export function applyManifestPluginConfigDefaults(config: ManifestPluginConfig):
 	return applyDefaults<ManifestPluginConfig>(config, {
 		enable: true,
 		src: "manifest.webmanifest",
-		outputFile: "manifest.webmanifest"
+		outputFileName: "manifest.webmanifest"
 	}) as ResolvedManifestPluginConfig;
 };
 

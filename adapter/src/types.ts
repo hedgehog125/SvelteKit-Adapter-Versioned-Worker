@@ -36,12 +36,12 @@ export interface AdapterConfig {
 	/**
 	 * TODO
 	 */
-	workerFile?: string,
+	outputWorkerFileName?: string,
 
 	/**
 	 * TODO
 	 */
-	workerDir?: string,
+	outputVersionDir?: string,
 
 	/**
 	 * Enables and disables the warning when the Vite config can't be resolved due to the manifest generator plugin being missing 
@@ -79,7 +79,7 @@ export interface ManifestPluginConfig {
 	 * 
 	 * @default "manifest.webmanifest"
 	 */
-	outputFile?: string
+	outputFileName?: string
 };
 
 export type ResolvedAdapterConfig = Required<AdapterConfig>;

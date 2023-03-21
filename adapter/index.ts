@@ -42,7 +42,9 @@ import {
 	hashFiles,
 	writeWorkerEntry,
 	rollupBuild,
-	configureTypescript
+	configureTypescript,
+	createWorkerConstants,
+	generateVirtualModules
 } from "./src/subFunctions.js";
 import {
 	applyAdapterConfigDefaults,
@@ -130,7 +132,7 @@ export function adapter(inputConfig: AdapterConfig) : Adapter {
 			log.message("Processing build...");
 			const [categorizedFiles, staticFileHashes] =  await processBuild(configs, builder);
 			log.message("Building worker...");
-			await buildWorker(configs);
+			await buildWorker(categorizedFiles, builder, configs);
 			log.message("Finishing up...");
 			await finishUp();
 		}
@@ -214,10 +216,14 @@ async function processBuild(configs: AllConfigs, builder: Builder): Promise<[Cat
 
 	return [categorizedFiles, staticFileHashes];
 };
-async function buildWorker(configs: AllConfigs) {
+async function buildWorker(categorizedFiles: CategorizedBuildFiles, builder: Builder, configs: AllConfigs) {
 	const entryFilePath = await writeWorkerEntry(inputFiles, configs);
+
+	const workerConstants = createWorkerConstants(categorizedFiles, builder, lastInfo, configs);
+	const virtualModules = generateVirtualModules(inputFiles, workerConstants);
 	const typescriptConfig = await configureTypescript(configs);
-	await rollupBuild(entryFilePath, typescriptConfig, inputFiles, configs);
+
+	await rollupBuild(entryFilePath, typescriptConfig, virtualModules, configs);
 };
 async function finishUp() {
 
