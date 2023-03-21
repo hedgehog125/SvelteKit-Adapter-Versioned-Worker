@@ -15,7 +15,8 @@ export function applyAdapterConfigDefaults(config: AdapterConfig): ResolvedAdapt
 		outputDir: "build",
 		outputVersionDir: "sw",
 		outputWorkerFileName: "sw.js",
-		warnOnViteConfigUnresolved: true
+		warnOnViteConfigUnresolved: true,
+		redirectTrailingSlash: true
 	}) as ResolvedAdapterConfig;
 };
 export function applyManifestPluginConfigDefaults(config: ManifestPluginConfig): ResolvedManifestPluginConfig {

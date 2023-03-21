@@ -3,14 +3,12 @@ import type {
 	ResolvedManifestPluginConfig,
 	MinimalViteConfig,
 	
-	VersionedWorkerLogger,
 	LastInfoProviderConfigs,
 
 	FileSortMode,
 
 	Nullable,
-	AllConfigs,
-	AdapterConfig
+	AllConfigs
 } from "./types.js";
 import type {
 	UnprocessedInfoFile,
@@ -169,17 +167,18 @@ export async function listAllBuildFiles(configs: AllConfigs): Promise<string[]> 
 	const buildDirPath = path.join(minimalViteConfig.root, adapterConfig.outputDir);
 	const list = await rReadDir(buildDirPath);	
 
-	return list
+	return (list
 		.filter(fullFilePath => ! path.basename(fullFilePath).startsWith("."))
 		.map(fullFilePath => normalizePath(path.relative(buildDirPath, fullFilePath)))
-	;
+	);
 };
-export async function categorizeFilesIntoModes(completeFileList: string[], configs: AllConfigs): Promise<CategorizedBuildFiles> {
+export async function categorizeFilesIntoModes(completeFileList: string[], routeFiles: Set<string>, configs: AllConfigs): Promise<CategorizedBuildFiles> {
 	const { minimalViteConfig, adapterConfig } = configs;
 
 	const fileModes = await Promise.all(completeFileList.map(async (filePath: string): Promise<FileSortMode> => {
 		const mimeType = lookup(filePath) || null;
-
+		
+		if (routeFiles.has(filePath)) return "never-cache"; // Routes are stored separately
 		if (path.basename(filePath).startsWith(".")) return "never-cache";
 		if (filePath === minimalViteConfig.manifest) return "never-cache";
 		// if (filePath === svelteConfig.kit.appDir + "/version.json") return "never-cache"; // TODO: can this be excluded?
@@ -220,11 +219,13 @@ export async function categorizeFilesIntoModes(completeFileList: string[], confi
 		completeList
 	};
 };
-export async function hashFiles(filteredFileList: string[], viteBundle: Nullable<OutputBundle>, builder: Builder, configs: AllConfigs): Promise<Map<string, string>> {
+export async function hashFiles(
+	filteredFileList: string[], routeFiles: Set<string>,
+	viteBundle: Nullable<OutputBundle>, configs: AllConfigs
+): Promise<Map<string, string>> {
 	const { minimalViteConfig, adapterConfig } = configs;
 	const buildDirPath = path.join(minimalViteConfig.root, adapterConfig.outputDir);
 	
-	const routeFiles = new Set(Array.from(builder.prerendered.pages).map(([, { file }]) => file));
 	const fileHashes = await Promise.all(filteredFileList.map(async (filePath): Promise<Nullable<string>> => {
 		if (routeFiles.has(filePath)) return null; // They're assumed to have changed
 
@@ -265,19 +266,22 @@ export function createWorkerConstants(
 	lastInfo: InfoFile, configs: AllConfigs
 ): WorkerConstants {
 	const { adapterConfig, svelteConfig } = configs;
-	console.log(builder.prerendered.pages);
+
+	const routes = Array.from(builder.prerendered.pages).map(([ href ]) => href);
+
 	let storagePrefix = "TODO";
+
 	let baseURL = svelteConfig.kit.paths.base;
 	if (! baseURL.endsWith("/")) baseURL += "/";
 
 	return {
-		ROUTES: [],
+		ROUTES: routes,
 
-		PRECACHE: categorizedBuildFiles.precache,
-		LAZY_CACHE: categorizedBuildFiles.lazy,
-		STALE_LAZY: categorizedBuildFiles.staleLazy,
-		STRICT_LAZY: categorizedBuildFiles.strictLazy,
-		SEMI_LAZY: categorizedBuildFiles.semiLazy,
+		PRECACHE: addBase(categorizedBuildFiles.precache),
+		LAZY_CACHE: addBase(categorizedBuildFiles.lazy),
+		STALE_LAZY: addBase(categorizedBuildFiles.staleLazy),
+		STRICT_LAZY: addBase(categorizedBuildFiles.strictLazy),
+		SEMI_LAZY: addBase(categorizedBuildFiles.semiLazy),
 
 		STORAGE_PREFIX: storagePrefix,
 		VERSION: lastInfo.version + 1,
@@ -285,6 +289,10 @@ export function createWorkerConstants(
 		VERSION_FILE_BATCH_SIZE,
 		MAX_VERSION_FILES,
 		BASE_URL: baseURL
+	};
+
+	function addBase(filePaths: string[]): string[] {
+		return filePaths.map(filePath => `${svelteConfig.kit.paths.base}/${filePath}`);
 	};
 };
 export function generateVirtualModules(workerConstants: WorkerConstants): VirtualModuleSources {
@@ -315,7 +323,9 @@ export async function configureTypescript(configs: AllConfigs): Promise<Nullable
 export async function rollupBuild(
 	entryFilePath: string, typescriptConfig: Nullable<RollupTypescriptOptions>,
 	virtualModulesSources: VirtualModuleSources, inputFiles: InputFiles, configs: AllConfigs
-) {
+): Promise<Nullable<string>> {
+	// TODO: error handling. Return false if one occurs
+
 	const { adapterConfig, minimalViteConfig } = configs;
 
 	const tsPluginInstance = typescriptConfig? typescriptPlugin(typescriptConfig) : null;
@@ -346,7 +356,12 @@ export async function rollupBuild(
 			nodeResolve({
 				browser: true
 			}),
-			esbuild({ minify: true }),
+			esbuild({
+				minify: true,
+				sourceMap: false,
+				target: "es2020",
+				tsconfig: false
+			}),
 			tsPluginInstance
 		],
 
@@ -368,4 +383,6 @@ export async function rollupBuild(
 		format: "iife"
 	});
 	await bundle.close();
+
+	return null;
 };

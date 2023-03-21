@@ -13,7 +13,7 @@ import {
 } from "sveltekit-adapter-versioned-worker/worker";
 import * as hooks from "sveltekit-adapter-versioned-worker/internal/hooks";
 
-export type Nullable<T> = T | null;
+type Nullable<T> = T | null;
 
 const currentStorageName = STORAGE_PREFIX + VERSION;
 const COMPLETE_CACHE_LIST = new Set<string>();

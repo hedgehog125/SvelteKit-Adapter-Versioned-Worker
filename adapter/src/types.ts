@@ -51,7 +51,12 @@ export interface AdapterConfig {
 	 * 
 	 * @default true
 	 */
-	warnOnViteConfigUnresolved?: boolean
+	warnOnViteConfigUnresolved?: boolean,
+
+	/**
+	 * TODO
+	 */
+	redirectTrailingSlash?: boolean
 };
 export interface ManifestPluginConfig {
 	/**

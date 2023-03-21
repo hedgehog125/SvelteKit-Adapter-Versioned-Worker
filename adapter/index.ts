@@ -19,7 +19,8 @@ import type {
 import type {
 	InfoFile,
 	InputFiles,
-	CategorizedBuildFiles
+	CategorizedBuildFiles,
+	ProcessedBuild
 } from "./src/internalTypes.js";
 import type { Plugin } from "vite"; 
 import type { OutputOptions, OutputBundle } from "rollup";
@@ -130,7 +131,7 @@ export function adapter(inputConfig: AdapterConfig) : Adapter {
 			// I know the different write methods return arrays of files, but I don't feel like maintaining a fork of adapter-static just to do that. So listing the files in the directory it is
 
 			log.message("Processing build...");
-			const [categorizedFiles, staticFileHashes] =  await processBuild(configs, builder);
+			const [categorizedFiles, routeFiles, staticFileHashes] = await processBuild(configs, builder);
 			log.message("Building worker...");
 			await buildWorker(categorizedFiles, builder, configs);
 			log.message("Finishing up...");
@@ -209,12 +210,14 @@ async function init(config: ResolvedAdapterConfig) {
 
 	initTaskDone = true;
 };
-async function processBuild(configs: AllConfigs, builder: Builder): Promise<[CategorizedBuildFiles, Map<string, string>]> {	
+async function processBuild(configs: AllConfigs, builder: Builder): Promise<ProcessedBuild> {	
 	const fullFileList = await listAllBuildFiles(configs);
-	const categorizedFiles = await categorizeFilesIntoModes(fullFileList, configs);
-	const staticFileHashes = await hashFiles(categorizedFiles.completeList, viteBundle, builder, configs);
+	const routeFiles = new Set(Array.from(builder.prerendered.pages).map(([, { file }]) => file));
 
-	return [categorizedFiles, staticFileHashes];
+	const categorizedFiles = await categorizeFilesIntoModes(fullFileList, routeFiles, configs);
+	const staticFileHashes = await hashFiles(categorizedFiles.completeList, routeFiles, viteBundle, configs);
+
+	return [categorizedFiles, routeFiles, staticFileHashes];
 };
 async function buildWorker(categorizedFiles: CategorizedBuildFiles, builder: Builder, configs: AllConfigs) {
 	const entryFilePath = await writeWorkerEntry(inputFiles, configs);
@@ -223,7 +226,11 @@ async function buildWorker(categorizedFiles: CategorizedBuildFiles, builder: Bui
 	const virtualModules = generateVirtualModules(workerConstants);
 	const typescriptConfig = await configureTypescript(configs);
 
-	await rollupBuild(entryFilePath, typescriptConfig, virtualModules, inputFiles, configs);
+	const error = await rollupBuild(entryFilePath, typescriptConfig, virtualModules, inputFiles, configs);
+	await fs.rm(entryFilePath);
+	if (error) {
+		log.error(`Error while building the service worker:\n${error}`);
+	}
 };
 async function finishUp() {
 
