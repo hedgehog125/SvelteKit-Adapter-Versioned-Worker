@@ -16,11 +16,12 @@
 		"svelte": "^3.55.1"
 	},
 	"devDependencies": {
-		"@sveltejs/kit": "^1.8.3",
+		"@sveltejs/kit": "^1.19.0",
 		"@sveltejs/package": "^1.0.0",
 		"@types/html-minifier": "^4.0.2",
 		"cross-env": "^7.0.3",
 		"html-minifier": "^4.0.0",
+		"idb": "^7.1.1",
 		"svelte-check": "^3.0.1",
 		"tslib": "^2.4.1",
 		"typescript": "^4.9.3",

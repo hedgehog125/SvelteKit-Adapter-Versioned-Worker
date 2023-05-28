@@ -8,8 +8,12 @@ import type {
 	FileSortMode,
 
 	Nullable,
-	AllConfigs
+	AllConfigs,
+	ViteConfig,
+	AdapterConfig,
+	ManifestProcessorConfigs
 } from "./types.js";
+import type { WebAppManifest } from "./manifestTypes.js";
 import type {
 	UnprocessedInfoFile,
 	InfoFile,
@@ -92,27 +96,28 @@ export function processInfoFile(infoFile: UnprocessedInfoFile): InfoFile {
 };
 
 export async function getInputFiles(
-	adapterConfig: ResolvedAdapterConfig, manifestConfig: Nullable<ResolvedManifestPluginConfig>,
+	adapterConfig: Nullable<ResolvedAdapterConfig>, manifestConfig: Nullable<ResolvedManifestPluginConfig>,
 	viteConfig: MinimalViteConfig
 ): Promise<InputFilesContents> {
 	// I don't really want to flatten these so this is a bit overly complicated
 	const asArrays = await Promise.all([
-		(async (): Promise<boolean[]> => {
+		(async (): Promise<[boolean, boolean]> => {
+			if (adapterConfig == null) return [false, false]; // Only the case in dev mode, in which case these values aren't used
+
 			const fileList = createSuffixes(adapterConfig.hooksFile, [".ts", ".js"]);
 			const contents = await readGroup(fileList, true);
 			return [contents[0] != null, contents[1] != null];
 		})(),
-
 		(async (): Promise<Nullable<
-			Nullable<string>[]
+			[Nullable<string>, Nullable<string>]
 		>> => {
 			if (manifestConfig == null) return null;
 
-			const fileList = createSuffixes(adapterConfig.hooksFile, [".webmanifest", ".json"]);
-			return await readGroup(fileList);
+			const fileList = createSuffixes(manifestConfig.src, [".webmanifest", ".json"]);
+			return await readGroup(fileList) as [Nullable<string>, Nullable<string>];
 		})()
 	]);
-	return asArrays as InputFilesContents;
+	return asArrays;
 
 	function readGroup(fileList: string[], justStat = false): Promise<Nullable<string>[]> {
 		return Promise.all(fileList.map(async (fileName): Promise<Nullable<string>> => {
@@ -136,21 +141,26 @@ export function checkInputFiles(inputFileContents: InputFilesContents) {
 		}
 	}
 };
-export function getInputFilesConfiguration(inputFileContents: InputFilesContents, config: ResolvedAdapterConfig): InputFiles {
+export function getInputFilesConfiguration(
+	inputFileContents: InputFilesContents,
+	config: Nullable<ResolvedAdapterConfig>
+): InputFiles {
 	const [existingHooksFiles, manifestFilesContents] = inputFileContents;
 
+	let hooksFileName: Nullable<string> = null;
 	const hooksIsTS = existingHooksFiles[0]; // The ts one exists
-	const hooksFileNames = createSuffixes(config.hooksFile, [".ts", ".js"]);
-	let hooksFileName = null;
-	if (hooksIsTS) {
-		hooksFileName = hooksFileNames[0];
+	if (config) { // The hooks file isn't used in dev mode
+		const hooksFileNames = createSuffixes(config.hooksFile, [".ts", ".js"]);
+		if (hooksIsTS) {
+			hooksFileName = hooksFileNames[0];
+		}
+		else if (hooksFileNames[1]) hooksFileName = hooksFileNames[1];
 	}
-	else if (hooksFileNames[1]) hooksFileName = hooksFileNames[1];
 
 	const manifestJSONExtUsed = manifestFilesContents?.[1] != null;
 	let manifestSource = null;
 	if (manifestFilesContents) { // The plugin is being used
-		manifestSource =  manifestJSONExtUsed? manifestFilesContents[1] : manifestFilesContents[0];
+		manifestSource = manifestJSONExtUsed? manifestFilesContents[1] : manifestFilesContents[0];
 	}
 
 	return {
@@ -385,4 +395,47 @@ export async function rollupBuild(
 	await bundle.close();
 
 	return null;
+};
+
+export async function getManifestSource(
+	inputFiles: InputFiles, manifestPluginConfig: ResolvedManifestPluginConfig,
+	adapterConfig: Nullable<ResolvedAdapterConfig>, viteConfig: MinimalViteConfig
+): Promise<Nullable<string>> {
+	if (inputFiles == null) { // Dev mode
+		const inputFileContents = await getInputFiles(adapterConfig, manifestPluginConfig, viteConfig);
+		checkInputFiles(inputFileContents);
+		return getInputFilesConfiguration(inputFileContents, adapterConfig).manifestSource;
+	}
+	else return inputFiles.manifestSource;
+};
+export async function processManifest(source: string, configs: ManifestProcessorConfigs): Promise<Nullable<string>> {
+	let parsed: object;
+	try {
+		parsed = JSON.parse(source);
+	}
+	catch (error) {
+		log.error(`Couldn't parse web app manifest. Error:\n${error}`);
+		return null;
+	}
+
+	const processed = await configs.manifestPluginConfig.process(parsed, configs);
+	return typeof processed === "string"? processed : JSON.stringify(processed);
+};
+/**
+ * TODO
+*/
+// Re-exported by index.ts
+export function defaultManifestProcessor(parsed: object, _: ManifestProcessorConfigs): object {
+	const asManifest = parsed as WebAppManifest;
+
+	/*
+		Relative paths are already supported by the browser, so there isn't much to do here.
+		They're resolved relative to the manifest
+	*/
+
+	if (asManifest.scope == null) asManifest.scope = "";
+	if (asManifest.start_url == null) asManifest.start_url = "";
+
+
+	return asManifest;
 };

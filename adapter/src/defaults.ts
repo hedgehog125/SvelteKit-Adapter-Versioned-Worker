@@ -5,6 +5,7 @@ import type {
 	ResolvedManifestPluginConfig
 } from "./types.js";
 import { requiredProperty } from "./helper.js";
+import { defaultManifestProcessor } from "./subFunctions.js";
 
 export function applyAdapterConfigDefaults(config: AdapterConfig): ResolvedAdapterConfig {
 	return applyDefaults<AdapterConfig>(config, {
@@ -23,7 +24,8 @@ export function applyManifestPluginConfigDefaults(config: ManifestPluginConfig):
 	return applyDefaults<ManifestPluginConfig>(config, {
 		enable: true,
 		src: "manifest.webmanifest",
-		outputFileName: "manifest.webmanifest"
+		outputFileName: "manifest.webmanifest",
+		process: defaultManifestProcessor
 	}) as ResolvedManifestPluginConfig;
 };
 

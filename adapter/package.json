@@ -15,7 +15,7 @@
 		"test": "echo \"Error: no test specified\" && exit 1"
 	},
 	"devDependencies": {
-		"@sveltejs/kit": "^1.7.1",
+		"@sveltejs/kit": "^1.19.0",
 		"@types/mime-types": "^2.1.1",
 		"@types/node": "^18.13.0",
 		"@types/recursive-readdir": "^2.2.1"
@@ -29,6 +29,7 @@
 		"@rollup/plugin-typescript": "^11.0.0",
 		"@rollup/plugin-virtual": "^3.0.1",
 		"@sveltejs/adapter-static": "^2.0.1",
+		"@types/web-app-manifest": "^1.0.3",
 		"kleur": "^4.1.5",
 		"mime-types": "^2.1.35",
 		"recursive-readdir": "^2.2.3",

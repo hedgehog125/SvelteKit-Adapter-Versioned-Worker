@@ -1,3 +1,6 @@
+Generate version files
+Update info file
+
 # Bugs
 Handle worker build errors somehow. Should the info file still be generated for the sake of readLast?
 Send a different error if offline and the page isn't known
@@ -7,6 +10,7 @@ Don't hardcode sw.js in ServiceWorker.svelte
 
 # Features
 Implement the different cache strategies into the worker
+JavaScript support
 How does this plugin work when deploying to Vercel? Since that changes how the static adapter works
 Add a way to detect when a response is stale. 
 Configuring the static adapter

@@ -8,14 +8,16 @@ import type {
 	
 	VersionedWorkerLogger,
 	LastInfoProvider,
+	ManifestProcessor,
 	LastInfoProviderConfigs,
 
 	AllConfigs,
+	ViteConfig,
 
 	Nullable,
-	ViteConfig,
-	SvelteConfig
+	ManifestProcessorConfigs
 } from "./src/types.js";
+import type { WebAppManifest } from "web-app-manifest";
 import type {
 	InfoFile,
 	InputFiles,
@@ -45,7 +47,11 @@ import {
 	rollupBuild,
 	configureTypescript,
 	createWorkerConstants,
-	generateVirtualModules
+	generateVirtualModules,
+	
+	getManifestSource,
+	defaultManifestProcessor,
+	processManifest
 } from "./src/subFunctions.js";
 import {
 	applyAdapterConfigDefaults,
@@ -67,10 +73,14 @@ export {
 	
 	VersionedWorkerLogger,
 	LastInfoProvider,
+	ManifestProcessor,
 	LastInfoProviderConfigs,
 	AllConfigs,
 
-	Nullable
+	Nullable,
+	WebAppManifest,
+
+	defaultManifestProcessor
 };
 
 let viteConfig: Nullable<ViteConfig> = null; // From manifestGenerator
@@ -150,22 +160,46 @@ export function manifestGenerator(inputConfig: ManifestPluginConfig = {}): Plugi
 	usingManifestPlugin = true;
 
 	manifestPluginConfig = applyManifestPluginConfigDefaults(inputConfig);
+	const config = manifestPluginConfig;
 
 	return {
 		name: "vite-plugin-vw-manifest",
 		configResolved(providedViteConfig) {
 			viteConfig = providedViteConfig;
+			isDev = ! viteConfig.isProduction;
+			if (isDev) minimalViteConfig = {
+				root: viteConfig.root,
+				manifest: viteConfig.build.manifest
+			};
 
 			log.verbose = viteConfig.logLevel === "info";
 			isSSR = !!viteConfig.build.ssr;
-			if (isSSR) return;
-			isDev = ! viteConfig.isProduction;
 		},
 		async buildStart() {
 			if (isSSR) return;
 			if (isDev) return;
 
 			if (adapterConfig != null) initTask = init(adapterConfig);
+
+			const manifestContents = await generateManifest();
+			if (manifestContents != null) {
+				this.emitFile({
+					type: "asset",
+					fileName: config.outputFileName,
+					source: manifestContents
+				});
+			}
+		},
+		configureServer(server) { // Dev only
+			server.middlewares.use(async (req, res, next) => {
+				if (req.url != "/" + config.outputFileName) return next();
+
+				const contents = await generateManifest();
+				if (contents == null) return next();
+
+				res.setHeader("Content-Type", "application/manifest+json");
+				res.end(contents, "utf-8");
+			});
 		},
 		generateBundle(_: OutputOptions, _bundle: OutputBundle) {
 			viteBundle = _bundle;
@@ -173,7 +207,7 @@ export function manifestGenerator(inputConfig: ManifestPluginConfig = {}): Plugi
 	};
 };
 
-async function init(config: ResolvedAdapterConfig) {
+async function init(config: ResolvedAdapterConfig) { // Not run in dev mode
 	minimalViteConfig = viteConfig?
 		{
 			root: viteConfig.root,
@@ -210,6 +244,7 @@ async function init(config: ResolvedAdapterConfig) {
 
 	initTaskDone = true;
 };
+
 async function processBuild(configs: AllConfigs, builder: Builder): Promise<ProcessedBuild> {	
 	const fullFileList = await listAllBuildFiles(configs);
 	const routeFiles = new Set(Array.from(builder.prerendered.pages).map(([, { file }]) => file));
@@ -234,6 +269,25 @@ async function buildWorker(categorizedFiles: CategorizedBuildFiles, builder: Bui
 };
 async function finishUp() {
 
+};
+
+/* Manifest Generation */
+
+async function generateManifest(): Promise<Nullable<string>> {
+	const configs: ManifestProcessorConfigs = {
+		viteConfig: viteConfig as ViteConfig, // It's only null when the plugin isn't being used
+		minimalViteConfig,
+		adapterConfig,
+		manifestPluginConfig: manifestPluginConfig as ResolvedManifestPluginConfig // Same here
+	};
+
+	const source = await getManifestSource(
+		inputFiles, manifestPluginConfig as ResolvedManifestPluginConfig, // And here
+		adapterConfig, minimalViteConfig
+	);
+	if (source == null) return null;
+
+	return await processManifest(source, configs);
 };
 
 /**

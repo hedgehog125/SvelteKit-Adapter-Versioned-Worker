@@ -84,7 +84,12 @@ export interface ManifestPluginConfig {
 	 * 
 	 * @default "manifest.webmanifest"
 	 */
-	outputFileName?: string
+	outputFileName?: string,
+
+	/**
+	 * TODO
+	 */
+	process?: ManifestProcessor
 };
 
 export type ResolvedAdapterConfig = Required<AdapterConfig>;
@@ -110,6 +115,14 @@ export interface LastInfoProviderConfigs {
 	manifestPluginConfig: Nullable<ResolvedManifestPluginConfig>
 };
 export type FileSorter = (normalizedFilePath: string, mimeType: Nullable<string>, configs: AllConfigs) => FileSortMode | Promise<FileSortMode>;
+export type ManifestProcessor = (parsed: object, configs: ManifestProcessorConfigs) => Promise<string | object> | string | object;
+export interface ManifestProcessorConfigs {
+	viteConfig: ViteConfig,
+	minimalViteConfig: MinimalViteConfig,
+	adapterConfig: Nullable<ResolvedAdapterConfig>,
+	manifestPluginConfig: ResolvedManifestPluginConfig
+};
+
 /**
  * TODO
  * "pre-cache" resources should always be available as they're downloaded during the worker install. They're also updated with the new worker (if they've actually changed).
