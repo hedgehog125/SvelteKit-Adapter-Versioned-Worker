@@ -1,4 +1,5 @@
 import type { IDBPDatabase } from "idb";
+import type { HandleHook } from "internal-adapter/worker";
 
 import { openDB } from "idb";
 
@@ -14,7 +15,7 @@ const initTask = (async () => {
 	});
 })();
 
-export async function handle(path: string) : Promise<Nullable<Response>> {
+export const handle = (async path => {
 	if (path === "hidden-page") {
 		await initTask;
 
@@ -23,4 +24,4 @@ export async function handle(path: string) : Promise<Nullable<Response>> {
 		return new Response(count.toString());
 	}
 	return null;
-};
+}) satisfies HandleHook;

@@ -1,4 +1,4 @@
-import type { VersionFile } from "sveltekit-adapter-versioned-worker/worker";
+import type { VersionFile, MessageEventData } from "sveltekit-adapter-versioned-worker/worker";
 
 import {
 	ROUTES,
@@ -26,7 +26,7 @@ const COMPLETE_CACHE_LIST = new Set<string>();
 		for (const href of hrefs) {
 			COMPLETE_CACHE_LIST.add(href);
 		}
-	};
+	}
 }
 
 addEventListener("install", e => {
@@ -133,8 +133,14 @@ addEventListener("fetch", e => {
         })()
     );
 });
-addEventListener("message", ({ data }) => {
-	if (data === "skipWaiting") data = { type: "skipWaiting" }; // Backwards compatibility shenanigans
+interface MessageEventWithTypePropBase {
+	data: MessageEventData | string
+}
+addEventListener("message", ({ data }: MessageEventWithTypePropBase) => {
+	if (typeof data === "string") {
+		if (data === "skipWaiting") data = { type: "skipWaiting" }; // Backwards compatibility shenanigans
+		else return; // Invalid
+	}
 
 	if (data.type === "skipWaiting") skipWaiting();
 });
@@ -162,7 +168,7 @@ function parseUpdatedList(contents: string): VersionFile {
 		formatVersion: formatSupported? 2 : -1,
 		updated: updated
 	};
-};
+}
 async function getInstalled(): Promise<number[]> {
 	let installedVersions = [];
 
@@ -178,7 +184,7 @@ async function getInstalled(): Promise<number[]> {
 	
 	installedVersions = installedVersions.sort((n1, n2) => n2 - n1); // Newest (highest) first
 	return installedVersions;
-};
+}
 async function getUpdated(installedVersions: number[]): Promise< Nullable<Set<string> > > {
 	if (installedVersions.length === 0) return null; // Clean install
 	const newestInstalled = Math.max(...installedVersions);
@@ -219,4 +225,4 @@ async function getUpdated(installedVersions: number[]): Promise< Nullable<Set<st
 		}
 	}
 	return updated;
-};
+}

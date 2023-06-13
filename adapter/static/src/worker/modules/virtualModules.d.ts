@@ -21,9 +21,17 @@ declare module "sveltekit-adapter-versioned-worker/worker" {
 	export interface VersionFile {
 		formatVersion: number,
 		updated: string[][]
-	};
-};
+	}
+
+	export interface MessageEventData {
+		type: string,
+		[property: string]: unknown
+	}
+	export interface MessageEventWithTypeProp extends MessageEvent {
+		data: MessageEventData
+	}
+}
 
 declare module "sveltekit-adapter-versioned-worker/internal/hooks" {
 	export declare const handle: Nullable<HandleHook>;
-};
+}

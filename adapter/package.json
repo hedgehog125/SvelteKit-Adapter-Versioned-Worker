@@ -1,13 +1,28 @@
 {
 	"name": "internal-adapter",
 	"version": "1.0.0",
-	"main": "build/index.js",
-	"types": "build/index.d.ts",
 	"files": [
 		"build/*",
 		"static",
-		"!static/tsconfig.json"
+		"!static/tsconfig.json",
+		"worker.js",
+		"worker.d.ts"
 	],
+	"module": "./build/index.js",
+  	"types": "./build/index.d.ts",
+	"exports": {
+		"./package.json": "./package.json",
+		".": {
+			"types": "./build/index.d.ts",
+			"import": "./build/index.js",
+			"module": "./build/index.js"
+		},
+		"./worker": {
+			"types": "./worker.d.ts",
+			"import": "./worker.js",
+			"module": "./worker.js"
+		}
+	},
 	"scripts": {
 		"build": "tsc & npm run buildTemplates",
 		"dev": "tsc --watch",
@@ -37,6 +52,6 @@
 		"rollup-plugin-esbuild": "^5.0.0",
 		"tslib": "^2.5.0",
 		"typescript": "^5.0.2",
-		"vite": "^4.1.1"
+		"vite": "^4.3.9"
 	}
 }

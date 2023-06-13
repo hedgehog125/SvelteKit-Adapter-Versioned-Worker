@@ -5,18 +5,18 @@ interface InfoFileBase {
 	version: number,
 	versions: InfoFileVersion[],
 	hashes: Record<string, string> | Map<string, string>
-};
+}
 export interface UnprocessedInfoFile extends InfoFileBase {
 	hashes: Record<string, string>
-};
+}
 export interface InfoFile extends InfoFileBase {
 	hashes: Map<string, string>
-};
+}
 
 export interface InfoFileVersion {
 	formatVersion: number,
 	updated: string[][]
-};
+}
 
 /**
  * The first tuple is if each extension exists or not (ts followed by js).
@@ -31,7 +31,7 @@ export interface InputFiles {
 	hooksIsTS: boolean,
 
 	manifestSource: Nullable<string>
-};
+}
 
 export interface CategorizedBuildFiles {
 	precache: string[],
@@ -42,7 +42,7 @@ export interface CategorizedBuildFiles {
 
 	completeList: string[]
 	// never-cache just isn't included
-};
+}
 export type ProcessedBuild = [CategorizedBuildFiles, Set<string>, Map<string, string>];
 
 export interface WorkerConstants {
@@ -60,7 +60,7 @@ export interface WorkerConstants {
 	VERSION_FILE_BATCH_SIZE: number,
 	MAX_VERSION_FILES: number,
 	BASE_URL: string
-};
+}
 
 /**
  * First item is the constants

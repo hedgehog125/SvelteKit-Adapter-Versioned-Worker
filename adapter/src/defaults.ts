@@ -19,7 +19,7 @@ export function applyAdapterConfigDefaults(config: AdapterConfig): ResolvedAdapt
 		warnOnViteConfigUnresolved: true,
 		redirectTrailingSlash: true
 	}) as ResolvedAdapterConfig;
-};
+}
 export function applyManifestPluginConfigDefaults(config: ManifestPluginConfig): ResolvedManifestPluginConfig {
 	return applyDefaults<ManifestPluginConfig>(config, {
 		enable: true,
@@ -27,7 +27,7 @@ export function applyManifestPluginConfigDefaults(config: ManifestPluginConfig):
 		outputFileName: "manifest.webmanifest",
 		process: defaultManifestProcessor
 	}) as ResolvedManifestPluginConfig;
-};
+}
 
 function applyDefaults<T>(source: T, defaults: Required<T>): Required<T> {
 	const obj = source as Record<string, any>;
@@ -36,4 +36,4 @@ function applyDefaults<T>(source: T, defaults: Required<T>): Required<T> {
 	}
 
 	return obj as Required<T>;
-};
+}

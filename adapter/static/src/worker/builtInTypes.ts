@@ -1,33 +1,32 @@
-// Credit: Tiernan Cridland under ISC license: https://gist.github.com/ithinkihaveacat/227bfe8aa81328c5d64ec48f4e4df8e5
-// I just removed some types that are now built-in, and adapted it to a d.ts file
+// Adapted from https://gist.github.com/ithinkihaveacat/227bfe8aa81328c5d64ec48f4e4df8e5 by Tiernan Cridland under ISC license:
 
 declare interface ExtendableEvent extends Event {
 	waitUntil(fn: Promise<any>): void;
-};
+}
 declare interface ServiceWorkerNotificationOptions {
 	tag?: string;
-};
+}
 declare interface CacheStorageOptions {
 	cacheName?: string;
 	ignoreMethod?: boolean;
 	ignoreSearch?: boolean;
 	ignoreVary?: boolean;
-};
+}
 declare interface Client {
 	frameType: ClientFrameType;
 	id: string;
 	url: string;
-};
+}
 declare interface Clients {
-	claim(): Promise<any>;
+	claim(): Promise<void>;
 	get(id: string): Promise<Client>;
 	matchAll(options?: ClientMatchOptions): Promise<Array<Client>>;
 	openWindow(url: string): Promise<WindowClient>;
-};
+}
 declare interface ClientMatchOptions {
 	includeUncontrolled?: boolean;
 	type?: ClientMatchTypes;
-};
+}
 declare interface WindowClient {
 	focused: boolean;
 	visibilityState: WindowClientState;
@@ -42,29 +41,29 @@ declare type WindowClientState = "hidden" | "visible" | "prerender" | "unloaded"
 declare interface FetchEvent extends ExtendableEvent { // Slight fix I made: extends ExtendableEvent rather than just Event
 	request: Request;
 	respondWith(response: Promise<Response>|Response): Promise<Response>;
-};
+}
 declare interface InstallEvent extends ExtendableEvent {
 	activeWorker: ServiceWorker
-};
-declare interface ActivateEvent extends ExtendableEvent { };
+}
+declare interface ActivateEvent extends ExtendableEvent { }
 
 declare interface NotificationEvent {
 	action: string;
 	notification: Notification;
-};
+}
 declare interface PushMessageData {
 	arrayBuffer(): ArrayBuffer;
 	blob(): Blob;
-	json(): any;
+	json(): unknown;
 	text(): string;
-};
+}
 interface PushEvent extends ExtendableEvent {
 	data: PushMessageData;
-};
+}
 declare interface SyncEvent extends Event {
 	lastChance: boolean;
 	tag: string;
-};
+}
 
 declare var clients: Clients;
 declare var onactivate: (event?: ExtendableEvent) => any;

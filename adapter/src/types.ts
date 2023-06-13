@@ -57,7 +57,7 @@ export interface AdapterConfig {
 	 * TODO
 	 */
 	redirectTrailingSlash?: boolean
-};
+}
 export interface ManifestPluginConfig {
 	/**
 	 * Enables and disables this manifest generator plugin. If you can, it's best to disable the plugin this way as it still helps the adapter work better, even when disabled
@@ -90,7 +90,7 @@ export interface ManifestPluginConfig {
 	 * TODO
 	 */
 	process?: ManifestProcessor
-};
+}
 
 export type ResolvedAdapterConfig = Required<AdapterConfig>;
 export type ResolvedManifestPluginConfig = Required<ManifestPluginConfig>;
@@ -105,7 +105,7 @@ export interface VersionedWorkerLogger {
 	info(msg: string): void,
 	blankLine(): void,
 	verbose: boolean
-};
+}
 
 export type LastInfoProvider = (log: VersionedWorkerLogger, configs: LastInfoProviderConfigs) => Promise<Nullable<string>> | Nullable<string>;
 export interface LastInfoProviderConfigs {
@@ -113,7 +113,7 @@ export interface LastInfoProviderConfigs {
 	minimalViteConfig: MinimalViteConfig,
 	adapterConfig: ResolvedAdapterConfig,
 	manifestPluginConfig: Nullable<ResolvedManifestPluginConfig>
-};
+}
 export type FileSorter = (normalizedFilePath: string, mimeType: Nullable<string>, configs: AllConfigs) => FileSortMode | Promise<FileSortMode>;
 export type ManifestProcessor = (parsed: object, configs: ManifestProcessorConfigs) => Promise<string | object> | string | object;
 export interface ManifestProcessorConfigs {
@@ -121,7 +121,7 @@ export interface ManifestProcessorConfigs {
 	minimalViteConfig: MinimalViteConfig,
 	adapterConfig: Nullable<ResolvedAdapterConfig>,
 	manifestPluginConfig: ResolvedManifestPluginConfig
-};
+}
 
 /**
  * TODO
@@ -135,15 +135,15 @@ export interface ManifestProcessorConfigs {
 export type FileSortMode = "pre-cache" | "lazy" | "stale-lazy" | "strict-lazy" | "semi-lazy" | "never-cache";
 export interface AllConfigs extends LastInfoProviderConfigs {
 	svelteConfig: SvelteConfig
-};
+}
 export interface FileInfo {
 	mime: Nullable<string>,
 	isStatic: boolean,
 	isRoute: boolean,
 	viteInfo: OutputAsset | OutputChunk
-};
+}
 
 export interface MinimalViteConfig {
 	root: string,
 	manifest: string | boolean
-};
+}

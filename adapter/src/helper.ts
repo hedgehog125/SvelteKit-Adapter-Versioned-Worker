@@ -12,7 +12,7 @@ export class VersionedWorkerError extends Error {
 	constructor(message: string) {
 		super(`VersionedWorkerError: ${message}`);
 	}
-};
+}
 export function createLogger(verbose: boolean): VersionedWorkerLogger { // Credit: largely adapted from SvelteKit's logger
 	return {
 		message(msg: string) {
@@ -50,8 +50,8 @@ export function createLogger(verbose: boolean): VersionedWorkerLogger { // Credi
 
 	function indentAndPrefix(msg: string): string {
 		return `${colors.bold().cyan("Versioned-Worker")}: ${msg}`.replace(/^/gm, "  "); // Indents each line
-	};
-};
+	}
+}
 
 export async function fileExists(filePath: string): Promise<boolean> {
 	try {
@@ -61,7 +61,7 @@ export async function fileExists(filePath: string): Promise<boolean> {
 		return false;
 	}
 	return true;
-};
+}
 export function createSuffixes(inputtedPath: string, suffixes: string[]): string[] {
 	let withoutSuffix: string;
 	for (let suffix of suffixes) {
@@ -72,7 +72,7 @@ export function createSuffixes(inputtedPath: string, suffixes: string[]): string
 	}
 
 	return suffixes.map(suffix => withoutSuffix + suffix);
-};
+}
 export async function findUniqueFileName(dir: string, baseName: string, extension: string): Promise<string> {
 	const characters = "abcdefghijklmnopqrstuvwxyz0123456789";
 
@@ -82,13 +82,13 @@ export async function findUniqueFileName(dir: string, baseName: string, extensio
 
 		if (! (await fileExists(path.join(dir, fileName)))) return fileName;
 	}
-};
+}
 export function randomItemOfString(str: string): string {
 	return str[Math.floor(Math.random() * str.length)];
-};
+}
 export function randomItemOfArray<T>(arr: T[]): T {
 	return arr[Math.floor(Math.random() * arr.length)];
-};
+}
 
 export const adapterFilesPath = path.join(dirname(fileURLToPath(import.meta.url)), "../../");
 
@@ -99,7 +99,7 @@ export function createInitialInfo(): UnprocessedInfoFile {
 		versions: [],
 		hashes: {}
 	};
-};
+}
 
 /**
  * This is a slightly wacky method that allows you to use undefined where you normally wouldn't be able to. This is mainly used so defaults don't need to be specified for required config properties
@@ -108,13 +108,13 @@ export function createInitialInfo(): UnprocessedInfoFile {
  */
 export function requiredProperty<T>(): T {
 	return undefined as any as T;
-};
+}
 
 export function hash(data: string | Buffer): string {
 	const hasher = crypto.createHash("md5");
 	hasher.update(data);
 	return hasher.digest("hex");
-};
+}
 export function removeNulls<T>(arr: T[]): T[] {
 	return arr.filter(item => item != null);	
-};
+}

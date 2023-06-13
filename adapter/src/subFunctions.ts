@@ -26,7 +26,7 @@ import type {
 	VirtualModuleSources,
 	WorkerConstants
 } from "./internalTypes.js";
-import type { OutputBundle, RollupLog, WarningHandler } from "rollup";
+import type { LoggingFunction, OutputBundle, RollupLog } from "rollup";
 import type { Builder } from "@sveltejs/kit";
 import type { RollupTypescriptOptions } from "@rollup/plugin-typescript";
 
@@ -68,17 +68,28 @@ export async function getLastInfo(configs: LastInfoProviderConfigs): Promise<Unp
 		throw new VersionedWorkerError(`Couldn't parse the info file from the last build. Contents:\n${fileContents}`);
 	}
 	return parsed;
-};
-export function checkInfoFile(infoFile: UnprocessedInfoFile) {
-	if (infoFile.formatVersion !== 2) {
-		if (infoFile.formatVersion === 1) {
+}
+export function updateInfoFileIfNeeded(infoFile: UnprocessedInfoFile) {
+	let formatVersion = infoFile.formatVersion;
+	if (formatVersion !== 3) {
+		if (formatVersion === 1) {
 			throw new VersionedWorkerError("Please release an update using the previous SvelteKit-Plugin-Versioned-Worker before using this adapter, as only that supports upgrading info files from version 1 to 2.");
 		}
+		else if (formatVersion === 2) {
+			// Trim the versions over 100, removing the oldest first
+			const maxVersions = VERSION_FILE_BATCH_SIZE * MAX_VERSION_FILES;
+			if (infoFile.versions.length > maxVersions) {
+				infoFile.versions.splice(0, infoFile.versions.length - maxVersions);
+			}
+
+			formatVersion = 3;
+			infoFile.formatVersion = formatVersion;
+		}
 		else {
-			throw new VersionedWorkerError(`Unsupported version ${infoFile.formatVersion} in the info file from the last build.`);
+			throw new VersionedWorkerError(`Unsupported version ${formatVersion} in the info file from the last build.`);
 		}
 	}
-};
+}
 export function processInfoFile(infoFile: UnprocessedInfoFile): InfoFile {
 	const {
 		formatVersion,
@@ -93,7 +104,7 @@ export function processInfoFile(infoFile: UnprocessedInfoFile): InfoFile {
 		versions,
 		hashes: new Map(Object.entries(hashes))
 	};
-};
+}
 
 export async function getInputFiles(
 	adapterConfig: Nullable<ResolvedAdapterConfig>, manifestConfig: Nullable<ResolvedManifestPluginConfig>,
@@ -127,8 +138,8 @@ export async function getInputFiles(
 			if (justStat) return "";
 			return await fs.readFile(filePath, { encoding: "utf8" });
 		}));
-	};
-};
+	}
+}
 export function checkInputFiles(inputFileContents: InputFilesContents) {
 	const [existingHooksFiles, manifestFilesContents] = inputFileContents;
 
@@ -140,7 +151,7 @@ export function checkInputFiles(inputFileContents: InputFilesContents) {
 			throw new VersionedWorkerError("You can only have 1 input web manifest file. Please delete either the .json or .webmanifest one.");
 		}
 	}
-};
+}
 export function getInputFilesConfiguration(
 	inputFileContents: InputFilesContents,
 	config: Nullable<ResolvedAdapterConfig>
@@ -169,7 +180,7 @@ export function getInputFilesConfiguration(
 
 		manifestSource
 	};
-};
+}
 
 export async function listAllBuildFiles(configs: AllConfigs): Promise<string[]> {
 	const { minimalViteConfig, adapterConfig } = configs;
@@ -181,7 +192,7 @@ export async function listAllBuildFiles(configs: AllConfigs): Promise<string[]> 
 		.filter(fullFilePath => ! path.basename(fullFilePath).startsWith("."))
 		.map(fullFilePath => normalizePath(path.relative(buildDirPath, fullFilePath)))
 	);
-};
+}
 export async function categorizeFilesIntoModes(completeFileList: string[], routeFiles: Set<string>, configs: AllConfigs): Promise<CategorizedBuildFiles> {
 	const { minimalViteConfig, adapterConfig } = configs;
 
@@ -228,7 +239,7 @@ export async function categorizeFilesIntoModes(completeFileList: string[], route
 
 		completeList
 	};
-};
+}
 export async function hashFiles(
 	filteredFileList: string[], routeFiles: Set<string>,
 	viteBundle: Nullable<OutputBundle>, configs: AllConfigs
@@ -255,7 +266,7 @@ export async function hashFiles(
 		asMap.set(fileName, fileHash);
 	}
 	return asMap;
-};
+}
 
 export async function writeWorkerEntry(inputFiles: InputFiles, configs: AllConfigs): Promise<string> {
 	const { minimalViteConfig, adapterConfig } = configs;
@@ -270,7 +281,7 @@ export async function writeWorkerEntry(inputFiles: InputFiles, configs: AllConfi
 	);
 	await fs.copyFile(entrySourcePath, entryPath);
 	return entryPath;
-};
+}
 export function createWorkerConstants(
 	categorizedBuildFiles: CategorizedBuildFiles, builder: Builder,
 	lastInfo: InfoFile, configs: AllConfigs
@@ -303,13 +314,13 @@ export function createWorkerConstants(
 
 	function addBase(filePaths: string[]): string[] {
 		return filePaths.map(filePath => `${svelteConfig.kit.paths.base}/${filePath}`);
-	};
-};
+	}
+}
 export function generateVirtualModules(workerConstants: WorkerConstants): VirtualModuleSources {
 	return [
 		Object.entries(workerConstants).map(([name, value]) => `export const ${name} = ${JSON.stringify(value)};`).join("")
 	];
-};
+}
 export async function configureTypescript(configs: AllConfigs): Promise<Nullable<RollupTypescriptOptions>> {
 	// TODO: allow asynchronously configuring TypeScript
 	return {
@@ -329,7 +340,7 @@ export async function configureTypescript(configs: AllConfigs): Promise<Nullable
 		},
 		tsconfig: false
 	};
-};
+}
 export async function rollupBuild(
 	entryFilePath: string, typescriptConfig: Nullable<RollupTypescriptOptions>,
 	virtualModulesSources: VirtualModuleSources, inputFiles: InputFiles, configs: AllConfigs
@@ -375,7 +386,7 @@ export async function rollupBuild(
 			tsPluginInstance
 		],
 
-		onwarn(warning: RollupLog, warn: WarningHandler) {
+		onwarn(warning: RollupLog, warn: LoggingFunction) {
 			if (warning.code === "MISSING_EXPORT") {
 				const isHooksModule = (
 					warning.exporter === "virtual:sveltekit-adapter-versioned-worker/internal/hooks"
@@ -395,7 +406,16 @@ export async function rollupBuild(
 	await bundle.close();
 
 	return null;
-};
+}
+
+export function addNewVersionToInfoFile(infoFile: InfoFile) {
+	
+}
+/*
+export function generateVersionFiles(infoFile: InfoFile): string[] {
+	
+}
+*/
 
 export async function getManifestSource(
 	inputFiles: InputFiles, manifestPluginConfig: ResolvedManifestPluginConfig,
@@ -407,7 +427,7 @@ export async function getManifestSource(
 		return getInputFilesConfiguration(inputFileContents, adapterConfig).manifestSource;
 	}
 	else return inputFiles.manifestSource;
-};
+}
 export async function processManifest(source: string, configs: ManifestProcessorConfigs): Promise<Nullable<string>> {
 	let parsed: object;
 	try {
@@ -420,7 +440,7 @@ export async function processManifest(source: string, configs: ManifestProcessor
 
 	const processed = await configs.manifestPluginConfig.process(parsed, configs);
 	return typeof processed === "string"? processed : JSON.stringify(processed);
-};
+}
 /**
  * TODO
 */
@@ -438,4 +458,4 @@ export function defaultManifestProcessor(parsed: object, _: ManifestProcessorCon
 
 
 	return asManifest;
-};
+}

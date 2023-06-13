@@ -33,7 +33,7 @@ import {
 } from "./src/helper.js";
 import {
 	getLastInfo,
-	checkInfoFile,
+	updateInfoFileIfNeeded,
 	processInfoFile,
 
 	getInputFiles,
@@ -144,11 +144,13 @@ export function adapter(inputConfig: AdapterConfig) : Adapter {
 			const [categorizedFiles, routeFiles, staticFileHashes] = await processBuild(configs, builder);
 			log.message("Building worker...");
 			await buildWorker(categorizedFiles, builder, configs);
+			log.message("Creating new version...");
+			await createNewVersion();
 			log.message("Finishing up...");
 			await finishUp();
 		}
 	};
-};
+}
 
 /**
  * Call this function, optionally with a `ManifestPluginConfig` object, to get a Vite plugin that manages your web app manifest (and also improves the usability of the adapter, even when `enabled` is set to false)
@@ -205,7 +207,7 @@ export function manifestGenerator(inputConfig: ManifestPluginConfig = {}): Plugi
 			viteBundle = _bundle;
 		}
 	};
-};
+}
 
 async function init(config: ResolvedAdapterConfig) { // Not run in dev mode
 	minimalViteConfig = viteConfig?
@@ -232,7 +234,7 @@ async function init(config: ResolvedAdapterConfig) { // Not run in dev mode
 				adapterConfig: config,
 				manifestPluginConfig
 			});
-			checkInfoFile(unprocessed);
+			updateInfoFileIfNeeded(unprocessed);
 			lastInfo = processInfoFile(unprocessed);
 		})(),
 		(async () => {
@@ -243,7 +245,7 @@ async function init(config: ResolvedAdapterConfig) { // Not run in dev mode
 	]);
 
 	initTaskDone = true;
-};
+}
 
 async function processBuild(configs: AllConfigs, builder: Builder): Promise<ProcessedBuild> {	
 	const fullFileList = await listAllBuildFiles(configs);
@@ -253,7 +255,7 @@ async function processBuild(configs: AllConfigs, builder: Builder): Promise<Proc
 	const staticFileHashes = await hashFiles(categorizedFiles.completeList, routeFiles, viteBundle, configs);
 
 	return [categorizedFiles, routeFiles, staticFileHashes];
-};
+}
 async function buildWorker(categorizedFiles: CategorizedBuildFiles, builder: Builder, configs: AllConfigs) {
 	const entryFilePath = await writeWorkerEntry(inputFiles, configs);
 
@@ -266,10 +268,13 @@ async function buildWorker(categorizedFiles: CategorizedBuildFiles, builder: Bui
 	if (error) {
 		log.error(`Error while building the service worker:\n${error}`);
 	}
-};
+}
+async function createNewVersion() {
+
+}
 async function finishUp() {
 
-};
+}
 
 /* Manifest Generation */
 
@@ -288,7 +293,7 @@ async function generateManifest(): Promise<Nullable<string>> {
 	if (source == null) return null;
 
 	return await processManifest(source, configs);
-};
+}
 
 /**
  * A premade `LastInfoProvider` for use with the `lastInfo` property in the adapter config. Call this function with the URL of your versionedWorker.json file (or the URL of where it *will* be) and then set `lastInfo` to the return value
@@ -335,7 +340,7 @@ export function fetchLast(url: string): LastInfoProvider {
 			}
 		}
 	};
-};
+}
 
 /**
  * Another premade `LastInfoProvider` for use with the `lastInfo` property in the adapter config. Call this function with absolute or relative file path to your versionedWorker.json (or where it *will* be) file and then set `lastInfo` to the return value. Or, you can call with no arguments if your build directory is the default of "build"
@@ -382,4 +387,4 @@ export function readLast(filePath: string = "build/versionedWorker.json"): LastI
 
 		return contents;
 	};
-};
+}

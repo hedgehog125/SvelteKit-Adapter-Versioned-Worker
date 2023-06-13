@@ -23,21 +23,21 @@ export interface WebAppManifest extends CoreWebAppManifest {
 	 * TODO
 	 */
 	share_target: ShareTarget
-};
+}
 /**
  * TODO
  */
 export interface FileHandler {
 	action: string,
 	accept: { [mimeType: string]: string[] }
-};
+}
 
 /**
  * TODO
  */
 export interface LaunchHandler {
 	client_mode: ClientMode | ClientMode[]
-};
+}
 /**
  * TODO
  */
@@ -49,7 +49,7 @@ export type ClientMode = string | "auto" | "focus-existing" | "navigate-existing
 export interface ProtocolHandler {
 	protocol: string,
 	url: string
-};
+}
 /**
  * TODO
  */
@@ -58,7 +58,7 @@ export interface ShareTarget {
 	enctype?: string,
 	method?: "POST" | "GET",
 	params?: ShareTargetOptions
-};
+}
 /**
  * TODO
  */
@@ -67,11 +67,11 @@ export interface ShareTargetOptions {
 	text?: string,
 	url?: string,
 	files?: ShareFile | ShareFile[]
-};
+}
 /**
  * TODO
  */
 export interface ShareFile {
 	name: string,
 	accept: string | string[]
-};
+}
