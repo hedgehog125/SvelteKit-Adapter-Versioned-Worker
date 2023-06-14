@@ -3,7 +3,7 @@ import type { Nullable } from "./types.js";
 interface InfoFileBase {
 	formatVersion: number,
 	version: number,
-	versions: InfoFileVersion[],
+	versions: InfoFileVersionBatch[],
 	hashes: Record<string, string> | Map<string, string>
 }
 export interface UnprocessedInfoFile extends InfoFileBase {
@@ -13,7 +13,7 @@ export interface InfoFile extends InfoFileBase {
 	hashes: Map<string, string>
 }
 
-export interface InfoFileVersion {
+export interface InfoFileVersionBatch {
 	formatVersion: number,
 	updated: string[][]
 }

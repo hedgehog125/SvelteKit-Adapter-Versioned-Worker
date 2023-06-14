@@ -51,7 +51,8 @@ import {
 	
 	getManifestSource,
 	defaultManifestProcessor,
-	processManifest
+	processManifest,
+	addNewVersionToInfoFile
 } from "./src/subFunctions.js";
 import {
 	applyAdapterConfigDefaults,
@@ -145,7 +146,7 @@ export function adapter(inputConfig: AdapterConfig) : Adapter {
 			log.message("Building worker...");
 			await buildWorker(categorizedFiles, builder, configs);
 			log.message("Creating new version...");
-			await createNewVersion();
+			await createNewVersion(staticFileHashes);
 			log.message("Finishing up...");
 			await finishUp();
 		}
@@ -269,8 +270,8 @@ async function buildWorker(categorizedFiles: CategorizedBuildFiles, builder: Bui
 		log.error(`Error while building the service worker:\n${error}`);
 	}
 }
-async function createNewVersion() {
-
+async function createNewVersion(staticFileHashes: Map<string, string>) {
+	addNewVersionToInfoFile(lastInfo, staticFileHashes);
 }
 async function finishUp() {
 
@@ -319,7 +320,7 @@ async function generateManifest(): Promise<Nullable<string>> {
  * // ...
  */
 export function fetchLast(url: string): LastInfoProvider {
-	return async (log: VersionedWorkerLogger): Promise<Nullable<string>> => {
+	return async (log): Promise<Nullable<string>> => {
 		let response;
 		try {
 			response = await fetch(url);
@@ -331,7 +332,7 @@ export function fetchLast(url: string): LastInfoProvider {
 
 		if (response.ok) return await response.text();
 		else {
-			if (response.status == 404) {
+			if (response.status === 404) {
 				log.warn("\nAssuming this is the first version, as attempting to download the versionedWorker.json file from the last build resulted in a 404.");
 				return null;
 			}
@@ -373,9 +374,9 @@ export function fetchLast(url: string): LastInfoProvider {
  * // ...
  */
 export function readLast(filePath: string = "build/versionedWorker.json"): LastInfoProvider {
-	return async (log: VersionedWorkerLogger, { minimalViteConfig }): Promise<Nullable<string>> => {
-		if (! path.isAbsolute(filePath)) filePath = path.join(minimalViteConfig.root, filePath);
+	if (! path.isAbsolute(filePath)) filePath = path.join(minimalViteConfig.root, filePath);
 
+	return async (log, { minimalViteConfig }): Promise<Nullable<string>> => {
 		let contents;
 		try {
 			contents = await fs.readFile(filePath, { encoding: "utf8" });

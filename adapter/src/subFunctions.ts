@@ -41,13 +41,15 @@ import {
 	findUniqueFileName
 } from "./helper.js";
 import { log } from "./globals.js";
-import { VERSION_FILE_BATCH_SIZE, MAX_VERSION_FILES } from "./constants.js";
+import { VERSION_FILE_BATCH_SIZE, MAX_VERSION_FILES, CURRENT_VERSION_FILENAME } from "./constants.js";
 
 import * as fs from "fs/promises";
 import * as path from "path";
 import { normalizePath } from "vite";
 import { lookup } from "mime-types";
 import rReadDir from "recursive-readdir";
+import makeDir from "make-dir";
+
 import { rollup } from "rollup";
 import pluginVirtual from "@rollup/plugin-virtual";
 import nodeResolve from "@rollup/plugin-node-resolve";
@@ -77,9 +79,8 @@ export function updateInfoFileIfNeeded(infoFile: UnprocessedInfoFile) {
 		}
 		else if (formatVersion === 2) {
 			// Trim the versions over 100, removing the oldest first
-			const maxVersions = VERSION_FILE_BATCH_SIZE * MAX_VERSION_FILES;
-			if (infoFile.versions.length > maxVersions) {
-				infoFile.versions.splice(0, infoFile.versions.length - maxVersions);
+			if (infoFile.versions.length > MAX_VERSION_FILES) { // The version files are stored in batches, so this isn't multiplied by VERSION_FILE_BATCH_SIZE
+				infoFile.versions.splice(0, infoFile.versions.length - MAX_VERSION_FILES);
 			}
 
 			formatVersion = 3;
@@ -408,14 +409,57 @@ export async function rollupBuild(
 	return null;
 }
 
-export function addNewVersionToInfoFile(infoFile: InfoFile) {
-	
+export function addNewVersionToInfoFile(infoFile: InfoFile, staticFileHashes: Map<string, string>) {
+	infoFile.version++;
+
+	const isNewBatch = infoFile.version % VERSION_FILE_BATCH_SIZE === 0;
+	const lastVersion = isNewBatch?
+		null
+		: infoFile.versions[infoFile.versions.length - 1]
+	;
+	let updated = new Set<string>();
+	for (const [fileName, hash] of infoFile.hashes) { // This doesn't loop over any files that were added this version, so they can't be added to updated
+		if (! staticFileHashes.has(fileName)) continue; // File removed in this version
+
+		if (staticFileHashes.get(fileName) !== hash) {
+			updated.add(fileName);
+		}
+	}
+
+	const index = isNewBatch?
+		infoFile.versions.length
+		: infoFile.versions.length - 1
+	;
+	infoFile.versions[index] = {
+		formatVersion: 2,
+		updated: [ // The second isn't spread because this is a nested array
+			...(lastVersion == null? [] : lastVersion.updated),
+			Array.from(updated)
+		]
+	};
+	if (infoFile.versions.length > MAX_VERSION_FILES) {
+		infoFile.versions.splice(0, infoFile.versions.length - MAX_VERSION_FILES);
+	}
+
+	infoFile.hashes = staticFileHashes;
 }
-/*
-export function generateVersionFiles(infoFile: InfoFile): string[] {
-	
+export async function createVersionFiles(infoFile: InfoFile, { adapterConfig, minimalViteConfig }: AllConfigs) {
+	const versionPath = path.join(minimalViteConfig.root, adapterConfig.outputDir, adapterConfig.outputVersionDir);
+	await makeDir(versionPath);
+
+	await Promise.all([
+		Promise.all(infoFile.versions.map(async(versionBatch, batchID) => {
+			const fileBody = versionBatch.updated
+				.map(updatedInVersion => updatedInVersion.join("\n"))
+				.join("\n\n")
+			;
+			const contents = `${versionBatch.formatVersion}\n${fileBody}`;
+
+			await fs.writeFile(path.join(versionPath, `${batchID}.txt`), contents);
+		})),
+		fs.writeFile(path.join(versionPath, CURRENT_VERSION_FILENAME), infoFile.version.toString())
+	]);
 }
-*/
 
 export async function getManifestSource(
 	inputFiles: InputFiles, manifestPluginConfig: ResolvedManifestPluginConfig,
