@@ -3,11 +3,9 @@ const URL_PREFIX = "SvelteKit-Adapter-Versioned-Worker"; // <-- Set this to the 
 import { adapter, readLast, fetchLast } from "internal-adapter";
 import { vitePreprocess } from "@sveltejs/kit/vite";
 
-const dev = process.env.NODE_ENV != "production";
 const disableBaseURL = process.env.DISABLE_BASE_URL == null? false : process.env.DISABLE_BASE_URL === "true";
 const baseURL = (
-	dev
-	|| disableBaseURL
+	disableBaseURL
 	|| URL_PREFIX === ""
 )? "" : `/${URL_PREFIX}`;
 
@@ -31,7 +29,7 @@ const config = {
 		},
 
 		adapter: adapter({
-			lastInfo: dev? readLast() : fetchLast("https://hedgehog125.github.io/SvelteKit-Plugin-Versioned-Worker/versionedWorker.json")
+			lastInfo: disableBaseURL? readLast() : fetchLast("https://hedgehog125.github.io/SvelteKit-Plugin-Versioned-Worker/versionedWorker.json")
 		})
 	}
 };

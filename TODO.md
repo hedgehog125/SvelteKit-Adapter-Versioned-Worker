@@ -1,6 +1,3 @@
-Generate version files
-Update info file
-
 # Bugs
 Handle worker build errors somehow. Should the info file still be generated for the sake of readLast?
 Send a different error if offline and the page isn't known

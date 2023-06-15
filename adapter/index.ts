@@ -52,7 +52,9 @@ import {
 	getManifestSource,
 	defaultManifestProcessor,
 	processManifest,
-	addNewVersionToInfoFile
+	addNewVersionToInfoFile,
+	createVersionFiles,
+	writeInfoFile
 } from "./src/subFunctions.js";
 import {
 	applyAdapterConfigDefaults,
@@ -146,9 +148,10 @@ export function adapter(inputConfig: AdapterConfig) : Adapter {
 			log.message("Building worker...");
 			await buildWorker(categorizedFiles, builder, configs);
 			log.message("Creating new version...");
-			await createNewVersion(staticFileHashes);
+			await createNewVersion(staticFileHashes, routeFiles, configs);
 			log.message("Finishing up...");
-			await finishUp();
+			await finishUp(configs);
+			// TODO: build finish hook
 		}
 	};
 }
@@ -270,11 +273,12 @@ async function buildWorker(categorizedFiles: CategorizedBuildFiles, builder: Bui
 		log.error(`Error while building the service worker:\n${error}`);
 	}
 }
-async function createNewVersion(staticFileHashes: Map<string, string>) {
+async function createNewVersion(staticFileHashes: Map<string, string>, routeFiles: Set<string>, configs: AllConfigs) {
 	addNewVersionToInfoFile(lastInfo, staticFileHashes);
+	await createVersionFiles(lastInfo, configs);
 }
-async function finishUp() {
-
+async function finishUp(configs: AllConfigs) {
+	await writeInfoFile(lastInfo, configs);
 }
 
 /* Manifest Generation */
@@ -374,9 +378,9 @@ export function fetchLast(url: string): LastInfoProvider {
  * // ...
  */
 export function readLast(filePath: string = "build/versionedWorker.json"): LastInfoProvider {
-	if (! path.isAbsolute(filePath)) filePath = path.join(minimalViteConfig.root, filePath);
-
 	return async (log, { minimalViteConfig }): Promise<Nullable<string>> => {
+		if (! path.isAbsolute(filePath)) filePath = path.join(minimalViteConfig.root, filePath);
+
 		let contents;
 		try {
 			contents = await fs.readFile(filePath, { encoding: "utf8" });

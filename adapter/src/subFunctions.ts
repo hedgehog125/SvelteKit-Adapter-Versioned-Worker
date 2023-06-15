@@ -41,7 +41,10 @@ import {
 	findUniqueFileName
 } from "./helper.js";
 import { log } from "./globals.js";
-import { VERSION_FILE_BATCH_SIZE, MAX_VERSION_FILES, CURRENT_VERSION_FILENAME } from "./constants.js";
+import {
+	VERSION_FILE_BATCH_SIZE, MAX_VERSION_FILES,
+	CURRENT_VERSION_FILENAME, INFO_FILENAME
+} from "./constants.js";
 
 import * as fs from "fs/promises";
 import * as path from "path";
@@ -448,17 +451,27 @@ export async function createVersionFiles(infoFile: InfoFile, { adapterConfig, mi
 	await makeDir(versionPath);
 
 	await Promise.all([
-		Promise.all(infoFile.versions.map(async(versionBatch, batchID) => {
+		Promise.all(infoFile.versions.map(async (versionBatch, batchID) => {
 			const fileBody = versionBatch.updated
 				.map(updatedInVersion => updatedInVersion.join("\n"))
 				.join("\n\n")
 			;
 			const contents = `${versionBatch.formatVersion}\n${fileBody}`;
 
-			await fs.writeFile(path.join(versionPath, `${batchID}.txt`), contents);
+			await fs.writeFile(path.join(versionPath, `${batchID}.txt`), contents, { encoding: "utf-8" });
 		})),
-		fs.writeFile(path.join(versionPath, CURRENT_VERSION_FILENAME), infoFile.version.toString())
+		fs.writeFile(path.join(versionPath, CURRENT_VERSION_FILENAME), infoFile.version.toString(), { encoding: "utf-8" })
 	]);
+}
+
+export async function writeInfoFile(infoFile: InfoFile, { minimalViteConfig, adapterConfig }: AllConfigs) {
+	const infoFilePath = path.join(minimalViteConfig.root, adapterConfig.outputDir, INFO_FILENAME);
+	const contents = JSON.stringify(infoFile, (_, value) => {
+		if (value instanceof Map) return Object.fromEntries(value);
+
+		return value;
+	});
+	await fs.writeFile(infoFilePath, contents, { encoding: "utf-8" });
 }
 
 export async function getManifestSource(

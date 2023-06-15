@@ -190,38 +190,35 @@ async function getUpdated(installedVersions: number[]): Promise< Nullable<Set<st
 	const newestInstalled = Math.max(...installedVersions);
 	
 	// Fetch all the version files between the versions
-	let versionFiles = [];
 	const rangeToDownload = [
 		Math.floor((newestInstalled + 1) / VERSION_FILE_BATCH_SIZE), // +1 because we don't need this version file if the installed version is the last one in it
 		Math.floor(VERSION / VERSION_FILE_BATCH_SIZE)
 	];
+	const idInBatchOfOneAfterInstalled = (newestInstalled + 1) % VERSION_FILE_BATCH_SIZE;
+	const installedInDownloadRange = idInBatchOfOneAfterInstalled !== 0; // If it's the last version in the batch, it won't be
 	const numberToDownload = (rangeToDownload[1] - rangeToDownload[0]) + 1;
 	if (numberToDownload > MAX_VERSION_FILES) return null; // Clean install
 	
-	for (let versionFileID = rangeToDownload[0]; versionFileID <= rangeToDownload[1]; versionFileID++) {
-		versionFiles.push(fetch(`${VERSION_FOLDER}/${versionFileID}.txt`));
-	}
+	let versionFiles = await Promise.all(
+		new Array(numberToDownload).fill(null).map(async (_, offset) => {
+			let fileID = offset + rangeToDownload[0];
+			const res = await fetch(`${VERSION_FOLDER}/${fileID}.txt`);
+			return parseUpdatedList(await res.text());
+		})
+	);
 
-	versionFiles = await Promise.all(versionFiles);
-	versionFiles = await Promise.all(versionFiles.map(res => res.text()));
-	versionFiles = versionFiles.map(parseUpdatedList);
 	if (versionFiles.find(versionFile => versionFile.formatVersion === -1)) return null; // Unknown format version, so do a clean install
 
-	const fileIdOfInstalled = Math.floor(newestInstalled / VERSION_FILE_BATCH_SIZE); // Note no +1
 	let updated = new Set<string>();
 	for (let i = 0; i < versionFiles.length; i++) {
-		const versionFileID = rangeToDownload[0] + i;
 		const versionFile = versionFiles[i];
 
-		let startIndex = 0;
-		if (versionFileID === fileIdOfInstalled) { // This is used instead of checking if this is the first iteration as if the installed version is the last of its file, this logic shouldn't run
-			startIndex = (newestInstalled + 1) % VERSION_FILE_BATCH_SIZE; // Ignore the files changed in the previous versions
-		}
+		// If the installed version is the last of its file, its batch won't be iterated over in this containing loop
+		const startIndex = installedInDownloadRange && i === 0? idInBatchOfOneAfterInstalled : 0;
+		// ^ Ignore the files changed in versions before the installed
 
-		for (let versionInFile = startIndex; versionInFile < versionFile.updated.length; versionInFile++) { // versionInFile is a version that's been modulus divided by the max per file
-			for (const href of versionFile.updated[versionInFile]) {
-				updated.add(href);
-			}
+		for (let versionInFile = startIndex; versionInFile < versionFile.updated.length; versionInFile++) {
+			versionFile.updated[versionInFile].forEach(href => updated.add(href));
 		}
 	}
 	return updated;
