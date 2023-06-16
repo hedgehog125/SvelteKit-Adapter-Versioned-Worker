@@ -16,6 +16,10 @@ Since these don't have exports, d.ts files aren't generated */
 		"rootDir": "./src",
 		"outDir": "./jsBuild",
 		"declaration": false,
-		"declarationMap": false
+		"declarationMap": false,
+
+		"paths": {
+			"sveltekit-adapter-versioned-worker/worker": ["../worker"]
+		}
 	}
 }

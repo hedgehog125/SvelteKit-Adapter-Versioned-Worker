@@ -1,4 +1,7 @@
+Upgrade svelte-package
+
 # Bugs
+TypeScript compile errors aren't emitted
 Handle worker build errors somehow. Should the info file still be generated for the sake of readLast?
 Send a different error if offline and the page isn't known
 Redirect incorrect trailing slashes in the service worker. Also redirect /index.html. Is it in scope if you're going to the homepage and there's no trailing slash?

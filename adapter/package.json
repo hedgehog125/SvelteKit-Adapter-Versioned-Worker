@@ -24,20 +24,10 @@
 		}
 	},
 	"scripts": {
-		"build": "tsc & npm run buildTemplates",
+		"build": "tsc",
 		"dev": "tsc --watch",
-		"buildTemplates": "cd static && tsc",
 		"test": "echo \"Error: no test specified\" && exit 1"
 	},
-	"devDependencies": {
-		"@sveltejs/kit": "^1.19.0",
-		"@types/mime-types": "^2.1.1",
-		"@types/node": "^18.13.0",
-		"@types/recursive-readdir": "^2.2.1"
-	},
-	"keywords": [],
-	"author": "",
-	"type": "module",
 	"dependencies": {
 		"@rollup/plugin-alias": "^4.0.3",
 		"@rollup/plugin-node-resolve": "^15.0.1",
@@ -54,5 +44,14 @@
 		"tslib": "^2.5.0",
 		"typescript": "^5.0.2",
 		"vite": "^4.3.9"
-	}
+	},
+	"devDependencies": {
+		"@sveltejs/kit": "^1.19.0",
+		"@types/mime-types": "^2.1.1",
+		"@types/node": "^18.13.0",
+		"@types/recursive-readdir": "^2.2.1"
+	},
+	"keywords": [],
+	"author": "",
+	"type": "module"
 }

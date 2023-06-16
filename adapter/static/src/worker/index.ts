@@ -1,4 +1,9 @@
-import type { VersionFile, MessageEventData } from "sveltekit-adapter-versioned-worker/worker";
+import type {
+	ActivateEvent,
+	FetchEvent,
+
+	VersionFile, MessageEventData, InstallEvent
+} from "sveltekit-adapter-versioned-worker/worker";
 
 import {
 	ROUTES,
@@ -9,7 +14,7 @@ import {
 	VERSION_FOLDER,
 	VERSION_FILE_BATCH_SIZE,
 	MAX_VERSION_FILES,
-	BASE_URL,
+	BASE_URL
 } from "sveltekit-adapter-versioned-worker/worker";
 import * as hooks from "sveltekit-adapter-versioned-worker/internal/hooks";
 
@@ -29,7 +34,7 @@ const COMPLETE_CACHE_LIST = new Set<string>();
 	}
 }
 
-addEventListener("install", e => {
+addEventListener("install", (e: Event) => {
     (e as InstallEvent).waitUntil(
 		(async () => {
 			const installedVersions = await getInstalled();
@@ -71,6 +76,7 @@ addEventListener("install", e => {
 		})()
 	);
 });
+
 addEventListener("activate", e => {
 	(e as ActivateEvent).waitUntil(
 		(async () => {
