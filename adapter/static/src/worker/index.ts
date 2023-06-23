@@ -9,6 +9,10 @@ import {
 	ROUTES,
 	PRECACHE,
 	LAZY_CACHE,
+	STALE_LAZY,
+	STRICT_LAZY,
+	SEMI_LAZY,
+
 	STORAGE_PREFIX,
 	VERSION,
 	VERSION_FOLDER,
@@ -21,20 +25,20 @@ import * as hooks from "sveltekit-adapter-versioned-worker/internal/hooks";
 type Nullable<T> = T | null;
 
 const currentStorageName = STORAGE_PREFIX + VERSION;
-const COMPLETE_CACHE_LIST = new Set<string>();
-{
-	addToCacheList(ROUTES);
-	addToCacheList(PRECACHE);
-	addToCacheList(LAZY_CACHE);
+const COMPLETE_CACHE_LIST = new Set<string>([
+	...ROUTES,
+	...PRECACHE,
+	...LAZY_CACHE,
+	...STALE_LAZY,
+	...STRICT_LAZY,
+	...SEMI_LAZY
+]);
+const REUSABLE_BETWEEN_VERSIONS = new Set<string>([
+	...LAZY_CACHE,
+	...STALE_LAZY
+]);
 
-	function addToCacheList(hrefs: string[]) {
-		for (const href of hrefs) {
-			COMPLETE_CACHE_LIST.add(href);
-		}
-	}
-}
-
-addEventListener("install", (e: Event) => {
+addEventListener("install", e => {
     (e as InstallEvent).waitUntil(
 		(async () => {
 			const installedVersions = await getInstalled();
@@ -45,8 +49,8 @@ addEventListener("install", (e: Event) => {
 				...ROUTES,
 				...PRECACHE
 			]);
-			const toCopy: [string, Cache][] = [];
-			if (! doCleanInstall) { // A clean install just means that old caches aren't reused
+			const toCopy: [href: string, containingCache: Cache, stale: boolean][] = [];
+			if (! doCleanInstall) { // A clean install just means that old cache isn't reused
 				const cacheNames = await caches.keys();
 				for (const cacheName of cacheNames) {
 					if (! cacheName.startsWith(STORAGE_PREFIX)) continue;
@@ -58,8 +62,10 @@ addEventListener("install", (e: Event) => {
 					}));
 
 					for (const [href, exists] of existsList) {
-						if (exists && (! (updated.has(href) || ROUTES.includes(href)))) {
-							toCopy.push([href, cache]);
+						const unchanged = (! (updated.has(href) || ROUTES.includes(href)));
+						const staleAndAcceptable = (! unchanged) && REUSABLE_BETWEEN_VERSIONS.has(href);
+						if (exists && (unchanged || staleAndAcceptable)) {
+							toCopy.push([href, cache, staleAndAcceptable]);
 							toDownload.delete(href);
 						}
 					}
@@ -70,7 +76,9 @@ addEventListener("install", (e: Event) => {
 			await Promise.all([
 				cache.addAll(toDownload),
 				...toCopy.map(async ([href, oldCache]) => {
-					await cache.put(href, (await oldCache.match(href)) as Response); // It was already found in the cache, unless it's been deleted since then
+					const existing = (await oldCache.match(href)) as Response; // It was already found in the cache, unless it's been deleted since then
+
+					await cache.put(href, );
 				})
 			]);
 		})()
@@ -107,7 +115,10 @@ addEventListener("fetch", e => {
 
 			if (isPage && registration.waiting) { // Based on https://redfin.engineering/how-to-fix-the-refresh-button-when-using-service-workers-a8e27af6df68
 				const activeClients = await clients.matchAll();
-				if (activeClients.length <= 1) {
+				if (activeClients.length > 1) {
+					activeClients.forEach(client => client.postMessage({ type: "vw-waiting" }));
+				}
+				else {
 					registration.waiting.postMessage({ type: "skipWaiting" });
 					return new Response("", { headers: { Refresh: "0" } }); // Send an empty response but with a refresh header so it reloads instantly
 				}
@@ -126,9 +137,6 @@ addEventListener("fetch", e => {
 					return new Response("Something went wrong. Please connect to the internet and try again.");
 				}
 				else {
-					if (COMPLETE_CACHE_LIST.has(path)) {
-						console.error(`Couldn't fetch or serve file from cache: ${path}`);
-					}
 					return Response.error();
 				}
 			}
@@ -139,7 +147,7 @@ addEventListener("fetch", e => {
         })()
     );
 });
-interface MessageEventWithTypePropBase {
+interface MessageEventWithTypePropBase extends MessageEvent {
 	data: MessageEventData | string
 }
 addEventListener("message", ({ data }: MessageEventWithTypePropBase) => {
@@ -191,7 +199,7 @@ async function getInstalled(): Promise<number[]> {
 	installedVersions = installedVersions.sort((n1, n2) => n2 - n1); // Newest (highest) first
 	return installedVersions;
 }
-async function getUpdated(installedVersions: number[]): Promise< Nullable<Set<string> > > {
+async function getUpdated(installedVersions: number[]): Promise< Nullable<Set<string>> > {
 	if (installedVersions.length === 0) return null; // Clean install
 	const newestInstalled = Math.max(...installedVersions);
 	

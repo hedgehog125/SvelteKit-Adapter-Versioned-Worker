@@ -1,4 +1,10 @@
+Handle HEAD requests
+How do headers like range affect lazy caching?
 Upgrade svelte-package
+What cache mode should fetch use in the worker? Always no-store?
+Abort signals
+Use sets instead of arrays for the constants?
+Remove base from URLs in worker, they can be relative to it
 
 # Bugs
 TypeScript compile errors aren't emitted
@@ -17,6 +23,7 @@ Configuring the static adapter
 Configuring TypeScript for the hooks file, along with other build plugins
 Allow running code after everything is done
 Add message handle (postMessage)
+Add an easy way to modify headers before the response is sent. New hook? Maybe only for requests using the default mechanism (not handled)?
 
 # Tweaks
-Add the base URL in the worker to the files to save space. Rather than prefixing each asset
+Use importscripts to reduce the size of the worker entry. The imported script is only downloaded when the URL changes.

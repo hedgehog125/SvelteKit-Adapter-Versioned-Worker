@@ -28,6 +28,7 @@ import type {
 } from "./internalTypes.js";
 import type { LoggingFunction, OutputBundle, RollupLog } from "rollup";
 import type { Builder } from "@sveltejs/kit";
+import pluginVirtualPromises from "./pluginVirtualPromises.js";
 import type { RollupTypescriptOptions } from "@rollup/plugin-typescript";
 
 import {
@@ -38,12 +39,13 @@ import {
 	createSuffixes,
 	fileExists,
 	hash,
-	findUniqueFileName
+	findUniqueFileName,
+	createConstantsModule
 } from "./helper.js";
 import { log } from "./globals.js";
 import {
 	VERSION_FILE_BATCH_SIZE, MAX_VERSION_FILES,
-	CURRENT_VERSION_FILENAME, INFO_FILENAME
+	CURRENT_VERSION_FILENAME, INFO_FILENAME, DEFAULT_STORAGE_NAME
 } from "./constants.js";
 
 import * as fs from "fs/promises";
@@ -54,7 +56,6 @@ import rReadDir from "recursive-readdir";
 import makeDir from "make-dir";
 
 import { rollup } from "rollup";
-import pluginVirtual from "@rollup/plugin-virtual";
 import nodeResolve from "@rollup/plugin-node-resolve";
 import esbuild from "rollup-plugin-esbuild";
 import typescriptPlugin from "@rollup/plugin-typescript";
@@ -294,7 +295,12 @@ export function createWorkerConstants(
 
 	const routes = Array.from(builder.prerendered.pages).map(([ href ]) => href);
 
-	let storagePrefix = "TODO";
+	let storagePrefix = adapterConfig.cacheStorageName;
+	if (storagePrefix == null) {
+		const base = svelteConfig.kit.paths.base;
+		storagePrefix = base == ""? DEFAULT_STORAGE_NAME : base.slice(1); // Remove the starting slash
+	}
+	storagePrefix += "-";
 
 	let baseURL = svelteConfig.kit.paths.base;
 	if (! baseURL.endsWith("/")) baseURL += "/";
@@ -322,7 +328,7 @@ export function createWorkerConstants(
 }
 export function generateVirtualModules(workerConstants: WorkerConstants): VirtualModuleSources {
 	return [
-		Object.entries(workerConstants).map(([name, value]) => `export const ${name} = ${JSON.stringify(value)};`).join("")
+		createConstantsModule(workerConstants)
 	];
 }
 export async function configureTypescript(configs: AllConfigs): Promise<Nullable<RollupTypescriptOptions>> {
@@ -369,7 +375,7 @@ export async function rollupBuild(
 	const bundle = await rollup({
 		input: entryFilePath,
 		plugins: [
-			pluginVirtual(virtualModules),
+			pluginVirtualPromises(virtualModules),
 			hooksPath != null && pluginAlias({
 				entries: [
 					{
@@ -474,6 +480,19 @@ export async function writeInfoFile(infoFile: InfoFile, { minimalViteConfig, ada
 	await fs.writeFile(infoFilePath, contents, { encoding: "utf-8" });
 }
 
+
+export function createRuntimeConstantsModule(lastInfo: Nullable<InfoFile>): string {
+	if (lastInfo) {
+		return createConstantsModule({
+			VERSION: lastInfo.version + 1
+		});
+	}
+	else {
+		return createConstantsModule({
+			VERSION: -1
+		});
+	}
+}
 export async function getManifestSource(
 	inputFiles: InputFiles, manifestPluginConfig: ResolvedManifestPluginConfig,
 	adapterConfig: Nullable<ResolvedAdapterConfig>, viteConfig: MinimalViteConfig

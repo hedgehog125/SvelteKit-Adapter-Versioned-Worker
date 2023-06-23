@@ -63,6 +63,6 @@ export interface WorkerConstants {
 }
 
 /**
- * First item is the constants
+ * First item is the constants.
  */
 export type VirtualModuleSources = [string];

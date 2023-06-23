@@ -102,7 +102,7 @@ export function createInitialInfo(): UnprocessedInfoFile {
 }
 
 /**
- * This is a slightly wacky method that allows you to use undefined where you normally wouldn't be able to. This is mainly used so defaults don't need to be specified for required config properties
+ * This is a slightly wacky method that allows you to use undefined where you normally wouldn't be able to. This is mainly used so defaults don't need to be specified for required config properties.
  * 
  * @returns undefined casted to the provided type
  */
@@ -117,4 +117,12 @@ export function hash(data: string | Buffer): string {
 }
 export function removeNulls<T>(arr: T[]): T[] {
 	return arr.filter(item => item != null);	
+}
+
+export function createConstantsModule(constants: Record<string, any>): string {
+	return Object.entries(constants).map(([name, value]) => `export const ${name} = ${JSON.stringify(value)};`).join("");
+}
+
+export function timePromise(duration: number): Promise<void> {
+	return new Promise(resolve => setTimeout(resolve, duration));
 }

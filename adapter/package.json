@@ -21,6 +21,11 @@
 			"types": "./worker.d.ts",
 			"import": "./worker.js",
 			"module": "./worker.js"
+		},
+		"./runtime-constants": {
+			"types": "./runtime-constants.d.ts",
+			"import": "./runtime-constants.js",
+			"module": "./runtime-constants.js"
 		}
 	},
 	"scripts": {
@@ -32,11 +37,10 @@
 		"@rollup/plugin-alias": "^4.0.3",
 		"@rollup/plugin-node-resolve": "^15.0.1",
 		"@rollup/plugin-typescript": "^11.0.0",
-		"@rollup/plugin-virtual": "^3.0.1",
 		"@sveltejs/adapter-static": "^2.0.1",
 		"@types/web-app-manifest": "^1.0.3",
 		"kleur": "^4.1.5",
-		"make-dir": "^3.1.0",
+		"make-dir": "^4.0.0",
 		"mime-types": "^2.1.35",
 		"recursive-readdir": "^2.2.3",
 		"rollup": "^3.19.1",

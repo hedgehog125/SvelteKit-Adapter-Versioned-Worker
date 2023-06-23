@@ -16,6 +16,7 @@ export function applyAdapterConfigDefaults(config: AdapterConfig): ResolvedAdapt
 		outputDir: "build",
 		outputVersionDir: "sw",
 		outputWorkerFileName: "sw.js",
+		cacheStorageName: null,
 		warnOnViteConfigUnresolved: true,
 		redirectTrailingSlash: true
 	}) as ResolvedAdapterConfig;

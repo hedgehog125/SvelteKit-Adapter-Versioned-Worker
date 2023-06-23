@@ -27,9 +27,11 @@ import type {
 import type { Plugin } from "vite"; 
 import type { OutputOptions, OutputBundle } from "rollup";
 
+import { INFO_FILENAME } from "./src/constants.js";
 import { log } from "./src/globals.js";
 import {
-	VersionedWorkerError
+	VersionedWorkerError,
+	timePromise
 } from "./src/helper.js";
 import {
 	getLastInfo,
@@ -49,6 +51,7 @@ import {
 	createWorkerConstants,
 	generateVirtualModules,
 	
+	createRuntimeConstantsModule,
 	getManifestSource,
 	defaultManifestProcessor,
 	processManifest,
@@ -61,6 +64,8 @@ import {
 	applyManifestPluginConfigDefaults
 } from "./src/defaults.js";
 import adapterStatic from "@sveltejs/adapter-static";
+import pluginVirtualPromises from "./src/pluginVirtualPromises.js";
+
 import * as path from "path";
 import * as fs from "fs/promises";
 
@@ -104,10 +109,10 @@ let initTask: Nullable<Promise<void>> = null;
 let initTaskDone = false;
 
 /**
- * When called with an `AdapterConfig` object, this function returns a SvelteKit adapter that builds your service worker
+ * When called with an `AdapterConfig` object, this function returns a SvelteKit adapter that builds your service worker.
  * 
- * @param inputConfig The required configuration object for this adapter. It should have a `fetchLast` property
- * @returns A SvelteKit adapter that builds your service worker
+ * @param inputConfig The required configuration object for this adapter. It should have a `fetchLast` property.
+ * @returns A SvelteKit adapter that builds your service worker.
  */
 export function adapter(inputConfig: AdapterConfig) : Adapter {
 	if (typeof inputConfig !== "object" || typeof inputConfig.lastInfo !== "function") {
@@ -157,60 +162,95 @@ export function adapter(inputConfig: AdapterConfig) : Adapter {
 }
 
 /**
- * Call this function, optionally with a `ManifestPluginConfig` object, to get a Vite plugin that manages your web app manifest (and also improves the usability of the adapter, even when `enabled` is set to false)
+ * Call this function, optionally with a `ManifestPluginConfig` object, to get a Vite plugin that manages your web app manifest.
+ * 
+ * @note
+ * You should still use this plugin even if you don't want to use its main feature, as it improves a few things about the adapter. To do this, set the `enable` property in the `inputConfig` to `false`.
  * 
  * @param inputConfig An optional configuration object for this Vite plugin
- * @returns A Vite manifest generator plugin
+ * @returns A Vite manifest generator plugin.
  */
-export function manifestGenerator(inputConfig: ManifestPluginConfig = {}): Plugin {
+export function manifestGenerator(inputConfig: ManifestPluginConfig = {}): Plugin[] {
 	usingManifestPlugin = true;
 
 	manifestPluginConfig = applyManifestPluginConfigDefaults(inputConfig);
 	const config = manifestPluginConfig;
+	let manifestPlugin: Plugin = null as any as Plugin; // It'll be defined by the time its used
+	const configResolved = new Promise<void>(resolveConfigPromise => {
+		manifestPlugin = {
+			name: "vite-plugin-vw2-manifest",
+			configResolved(providedViteConfig) {
+				viteConfig = providedViteConfig;
+				isDev = ! viteConfig.isProduction;
+				if (isDev) minimalViteConfig = {
+					root: viteConfig.root,
+					manifest: viteConfig.build.manifest
+				};
 
-	return {
-		name: "vite-plugin-vw-manifest",
-		configResolved(providedViteConfig) {
-			viteConfig = providedViteConfig;
-			isDev = ! viteConfig.isProduction;
-			if (isDev) minimalViteConfig = {
-				root: viteConfig.root,
-				manifest: viteConfig.build.manifest
-			};
+				log.verbose = viteConfig.logLevel === "info";
+				isSSR = !!viteConfig.build.ssr;
 
-			log.verbose = viteConfig.logLevel === "info";
-			isSSR = !!viteConfig.build.ssr;
-		},
-		async buildStart() {
-			if (isSSR) return;
-			if (isDev) return;
+				if (isSSR || isDev) return resolveConfigPromise();
+				if (adapterConfig != null) initTask = init(adapterConfig);
+				resolveConfigPromise();
+			},
+			async buildStart() {
+				if (isSSR || isDev) return;
 
-			if (adapterConfig != null) initTask = init(adapterConfig);
+				const manifestContents = await generateManifest();
+				if (manifestContents != null) {
+					this.emitFile({
+						type: "asset",
+						fileName: config.outputFileName,
+						source: manifestContents
+					});
+				}
+			},
+			configureServer(server) { // Dev only
+				server.middlewares.use(async (req, res, next) => {
+					if (req.url != "/" + config.outputFileName) return next();
 
-			const manifestContents = await generateManifest();
-			if (manifestContents != null) {
-				this.emitFile({
-					type: "asset",
-					fileName: config.outputFileName,
-					source: manifestContents
+					const contents = await generateManifest();
+					if (contents == null) return next();
+
+					res.setHeader("Content-Type", "application/manifest+json");
+					res.end(contents, "utf-8");
 				});
+			},
+			generateBundle(_: OutputOptions, _bundle: OutputBundle) {
+				viteBundle = _bundle;
 			}
-		},
-		configureServer(server) { // Dev only
-			server.middlewares.use(async (req, res, next) => {
-				if (req.url != "/" + config.outputFileName) return next();
-
-				const contents = await generateManifest();
-				if (contents == null) return next();
-
-				res.setHeader("Content-Type", "application/manifest+json");
-				res.end(contents, "utf-8");
-			});
-		},
-		generateBundle(_: OutputOptions, _bundle: OutputBundle) {
-			viteBundle = _bundle;
 		}
-	};
+	});
+
+	return [
+		{
+			...pluginVirtualPromises({
+				"sveltekit-adapter-versioned-worker/runtime-constants": (async (): Promise<string> => {
+					await configResolved;
+
+					if (adapterConfig == null || initTask == null) return createRuntimeConstantsModule(null);
+					
+					await Promise.race([
+						initTask,
+						timePromise(1500)
+					]);
+	
+					if (! initTaskDone) {
+						log.blankLine();
+						log.warn("The LastInfoProvider might be delaying the build. If you're using fetchLast, this could be due to your internet connection.");
+						await initTask;
+					}
+
+					return createRuntimeConstantsModule(lastInfo);
+				})()
+			}),
+			name: "vite-plugin-vw2-virtual-modules",
+			enforce: "pre",
+			apply: "build" // The non-virtual module will be used instead in this case
+		},
+		manifestPlugin
+	];
 }
 
 async function init(config: ResolvedAdapterConfig) { // Not run in dev mode
@@ -301,10 +341,10 @@ async function generateManifest(): Promise<Nullable<string>> {
 }
 
 /**
- * A premade `LastInfoProvider` for use with the `lastInfo` property in the adapter config. Call this function with the URL of your versionedWorker.json file (or the URL of where it *will* be) and then set `lastInfo` to the return value
+ * A premade `LastInfoProvider` for use with the `lastInfo` property in the adapter config. Call this function with the URL of your versionedWorker.json file (or the URL of where it *will* be) and then set `lastInfo` to the return value.
  * 
- * @param url The URL of your versionedWorker.json file (or where it *will* be)
- * @returns A `LastInfoProvider` that gets your versionedWorker.json file using the Fetch API
+ * @param url The URL of your versionedWorker.json file (or where it *will* be).
+ * @returns A `LastInfoProvider` that gets your versionedWorker.json file using the Fetch API.
  * 
  * @example
  * // svelte.config.js
@@ -348,13 +388,14 @@ export function fetchLast(url: string): LastInfoProvider {
 }
 
 /**
- * Another premade `LastInfoProvider` for use with the `lastInfo` property in the adapter config. Call this function with absolute or relative file path to your versionedWorker.json (or where it *will* be) file and then set `lastInfo` to the return value. Or, you can call with no arguments if your build directory is the default of "build"
+ * Another premade `LastInfoProvider` for use with the `lastInfo` property in the adapter config. Unless you're storing the file outside of the build directory, this function doesn't need any arguments.
  * 
  * @note
- * For production builds, you'll probably want to use `fetchLast`, as that will prevent you publishing useless information about test builds (i.e the number of them and the files changed between them). However, this is good to use for test builds, as it means you can check the update behaviour
+ * For production builds, you'll probably want to use `fetchLast`, as that will prevent you publishing useless information about test builds (i.e the number of them and the files changed between them). However, this is good to use for test builds, as it means you can check the update behaviour.
  * 
- * @param filePath The absolute or relative file path to your versionedWorker.json file (or where it *will* be). **Default**: "build/versionedWorker.json"
- * @returns A `LastInfoProvider` that gets your versionedWorker.json file by reading it from the disk
+ * @param filePath The absolute or relative file path to your versionedWorker.json file (or where it *will* be).
+ * **Default**: `<adapterConfig.outputDir>/versionedWorker.json`.
+ * @returns A `LastInfoProvider` that gets your versionedWorker.json file by reading it from the disk.
  * 
  * @example
  * // svelte.config.js
@@ -368,7 +409,7 @@ export function fetchLast(url: string): LastInfoProvider {
  *     // ...
  *     adapter: adapter({
  *       lastInfo: isDev?
- *         readLast() // The default is "build/versionedWorker.json"
+ *         readLast() // Since we're also using the default outputDir of "build", this will default to "build/versionedWorker.json"
  *         : fetchLast("https://hedgehog125.github.io/SvelteKit-Plugin-Versioned-Worker/versionedWorker.json"),
  *       // ...
  *     })
@@ -377,9 +418,14 @@ export function fetchLast(url: string): LastInfoProvider {
  * };
  * // ...
  */
-export function readLast(filePath: string = "build/versionedWorker.json"): LastInfoProvider {
-	return async (log, { minimalViteConfig }): Promise<Nullable<string>> => {
-		if (! path.isAbsolute(filePath)) filePath = path.join(minimalViteConfig.root, filePath);
+export function readLast(filePath?: string): LastInfoProvider {
+	return async (log, { minimalViteConfig, adapterConfig }): Promise<Nullable<string>> => {
+		if (filePath == null) {
+			filePath = path.join(minimalViteConfig.root, adapterConfig.outputDir, INFO_FILENAME);
+		}
+		else {
+			if (! path.isAbsolute(filePath)) filePath = path.join(minimalViteConfig.root, filePath);
+		}
 
 		let contents;
 		try {

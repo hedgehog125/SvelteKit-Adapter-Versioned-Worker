@@ -15,13 +15,20 @@ const initTask = (async () => {
 	});
 })();
 
-export const handle = (async path => {
-	if (path === "hidden-page") {
-		await initTask;
-
-		const count: number = await db.get("misc", "counter");
-		await db.put("misc", count + 1, "counter");
-		return new Response(count.toString());
+export const handle = (async (path, isPage, fetchEvent) => {
+	if (isPage) {
+		if (path === "hidden-page") {
+			await initTask;
+	
+			const count = await db.get("misc", "counter") as number;
+			await db.put("misc", count + 1, "counter");
+			return new Response(count.toString(), {
+				headers: {
+					"Cross-Origin-Opener-Policy": "same-origin",
+					"Cross-Origin-Embedder-Policy": "require-corp"
+				}
+			});
+		}
 	}
 	return null;
 }) satisfies HandleHook;

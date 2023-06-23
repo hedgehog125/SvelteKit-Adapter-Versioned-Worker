@@ -10,7 +10,7 @@ export type Nullable<T> = T | null;
 export interface AdapterConfig {
 	/* Required */
 	/**
-	 * Provides the contents of the versionedWorker.json file from the last build
+	 * Provides the contents of the versionedWorker.json file from the last build.
 	 * 
 	 * Most of the time, you can import and call `fetchLast` or `readLast` to return a function for this property. But you can also make a custom one by returning a promise that resolves to the contents of the versionedWorker.json file, or null if there isn't one. Generally, you should emit a warning using the `warn` method on the provided `VersionedWorkerLogger` in this case, unless you have some way of verifying that this is the first build (both the built-in methods don't). You can also immediately return the contents or null, rather than returning a promise for one.
 	 */
@@ -26,7 +26,7 @@ export interface AdapterConfig {
 	/**
 	 * TODO
 	 */
-	sortFile?: FileSorter | null,
+	sortFile?: Nullable<FileSorter>,
 
 	/**
 	 * TODO
@@ -44,7 +44,14 @@ export interface AdapterConfig {
 	outputVersionDir?: string,
 
 	/**
-	 * Enables and disables the warning when the Vite config can't be resolved due to the manifest generator plugin being missing 
+	 * The base name for the cache storage. The name used will be "{this config property}-{appVersion}".
+	 * 
+	 * Defaults to the base URL if one is being used or to "VersionedWorkerStorage" otherwise.
+	 */
+	cacheStorageName?: Nullable<string>
+
+	/**
+	 * Enables and disables the warning when the Vite config can't be resolved due to the manifest generator plugin being missing.
 	 * 
 	 * @note
 	 * If you don't want to use the manifest plugin for whatever reason, you can probably disable this warning. However, if the current working directory doesn't match Vite's route or if Vite's manifest filename is different to the SvelteKit default (vite-manifest.json), you'll need to provide one with the `getViteManifest` config argument instead.
@@ -124,13 +131,17 @@ export interface ManifestProcessorConfigs {
 }
 
 /**
- * TODO
- * "pre-cache" resources should always be available as they're downloaded during the worker install. They're also updated with the new worker (if they've actually changed).
- * "lazy" tries to get the resource from the network if it's outdated, it'll only send the stale response if the network is unavailable.
- * "stale-lazy" (stale while revalidate) serves the resource from the cache, even if it's outdated, but tried to download it in the background for the next request.
- * "strict-lazy" discards the resource if it becomes out of date, so internet will be required to access them again, but they won't be stale.
- * "semi-lazy-cache" keeps the resource up to date if it had already been requested and cached before. Mostly useful for web app manifest icons. 
- * "never-cache" always gets the resource using the network and doesn't cache the responses at all.
+ * A string enum representing how a file should be handled. Generally, most files should use the default mode: `"pre-cache"`.
+ * 
+ * @options
+ * Note that a new version has to be released for Versioned Worker to detect a file as outdated. If you want more control for some files, you may need to set their modes to `"never-cache"` and implement the caching yourself.
+ * 
+ * * `"pre-cache"` resources should always be available as they're downloaded during the worker install. They're also updated with the new worker if they've changed and will always be from the same version as each other.
+ * * `"lazy"` only downloads and caches the resource when it's requested. If the latest version is cached, that will be sent. Otherwise it'll try and fetch the resource from the network, if that fails, the worker will send a stale version. The fetch will only fail if the user is offline and there's no version of the resource in the cache.
+ * * `"stale-lazy"` (stale while revalidate) is similar to `"lazy"` but serves stale responses before downloading the current version. If and when this current version is downloaded, it's stored in the cache for next time. Like with `"lazy"`, it won't use the network if the resource is up-to-date.
+ * * `"strict-lazy"` is also similar to "lazy" but will fail instead of sending stale responses. Resources using this mode are deleted from the cache if and when they become outdated, but not until the whole app has updated first.
+ * * `"semi-lazy"` is a hybrid between `"pre-cache"` and `"lazy"`. Once the resource has been accessed and cached once, it'll be kept updated when new versions are installed. It's mostly only useful for web app manifest icons.
+ * * And `"never-cache"` always gets the resource using the network and doesn't cache the responses at all.
  */
 export type FileSortMode = "pre-cache" | "lazy" | "stale-lazy" | "strict-lazy" | "semi-lazy" | "never-cache";
 export interface AllConfigs extends LastInfoProviderConfigs {

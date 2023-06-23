@@ -79,6 +79,9 @@ export interface Client {
 	frameType: ClientFrameType;
 	id: string;
 	url: string;
+
+	// Based off the built-in lib.dom.d.ts
+    postMessage(message: any, transfer?: Transferable[]): void;
 }
 
 /**
@@ -116,8 +119,8 @@ export type WindowClientState = "hidden" | "visible" | "prerender" | "unloaded";
  * @note This is just a type. To access the variable in the worker, you need to declare it as a variable.
  * 
  * @example
- * // In an ambient d.ts file or, so you don't your global scope, in your hooks.worker.ts file. You may prefer to use a static import for the second case.
- * declare var registration: import("sveltekit-adapter-versioned-worker/worker").Registration;
+ * // In an ambient d.ts file or, so you don't your global scope, in your hooks.worker.ts file
+ * declare var registration: ServiceWorkerRegistration; // Or import("sveltekit-adapter-versioned-worker/worker").Registration
  */
 export type Registration = ServiceWorkerRegistration;
 
