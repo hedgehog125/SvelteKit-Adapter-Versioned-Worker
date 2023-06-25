@@ -45,7 +45,8 @@ import {
 import { log } from "./globals.js";
 import {
 	VERSION_FILE_BATCH_SIZE, MAX_VERSION_FILES,
-	CURRENT_VERSION_FILENAME, INFO_FILENAME, DEFAULT_STORAGE_NAME
+	CURRENT_VERSION_FILENAME, INFO_FILENAME, DEFAULT_STORAGE_NAME,
+	WORKER_MAIN_FILENAME
 } from "./constants.js";
 
 import * as fs from "fs/promises";
@@ -273,6 +274,11 @@ export async function hashFiles(
 	return asMap;
 }
 
+export async function createWorkerFolder({ minimalViteConfig, adapterConfig }: AllConfigs) {
+	const versionPath = path.join(minimalViteConfig.root, adapterConfig.outputDir, adapterConfig.outputVersionDir);
+	await makeDir(versionPath);
+}
+
 export async function writeWorkerEntry(inputFiles: InputFiles, configs: AllConfigs): Promise<string> {
 	const { minimalViteConfig, adapterConfig } = configs;
 
@@ -308,11 +314,11 @@ export function createWorkerConstants(
 	return {
 		ROUTES: routes,
 
-		PRECACHE: addBase(categorizedBuildFiles.precache),
-		LAZY_CACHE: addBase(categorizedBuildFiles.lazy),
-		STALE_LAZY: addBase(categorizedBuildFiles.staleLazy),
-		STRICT_LAZY: addBase(categorizedBuildFiles.strictLazy),
-		SEMI_LAZY: addBase(categorizedBuildFiles.semiLazy),
+		PRECACHE: categorizedBuildFiles.precache,
+		LAZY_CACHE: categorizedBuildFiles.lazy,
+		STALE_LAZY: categorizedBuildFiles.staleLazy,
+		STRICT_LAZY: categorizedBuildFiles.strictLazy,
+		SEMI_LAZY: categorizedBuildFiles.semiLazy,
 
 		STORAGE_PREFIX: storagePrefix,
 		VERSION: lastInfo.version + 1,
@@ -321,10 +327,6 @@ export function createWorkerConstants(
 		MAX_VERSION_FILES,
 		BASE_URL: baseURL
 	};
-
-	function addBase(filePaths: string[]): string[] {
-		return filePaths.map(filePath => `${svelteConfig.kit.paths.base}/${filePath}`);
-	}
 }
 export function generateVirtualModules(workerConstants: WorkerConstants): VirtualModuleSources {
 	return [
@@ -372,6 +374,10 @@ export async function rollupBuild(
 		hooksPath = path.join(minimalViteConfig.root, "src", inputFiles.hooksFileName);
 	}
 
+	const outputFileName = path.join(
+		minimalViteConfig.root, adapterConfig.outputDir,
+		adapterConfig.outputVersionDir, adapterConfig.outputWorkerFileName
+	);
 	const bundle = await rollup({
 		input: entryFilePath,
 		plugins: [
@@ -410,12 +416,29 @@ export async function rollupBuild(
 		}
 	});
 	await bundle.write({
-		file: path.join(minimalViteConfig.root, adapterConfig.outputDir, adapterConfig.outputWorkerFileName),
+		file: outputFileName,
 		format: "iife"
 	});
 	await bundle.close();
 
 	return null;
+}
+/**
+ * Writes a small file to the build that just runs the main script. Doing so reduces network usage.
+ * 
+ * @note
+ * Not to be confused with writeWorkerEntry which refers to the entry during the build.
+ */
+export async function writeWorkerImporter(currentVersion: number, { adapterConfig, minimalViteConfig }: AllConfigs) {
+	const contents = `importScripts(${JSON.stringify(
+		`${adapterConfig.outputVersionDir}/${WORKER_MAIN_FILENAME}?v=${currentVersion}`
+	)})`;
+	const entryPath = path.join(
+		minimalViteConfig.root, adapterConfig.outputDir,
+		adapterConfig.outputWorkerFileName
+	);
+
+	await fs.writeFile(entryPath, contents, { encoding: "utf-8" });
 }
 
 export function addNewVersionToInfoFile(infoFile: InfoFile, staticFileHashes: Map<string, string>) {
@@ -452,9 +475,8 @@ export function addNewVersionToInfoFile(infoFile: InfoFile, staticFileHashes: Ma
 
 	infoFile.hashes = staticFileHashes;
 }
-export async function createVersionFiles(infoFile: InfoFile, { adapterConfig, minimalViteConfig }: AllConfigs) {
+export async function writeVersionFiles(infoFile: InfoFile, { adapterConfig, minimalViteConfig }: AllConfigs) {
 	const versionPath = path.join(minimalViteConfig.root, adapterConfig.outputDir, adapterConfig.outputVersionDir);
-	await makeDir(versionPath);
 
 	await Promise.all([
 		Promise.all(infoFile.versions.map(async (versionBatch, batchID) => {

@@ -56,8 +56,10 @@ import {
 	defaultManifestProcessor,
 	processManifest,
 	addNewVersionToInfoFile,
-	createVersionFiles,
-	writeInfoFile
+	writeVersionFiles,
+	writeInfoFile,
+	createWorkerFolder,
+	writeWorkerImporter
 } from "./src/subFunctions.js";
 import {
 	applyAdapterConfigDefaults,
@@ -153,7 +155,7 @@ export function adapter(inputConfig: AdapterConfig) : Adapter {
 			log.message("Building worker...");
 			await buildWorker(categorizedFiles, builder, configs);
 			log.message("Creating new version...");
-			await createNewVersion(staticFileHashes, routeFiles, configs);
+			await createNewVersion(staticFileHashes, configs);
 			log.message("Finishing up...");
 			await finishUp(configs);
 			// TODO: build finish hook
@@ -253,6 +255,9 @@ export function manifestGenerator(inputConfig: ManifestPluginConfig = {}): Plugi
 	];
 }
 
+
+/* Adapter */
+
 async function init(config: ResolvedAdapterConfig) { // Not run in dev mode
 	minimalViteConfig = viteConfig?
 		{
@@ -307,15 +312,17 @@ async function buildWorker(categorizedFiles: CategorizedBuildFiles, builder: Bui
 	const virtualModules = generateVirtualModules(workerConstants);
 	const typescriptConfig = await configureTypescript(configs);
 
+	await createWorkerFolder(configs);
 	const error = await rollupBuild(entryFilePath, typescriptConfig, virtualModules, inputFiles, configs);
 	await fs.rm(entryFilePath);
 	if (error) {
 		log.error(`Error while building the service worker:\n${error}`);
 	}
+	await writeWorkerImporter(lastInfo.version + 1, configs);
 }
-async function createNewVersion(staticFileHashes: Map<string, string>, routeFiles: Set<string>, configs: AllConfigs) {
+async function createNewVersion(staticFileHashes: Map<string, string>, configs: AllConfigs) {
 	addNewVersionToInfoFile(lastInfo, staticFileHashes);
-	await createVersionFiles(lastInfo, configs);
+	await writeVersionFiles(lastInfo, configs);
 }
 async function finishUp(configs: AllConfigs) {
 	await writeInfoFile(lastInfo, configs);

@@ -5,6 +5,7 @@ What cache mode should fetch use in the worker? Always no-store?
 Abort signals
 Use sets instead of arrays for the constants?
 Remove base from URLs in worker, they can be relative to it
+Allow passthrough requests (no respondWith) if it's not in the cache list and the hander synchronously returns null
 
 # Bugs
 TypeScript compile errors aren't emitted

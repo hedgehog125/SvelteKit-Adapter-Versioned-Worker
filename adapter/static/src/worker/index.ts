@@ -37,6 +37,7 @@ const REUSABLE_BETWEEN_VERSIONS = new Set<string>([
 	...LAZY_CACHE,
 	...STALE_LAZY
 ]);
+const cachePromise = caches.open(currentStorageName);
 
 addEventListener("install", e => {
     (e as InstallEvent).waitUntil(
@@ -58,13 +59,13 @@ addEventListener("install", e => {
 					
 					const cache = await caches.open(cacheName);
 					const existsList: [string, boolean][] = await Promise.all([...toDownload].map(async (href: string) => { // Maps to an array of promises
-						return [href, (await cache.match(href)) !== undefined];
+						return [href, (await cache.match(href)) != null];
 					}));
 
 					for (const [href, exists] of existsList) {
-						const unchanged = (! (updated.has(href) || ROUTES.includes(href)));
-						const staleAndAcceptable = (! unchanged) && REUSABLE_BETWEEN_VERSIONS.has(href);
-						if (exists && (unchanged || staleAndAcceptable)) {
+						const changed = updated.has(href) || ROUTES.includes(href);
+						const staleAndAcceptable = changed && REUSABLE_BETWEEN_VERSIONS.has(href); // Don't check if it's in REUSABLE_BETWEEN_VERSIONS if it's unchanged
+						if (exists && ((! changed) || staleAndAcceptable)) {
 							toCopy.push([href, cache, staleAndAcceptable]);
 							toDownload.delete(href);
 						}
@@ -72,13 +73,24 @@ addEventListener("install", e => {
 				}
 			}
 
-			const cache = await caches.open(currentStorageName);
+			const cache = await cachePromise;
 			await Promise.all([
-				cache.addAll(toDownload),
+				Promise.all([...toDownload].map(async href => {
+					const res = await fetch(href);
+
+					const wrapped = new Response(res.body, {
+						status: res.status,
+						headers: {
+							...Object.fromEntries(res.headers),
+							"VW-Version": VERSION.toString()
+						}
+					});
+					await cache.put(href, wrapped);
+				})),
 				...toCopy.map(async ([href, oldCache]) => {
 					const existing = (await oldCache.match(href)) as Response; // It was already found in the cache, unless it's been deleted since then
 
-					await cache.put(href, );
+					await cache.put(href, existing);
 				})
 			]);
 		})()
@@ -124,7 +136,7 @@ addEventListener("fetch", e => {
 				}
 			}
 
-			let cache = await caches.open(currentStorageName);
+			const cache = await cachePromise;
 			let cached = await cache.match(fetchEvent.request);
 			if (cached) return cached;
 		

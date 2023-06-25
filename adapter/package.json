@@ -22,6 +22,11 @@
 			"import": "./worker.js",
 			"module": "./worker.js"
 		},
+		"./worker/util": {
+			"types": "./build/src/worker/util.d.ts",
+			"import": "./build/src/util.js",
+			"module": "./build/src/util.js"
+		},
 		"./runtime-constants": {
 			"types": "./runtime-constants.d.ts",
 			"import": "./runtime-constants.js",
