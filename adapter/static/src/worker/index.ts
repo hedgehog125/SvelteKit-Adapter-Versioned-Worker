@@ -138,17 +138,22 @@ addEventListener("activate", e => {
 });
 addEventListener("fetch", e => {
 	const fetchEvent = e as FetchEvent;
+	const isPage = fetchEvent.request.mode === "navigate" && fetchEvent.request.method === "GET";
+	const fullPath = new URL(fetchEvent.request.url).pathname;
+	const pathWithoutBase = fullPath.slice(BASE_URL.length);
+	const inCacheList = COMPLETE_CACHE_LIST.has(pathWithoutBase);
+
+	let handleOutput: Promise<Nullable<Response>> | Nullable<Response> = null;
+	if (hooks.handle) {
+		handleOutput = hooks.handle(pathWithoutBase, isPage, fetchEvent, fullPath);
+
+		if (handleOutput == null && (! inCacheList)) { // Passthrough
+			return;
+		} 
+	}
 
     fetchEvent.respondWith(
         (async (): Promise<Response> => {
-			const isPage = fetchEvent.request.mode === "navigate" && fetchEvent.request.method === "GET";
-			const fullPath = new URL(fetchEvent.request.url).pathname;
-			const pathWithoutBase = fullPath.slice(BASE_URL.length);
-			if (hooks.handle) {
-				const output = await hooks.handle(pathWithoutBase, isPage, fetchEvent, fullPath);
-				if (output != null) return output;
-			}
-
 			if (isPage && registration.waiting) { // Based on https://redfin.engineering/how-to-fix-the-refresh-button-when-using-service-workers-a8e27af6df68
 				const activeClients = await clients.matchAll();
 				if (activeClients.length > 1) {
@@ -158,6 +163,11 @@ addEventListener("fetch", e => {
 					registration.waiting.postMessage({ type: "skipWaiting" });
 					return new Response("", { headers: { Refresh: "0" } }); // Send an empty response but with a refresh header so it reloads instantly
 				}
+			}
+
+			if (handleOutput) {
+				handleOutput = await handleOutput;
+				if (handleOutput != null) return handleOutput;
 			}
 
 			const cache = await cachePromise;
@@ -178,7 +188,7 @@ addEventListener("fetch", e => {
 			}
 
 			resource = addVWHeaders(resource);
-			if (COMPLETE_CACHE_LIST.has(pathWithoutBase) && fetchEvent.request.method === "GET") {
+			if (inCacheList && fetchEvent.request.method === "GET") {
 				if (isRequestDefault(fetchEvent.request)) {
 					fetchEvent.waitUntil(cache.put(fetchEvent.request, resource.clone())); // Update it in the background
 				}

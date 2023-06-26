@@ -10,7 +10,6 @@ Redirect incorrect trailing slashes in the service worker. Also redirect /index.
 Don't hardcode sw.js in ServiceWorker.svelte. Export from runtime-constants?
 
 # Features
-Allow passthrough requests (no respondWith) if it's not in the cache list and the hander synchronously returns null
 JavaScript support
 How does this plugin work when deploying to Vercel? Since that changes how the static adapter works
 Configuring the static adapter
@@ -18,6 +17,7 @@ Configuring TypeScript for the hooks file, along with other build plugins
 Allow running code after everything is done
 Add message handle (postMessage)
 Add an easy way to modify headers before the response is sent. New hook? Maybe only for requests using the default mechanism (not handled)?
+File info argument for file sorters. Or an async function so files don't always have to be statted
 
 # Tweaks
 Use sets instead of arrays for the constants?

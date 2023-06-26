@@ -1,6 +1,6 @@
 const URL_PREFIX = "SvelteKit-Adapter-Versioned-Worker"; // <-- Set this to the repository name if you're hosting on GitHub Pages (unless it's your homepage site), as all the URLs will need to be prefixed with it. If you don't want a prefix, set it to an empty string
 
-import { adapter, readLast, fetchLast } from "internal-adapter";
+import { adapter, standardGetLast } from "internal-adapter";
 import { vitePreprocess } from "@sveltejs/kit/vite";
 
 const disableBaseURL = process.env.DISABLE_BASE_URL == null? false : process.env.DISABLE_BASE_URL === "true";
@@ -30,7 +30,12 @@ const config = {
 		},
 
 		adapter: adapter({
-			lastInfo: disableBaseURL? readLast() : fetchLast("https://hedgehog125.github.io/SvelteKit-Plugin-Versioned-Worker/versionedWorker.json")
+			lastInfo: standardGetLast("https://hedgehog125.github.io/SvelteKit-Plugin-Versioned-Worker/versionedWorker.json", disableBaseURL),
+			sortFile: filePath => {
+				if (filePath === "ping.txt") return "never-cache";
+
+				return "pre-cache";
+			}
 		})
 	}
 };

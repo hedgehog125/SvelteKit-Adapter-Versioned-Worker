@@ -350,8 +350,10 @@ async function generateManifest(): Promise<Nullable<string>> {
 /**
  * A premade `LastInfoProvider` for use with the `lastInfo` property in the adapter config. Call this function with the URL of your versionedWorker.json file (or the URL of where it *will* be) and then set `lastInfo` to the return value.
  * 
- * @param url The URL of your versionedWorker.json file (or where it *will* be).
- * @returns A `LastInfoProvider` that gets your versionedWorker.json file using the Fetch API.
+ * @param url The URL of your versionedWorker.json file or where it will be
+ * @returns A `LastInfoProvider` that gets your versionedWorker.json file using the Fetch API
+ * 
+ * @note Most of the time you'll want to use `standardGetLast` instead, as it allows you to test how builds update locally.
  * 
  * @example
  * // svelte.config.js
@@ -362,7 +364,7 @@ async function generateManifest(): Promise<Nullable<string>> {
  *   kit: {
  *     // ...
  *     adapter: adapter({
- *       lastInfo: fetchLast("https://hedgehog125.github.io/SvelteKit-Plugin-Versioned-Worker/versionedWorker.json"),
+ *       lastInfo: fetchLast("https://hedgehog125.github.io/SvelteKit-Adapter-Versioned-Worker/versionedWorker.json"),
  *       // ...
  *     })
  *     // ...
@@ -398,26 +400,23 @@ export function fetchLast(url: string): LastInfoProvider {
  * Another premade `LastInfoProvider` for use with the `lastInfo` property in the adapter config. Unless you're storing the file outside of the build directory, this function doesn't need any arguments.
  * 
  * @note
- * For production builds, you'll probably want to use `fetchLast`, as that will prevent you publishing useless information about test builds (i.e the number of them and the files changed between them). However, this is good to use for test builds, as it means you can check the update behaviour.
+ * For production builds, you'll probably want to use `fetchLast`, as that will prevent you publishing useless information about test builds (i.e the number of them and the files changed between them). However, this is good to use for test builds, as it means you can check the update behaviour. Because of these pros and cons, it's best to use `standardGetLast` to use the correct one for the type of build.
  * 
- * @param filePath The absolute or relative file path to your versionedWorker.json file (or where it *will* be).
+ * @param filePath The absolute or relative file path to your versionedWorker.json file, or where it will be.
  * **Default**: `<adapterConfig.outputDir>/versionedWorker.json`.
  * @returns A `LastInfoProvider` that gets your versionedWorker.json file by reading it from the disk.
  * 
  * @example
  * // svelte.config.js
- * import { adapter, readLast, fetchLast } from "sveltekit-adapter-versioned-worker";
+ * import { adapter, readLast } from "sveltekit-adapter-versioned-worker";
  * 
- * const isDev = process.env.NODE_ENV != "production";
  * // ...
  * 
  * const config = {
  *   kit: {
  *     // ...
  *     adapter: adapter({
- *       lastInfo: isDev?
- *         readLast() // Since we're also using the default outputDir of "build", this will default to "build/versionedWorker.json"
- *         : fetchLast("https://hedgehog125.github.io/SvelteKit-Plugin-Versioned-Worker/versionedWorker.json"),
+ *       lastInfo: readLast(), // This will default to "<adapterConfig.outputDir>/versionedWorker.json"
  *       // ...
  *     })
  *     // ...
@@ -445,4 +444,40 @@ export function readLast(filePath?: string): LastInfoProvider {
 
 		return contents;
 	};
+}
+
+/**
+ * The `LastInfoProvider` that you want to use most of the time. It uses `readLast` for development builds and `fetchLast` for production ones.
+ * 
+ * @param url The URL of your versionedWorker.json file or where it will be.
+ * @param isDev If this is a development build or not.
+ * @param filePath The path to your versionedWorker.json file or where it will be. **Default**: `<adapterConfig.outputDir>/versionedWorker.json`.
+ * @returns A `LastInfoProvider` that will either fetch or read your last info file.
+ * 
+ * @example
+ * // svelte.config.js
+ * import { adapter, standardGetLast } from "sveltekit-adapter-versioned-worker";
+ * 
+ * const isDev = process.env.DEV_BUILD === "true";
+ * // ...
+ * const config = {
+ *   kit: {
+ *     // ...
+ *     adapter: adapter({
+ *       lastInfo: standardGetLast(
+ *         "https://hedgehog125.github.io/SvelteKit-Adapter-Versioned-Worker/versionedWorker.json",
+ *         isDev
+ *       ),
+ *       // ...
+ *     })
+ *     // ...
+ *   }
+ * };
+ * // ...
+ */
+export function standardGetLast(url: string, isDev: boolean, filePath?: string): LastInfoProvider {
+	return isDev?
+		readLast(filePath)
+		: fetchLast(url)
+	;
 }
