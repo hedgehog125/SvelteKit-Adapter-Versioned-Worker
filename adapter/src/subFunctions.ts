@@ -299,7 +299,8 @@ export function createWorkerConstants(
 ): WorkerConstants {
 	const { adapterConfig, svelteConfig } = configs;
 
-	const routes = Array.from(builder.prerendered.pages).map(([ href ]) => href);
+	let baseURL = svelteConfig.kit.paths.base + "/";
+	const routes = Array.from(builder.prerendered.pages).map(([ href ]) => href.slice(baseURL.length));
 
 	let storagePrefix = adapterConfig.cacheStorageName;
 	if (storagePrefix == null) {
@@ -307,9 +308,6 @@ export function createWorkerConstants(
 		storagePrefix = base == ""? DEFAULT_STORAGE_NAME : base.slice(1); // Remove the starting slash
 	}
 	storagePrefix += "-";
-
-	let baseURL = svelteConfig.kit.paths.base;
-	if (! baseURL.endsWith("/")) baseURL += "/";
 
 	return {
 		ROUTES: routes,
@@ -365,13 +363,23 @@ export async function rollupBuild(
 	let virtualModules: Record<string, string> = {
 		"sveltekit-adapter-versioned-worker/worker": virtualModulesSources[0]
 	};
+	let aliases = [
+		{
+			find: "sveltekit-adapter-versioned-worker/internal/worker-util-alias",
+			replacement: path.join(adapterFilesPath, "build/src/worker/util.js")
+		}
+	];
 
-	let hooksPath: Nullable<string> = null;
+	let hooksPath: Nullable<string>;
 	if (inputFiles.hooksFileName == null) { // Replace it with an empty module if it doesn't exist
 		virtualModules["sveltekit-adapter-versioned-worker/internal/hooks"] = "export {};";
 	}
 	else {
 		hooksPath = path.join(minimalViteConfig.root, "src", inputFiles.hooksFileName);
+		aliases.push({
+			find: "sveltekit-adapter-versioned-worker/internal/hooks",
+			replacement: hooksPath
+		});
 	}
 
 	const outputFileName = path.join(
@@ -382,13 +390,8 @@ export async function rollupBuild(
 		input: entryFilePath,
 		plugins: [
 			pluginVirtualPromises(virtualModules),
-			hooksPath != null && pluginAlias({
-				entries: [
-					{
-						find: "sveltekit-adapter-versioned-worker/internal/hooks",
-						replacement: hooksPath
-					}
-				]
+			pluginAlias({
+				entries: aliases
 			}),
 			nodeResolve({
 				browser: true

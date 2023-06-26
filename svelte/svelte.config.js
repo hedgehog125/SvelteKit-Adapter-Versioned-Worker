@@ -9,7 +9,6 @@ const baseURL = (
 	|| URL_PREFIX === ""
 )? "" : `/${URL_PREFIX}`;
 
-const demoFolder = "src/lib/_demo/";
 /** @type {import("@sveltejs/kit").Config} */
 const config = {
 	preprocess: vitePreprocess(),
@@ -20,12 +19,14 @@ const config = {
 			base: baseURL
 		},
 		alias: {
-			$util: demoFolder + "util",
-			$set: demoFolder + "settings",
-			$sub: demoFolder + "subcomponents",
-			$img: demoFolder + "imgs",
-			$snd: demoFolder + "snds",
-			$vid: demoFolder + "vids"
+			$util: "src/lib/util",
+			$set: "src/lib/settings",
+			$sub: "src/lib/subcomponents",
+			$img: "src/lib/imgs",
+			$snd: "src/lib/snds",
+			$vid: "src/lib/vids",
+
+			"internal-adapter/runtime-constants": "sveltekit-adapter-versioned-worker/runtime-constants"
 		},
 
 		adapter: adapter({

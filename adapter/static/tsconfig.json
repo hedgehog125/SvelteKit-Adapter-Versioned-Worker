@@ -19,7 +19,8 @@ Since these don't have exports, d.ts files aren't generated */
 		"declarationMap": false,
 
 		"paths": {
-			"sveltekit-adapter-versioned-worker/worker": ["../worker"]
+			"sveltekit-adapter-versioned-worker/worker": ["../worker"],
+			"sveltekit-adapter-versioned-worker/internal/worker-util-alias": ["../build/src/worker/util"],
 		}
 	}
 }

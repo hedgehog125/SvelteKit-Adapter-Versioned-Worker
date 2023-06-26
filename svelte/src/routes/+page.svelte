@@ -1,5 +1,5 @@
 <script>
-	import { VERSION } from "sveltekit-adapter-versioned-worker/runtime-constants";
+	import { VERSION } from "internal-adapter/runtime-constants";
 </script>
 
 <main>

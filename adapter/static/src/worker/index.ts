@@ -20,6 +20,8 @@ import {
 	MAX_VERSION_FILES,
 	BASE_URL
 } from "sveltekit-adapter-versioned-worker/worker";
+
+import { modifyResponseHeaders, isRequestDefault } from "sveltekit-adapter-versioned-worker/internal/worker-util-alias";
 import * as hooks from "sveltekit-adapter-versioned-worker/internal/hooks";
 
 type Nullable<T> = T | null;
@@ -43,54 +45,74 @@ addEventListener("install", e => {
     (e as InstallEvent).waitUntil(
 		(async () => {
 			const installedVersions = await getInstalled();
-			const updated = await getUpdated(installedVersions);
-			const doCleanInstall = updated == null;
+			const updatedList = await getUpdated(installedVersions);
 
 			const toDownload = new Set<string>([
 				...ROUTES,
 				...PRECACHE
 			]);
-			const toCopy: [href: string, containingCache: Cache, stale: boolean][] = [];
-			if (! doCleanInstall) { // A clean install just means that old cache isn't reused
+			const toCopy = new Map<string, [containingCache: Cache, isStale: boolean, fromVersion: number]>(); // The key is the path
+			if (updatedList) { // Don't reuse anything if it's a clean install
 				const cacheNames = await caches.keys();
 				for (const cacheName of cacheNames) {
 					if (! cacheName.startsWith(STORAGE_PREFIX)) continue;
 					if (cacheName === currentStorageName) continue;
 					
 					const cache = await caches.open(cacheName);
-					const existsList: [string, boolean][] = await Promise.all([...toDownload].map(async (href: string) => { // Maps to an array of promises
-						return [href, (await cache.match(href)) != null];
-					}));
+					const pathsInCache = (await cache.keys()).map(req => new URL(req.url).pathname.slice(BASE_URL.length));
+					const cacheVersion = parseInt(cacheName.slice(STORAGE_PREFIX.length));
+					for (const path of pathsInCache) {
+						const changed = updatedList.has(path) || ROUTES.includes(path);
+						if (PRECACHE.includes(path)) {
+							if (toDownload.has(path) && (! changed)) {
+								toDownload.delete(path);
+		
+								addToToCopyIfNewer(false);
+							}
+						}
+						else if (SEMI_LAZY.includes(path) && changed) {
+							toDownload.add(path);
+						}
+						else if (COMPLETE_CACHE_LIST.has(path)) {
+							const staleAndAcceptable = changed && REUSABLE_BETWEEN_VERSIONS.has(path); // Don't check if it's in REUSABLE_BETWEEN_VERSIONS if it's unchanged
+							const reusable = (! changed) || staleAndAcceptable;
 
-					for (const [href, exists] of existsList) {
-						const changed = updated.has(href) || ROUTES.includes(href);
-						const staleAndAcceptable = changed && REUSABLE_BETWEEN_VERSIONS.has(href); // Don't check if it's in REUSABLE_BETWEEN_VERSIONS if it's unchanged
-						if (exists && ((! changed) || staleAndAcceptable)) {
-							toCopy.push([href, cache, staleAndAcceptable]);
-							toDownload.delete(href);
+							if (reusable) addToToCopyIfNewer(changed); // If it's reusable and has changed then it's stale
+						}
+
+
+						function addToToCopyIfNewer(isStale: boolean) {
+							const itemInToCopy = toCopy.get(path);
+							const valueToPut: [Cache, boolean, number] = [cache, isStale, cacheVersion];
+							if (itemInToCopy) {
+								if (cacheVersion > itemInToCopy[2]) { // This assset is newer, use it instead
+									toCopy.set(path, valueToPut);
+								}
+							}
+							else {
+								toCopy.set(path, valueToPut);
+							}
 						}
 					}
-				}
+				}	
 			}
 
 			const cache = await cachePromise;
 			await Promise.all([
-				Promise.all([...toDownload].map(async href => {
-					const res = await fetch(href);
+				...[...toDownload].map(async path => {
+					if (path === "") path = BASE_URL; // Otherwise it'll point to sw.js
+					const res = addVWHeaders(await fetch(path, { cache: "no-store" }));
 
-					const wrapped = new Response(res.body, {
-						status: res.status,
-						headers: {
-							...Object.fromEntries(res.headers),
-							"VW-Version": VERSION.toString()
-						}
-					});
-					await cache.put(href, wrapped);
-				})),
-				...toCopy.map(async ([href, oldCache]) => {
-					const existing = (await oldCache.match(href)) as Response; // It was already found in the cache, unless it's been deleted since then
+					await cache.put(path, res);
+				}),
+				...[...toCopy].map(async ([path, [oldCache, isStale]]) => {
+					const existing = (await oldCache.match(path)) as Response; // It was already found in the cache before
+					const withUpdatedVersionHeader = isStale?
+						existing
+						: addVWHeaders(existing)
+					;
 
-					await cache.put(href, existing);
+					await cache.put(path, withUpdatedVersionHeader);
 				})
 			]);
 		})()
@@ -105,7 +127,8 @@ addEventListener("activate", e => {
 			// Clean up
 			const cacheNames = await caches.keys();
 			for (const cacheName of cacheNames) {
-				if (! cacheName.startsWith(STORAGE_PREFIX)) continue;
+				const hasAnOldName = cacheName.startsWith("VersionedWorkerStorage-") || cacheName.startsWith("VersionedWorkerCache-");
+				if (! (cacheName.startsWith(STORAGE_PREFIX) || hasAnOldName)) continue;
 				if (cacheName === currentStorageName) continue;
 
 				await caches.delete(cacheName); // There'll probably only be 1 anyway so it's not worth doing in parallel
@@ -119,9 +142,10 @@ addEventListener("fetch", e => {
     fetchEvent.respondWith(
         (async (): Promise<Response> => {
 			const isPage = fetchEvent.request.mode === "navigate" && fetchEvent.request.method === "GET";
-			const path = new URL(fetchEvent.request.url).pathname;
+			const fullPath = new URL(fetchEvent.request.url).pathname;
+			const pathWithoutBase = fullPath.slice(BASE_URL.length);
 			if (hooks.handle) {
-				const output = await hooks.handle(path.slice(BASE_URL.length), isPage, fetchEvent, path);
+				const output = await hooks.handle(pathWithoutBase, isPage, fetchEvent, fullPath);
 				if (output != null) return output;
 			}
 
@@ -145,15 +169,19 @@ addEventListener("fetch", e => {
 				resource = await fetch(fetchEvent.request);
 			}
 			catch {
-				if (ROUTES.includes(path) && isPage) {
+				if (ROUTES.includes(pathWithoutBase) && isPage) {
 					return new Response("Something went wrong. Please connect to the internet and try again.");
 				}
 				else {
 					return Response.error();
 				}
 			}
-			if (COMPLETE_CACHE_LIST.has(path) && fetchEvent.request.method === "GET") {
-				fetchEvent.waitUntil(cache.put(fetchEvent.request, resource.clone())); // Update it in the background
+
+			resource = addVWHeaders(resource);
+			if (COMPLETE_CACHE_LIST.has(pathWithoutBase) && fetchEvent.request.method === "GET") {
+				if (isRequestDefault(fetchEvent.request)) {
+					fetchEvent.waitUntil(cache.put(fetchEvent.request, resource.clone())); // Update it in the background
+				}
 			}
 			return resource;
         })()
@@ -228,7 +256,7 @@ async function getUpdated(installedVersions: number[]): Promise< Nullable<Set<st
 	let versionFiles = await Promise.all(
 		new Array(numberToDownload).fill(null).map(async (_, offset) => {
 			let fileID = offset + rangeToDownload[0];
-			const res = await fetch(`${VERSION_FOLDER}/${fileID}.txt`);
+			const res = await fetch(`${VERSION_FOLDER}/${fileID}.txt`, { cache: "no-store" });
 			return parseUpdatedList(await res.text());
 		})
 	);
@@ -248,4 +276,14 @@ async function getUpdated(installedVersions: number[]): Promise< Nullable<Set<st
 		}
 	}
 	return updated;
+}
+
+/**
+ * @note This consumes the original response
+ * @note This assumes the response is from the latest version
+ */
+function addVWHeaders(response: Response): Response {
+	return modifyResponseHeaders(response, {
+		"VW-VERSION": VERSION.toString()
+	});
 }
