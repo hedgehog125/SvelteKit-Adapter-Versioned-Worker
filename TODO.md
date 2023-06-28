@@ -1,3 +1,5 @@
+Implement stale lazy and lazy
+Rename lazy to relaxed-lazy
 Handle HEAD requests
 Upgrade svelte-package
 What cache mode should fetch use in the worker? Always no-store?
@@ -17,7 +19,7 @@ Configuring TypeScript for the hooks file, along with other build plugins
 Allow running code after everything is done
 Add message handle (postMessage)
 Add an easy way to modify headers before the response is sent. New hook? Maybe only for requests using the default mechanism (not handled)?
-File info argument for file sorters. Or an async function so files don't always have to be statted
+File info argument for file sorters. Or an async function so files don't always have to be statted. Also provide the Vite info. Maybe put it all in 1 object?
 
 # Tweaks
 Use sets instead of arrays for the constants?

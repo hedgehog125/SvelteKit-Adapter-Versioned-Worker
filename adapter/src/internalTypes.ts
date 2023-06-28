@@ -43,7 +43,7 @@ export interface CategorizedBuildFiles {
 	completeList: string[]
 	// never-cache just isn't included
 }
-export type ProcessedBuild = [CategorizedBuildFiles, Set<string>, Map<string, string>];
+export type ProcessedBuild = [categorizedBuildFiles: CategorizedBuildFiles, routeFiles: Set<string>, staticFileHashes: Map<string, string>, fileSizes: Map<string, number>];
 
 export interface WorkerConstants {
 	ROUTES: string[],

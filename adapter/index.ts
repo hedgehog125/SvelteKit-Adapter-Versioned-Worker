@@ -8,6 +8,8 @@ import type {
 	
 	VersionedWorkerLogger,
 	LastInfoProvider,
+	FileSorter,
+	FileInfo,
 	ManifestProcessor,
 	LastInfoProviderConfigs,
 
@@ -59,7 +61,8 @@ import {
 	writeVersionFiles,
 	writeInfoFile,
 	createWorkerFolder,
-	writeWorkerImporter
+	writeWorkerImporter,
+	getFileSizes
 } from "./src/subFunctions.js";
 import {
 	applyAdapterConfigDefaults,
@@ -83,6 +86,8 @@ export {
 	
 	VersionedWorkerLogger,
 	LastInfoProvider,
+	FileSorter,
+	FileInfo,
 	ManifestProcessor,
 	LastInfoProviderConfigs,
 	AllConfigs,
@@ -151,7 +156,7 @@ export function adapter(inputConfig: AdapterConfig) : Adapter {
 			// I know the different write methods return arrays of files, but I don't feel like maintaining a fork of adapter-static just to do that. So listing the files in the directory it is
 
 			log.message("Processing build...");
-			const [categorizedFiles, routeFiles, staticFileHashes] = await processBuild(configs, builder);
+			const [categorizedFiles, routeFiles, staticFileHashes, fileSizes] = await processBuild(configs, builder);
 			log.message("Building worker...");
 			await buildWorker(categorizedFiles, builder, configs);
 			log.message("Creating new version...");
@@ -300,10 +305,11 @@ async function processBuild(configs: AllConfigs, builder: Builder): Promise<Proc
 	const fullFileList = await listAllBuildFiles(configs);
 	const routeFiles = new Set(Array.from(builder.prerendered.pages).map(([, { file }]) => file));
 
-	const categorizedFiles = await categorizeFilesIntoModes(fullFileList, routeFiles, configs);
+	const fileSizes = await getFileSizes(fullFileList, viteBundle, configs);
+	const categorizedFiles = await categorizeFilesIntoModes(fullFileList, routeFiles, fileSizes, viteBundle, configs);
 	const staticFileHashes = await hashFiles(categorizedFiles.completeList, routeFiles, viteBundle, configs);
 
-	return [categorizedFiles, routeFiles, staticFileHashes];
+	return [categorizedFiles, routeFiles, staticFileHashes, fileSizes];
 }
 async function buildWorker(categorizedFiles: CategorizedBuildFiles, builder: Builder, configs: AllConfigs) {
 	const entryFilePath = await writeWorkerEntry(inputFiles, configs);

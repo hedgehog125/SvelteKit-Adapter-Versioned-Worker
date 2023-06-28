@@ -110,13 +110,13 @@ export function requiredProperty<T>(): T {
 	return undefined as any as T;
 }
 
-export function hash(data: string | Buffer): string {
+export function hash(data: crypto.BinaryLike): string {
 	const hasher = crypto.createHash("md5");
 	hasher.update(data);
 	return hasher.digest("hex");
 }
-export function removeNulls<T>(arr: T[]): T[] {
-	return arr.filter(item => item != null);	
+export function removeNulls<T>(arr: T[]): Exclude<T, null>[] {
+	return arr.filter(item => item != null) as Exclude<T, null>[];	
 }
 
 export function createConstantsModule(constants: Record<string, any>): string {

@@ -17,6 +17,7 @@
 		"svelte": "^3.55.1"
 	},
 	"devDependencies": {
+		"@rollup/plugin-virtual": "^3.0.1",
 		"@sveltejs/kit": "^1.19.0",
 		"@sveltejs/package": "^1.0.0",
 		"@types/html-minifier": "^4.0.2",

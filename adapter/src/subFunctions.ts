@@ -40,7 +40,8 @@ import {
 	fileExists,
 	hash,
 	findUniqueFileName,
-	createConstantsModule
+	createConstantsModule,
+	removeNulls
 } from "./helper.js";
 import { log } from "./globals.js";
 import {
@@ -199,8 +200,12 @@ export async function listAllBuildFiles(configs: AllConfigs): Promise<string[]> 
 		.map(fullFilePath => normalizePath(path.relative(buildDirPath, fullFilePath)))
 	);
 }
-export async function categorizeFilesIntoModes(completeFileList: string[], routeFiles: Set<string>, configs: AllConfigs): Promise<CategorizedBuildFiles> {
+export async function categorizeFilesIntoModes(
+	completeFileList: string[], routeFiles: Set<string>,
+	fileSizes: Map<string, number>, viteBundle: Nullable<OutputBundle>, configs: AllConfigs
+): Promise<CategorizedBuildFiles> {
 	const { minimalViteConfig, adapterConfig } = configs;
+	const buildDirPath = path.join(minimalViteConfig.root, adapterConfig.outputDir);
 
 	const fileModes = await Promise.all(completeFileList.map(async (filePath: string): Promise<FileSortMode> => {
 		const mimeType = lookup(filePath) || null;
@@ -213,7 +218,18 @@ export async function categorizeFilesIntoModes(completeFileList: string[], route
 
 		if (adapterConfig.sortFile == null) return "pre-cache";
 
-		return await adapterConfig.sortFile(filePath, mimeType, configs);
+
+		const viteInfo = viteBundle?.[filePath]?? null;
+		const nameProperty = viteInfo?.name;
+		const isStatic = viteInfo == null? null : nameProperty == null; // Null if no viteInfo. False if it has a name defined, else true.
+		return await adapterConfig.sortFile({
+			href: filePath,
+			localFilePath: path.join(buildDirPath, filePath),
+			mimeType,
+			isStatic,
+			size: fileSizes.get(filePath) as number,
+			viteInfo
+		}, configs);
 	}));
 
 	let precache: string[] = [];
@@ -253,25 +269,40 @@ export async function hashFiles(
 	const { minimalViteConfig, adapterConfig } = configs;
 	const buildDirPath = path.join(minimalViteConfig.root, adapterConfig.outputDir);
 	
-	const fileHashes = await Promise.all(filteredFileList.map(async (filePath): Promise<Nullable<string>> => {
+	return new Map(removeNulls(await Promise.all(filteredFileList.map(async (filePath): Promise<Nullable<string>> => {
 		if (routeFiles.has(filePath)) return null; // They're assumed to have changed
 
 		const bundleInfo = viteBundle?.[filePath];
 		if (bundleInfo?.name) return null; // Has a hash in its filename
 
-		const contents = bundleInfo?.type === "chunk"? bundleInfo.code : await fs.readFile(path.join(buildDirPath, filePath));
+		const contents = bundleInfo?
+			(bundleInfo?.type === "chunk"? bundleInfo.code : bundleInfo.source)
+			: await fs.readFile(path.join(buildDirPath, filePath))
+		;
 		return hash(contents);
-	}));
+	}))).map((fileHash, fileIndex) => [filteredFileList[fileIndex], fileHash]));
+}
+export async function getFileSizes(
+	filteredFileList: string[], viteBundle: Nullable<OutputBundle>,
+	configs: AllConfigs
+): Promise<Map<string, number>> {
+	const { minimalViteConfig, adapterConfig } = configs;
+	const buildDirPath = path.join(minimalViteConfig.root, adapterConfig.outputDir);
+	
+	return new Map((await Promise.all(filteredFileList.map(async (filePath): Promise<number> => {
+		const bundleInfo = viteBundle?.[filePath];
 
-	let asMap = new Map<string, string>();
-	for (let fileID = 0; fileID < filteredFileList.length; fileID++) {
-		const fileName = filteredFileList[fileID];
-		const fileHash = fileHashes[fileID];
-		if (fileHash == null) continue;
+		const inMemoryContents = bundleInfo?
+			(bundleInfo?.type === "chunk"? bundleInfo.code : bundleInfo.source)
+			: null
+		;
+		const size = inMemoryContents == null?
+			(await fs.stat(path.join(buildDirPath, filePath))).size
+			: Buffer.byteLength(inMemoryContents)
+		;
 
-		asMap.set(fileName, fileHash);
-	}
-	return asMap;
+		return size;
+	}))).map((size, fileIndex) => [filteredFileList[fileIndex], size]));
 }
 
 export async function createWorkerFolder({ minimalViteConfig, adapterConfig }: AllConfigs) {

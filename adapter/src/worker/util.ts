@@ -8,7 +8,11 @@ export type SummarizedRequest = [method: string, url: string, headers: Record<st
  * @returns A `SummarizedRequest`
  */
 export function summarizeRequest(request: Request): SummarizedRequest {
-	const varyHeaders = (request.headers.get(VARY_HEADER)?? "").split(",").map(rawHeaderName => rawHeaderName.trim().toLowerCase());
+	const varyHeaders = (request.headers.get(VARY_HEADER)?? "")
+		.split(",")
+		.map(rawHeaderName => rawHeaderName.trim().toLowerCase())
+		.filter(headerName => headerName !== "")
+	;
 
 	return [
 		request.method,

@@ -121,7 +121,46 @@ export interface LastInfoProviderConfigs {
 	adapterConfig: ResolvedAdapterConfig,
 	manifestPluginConfig: Nullable<ResolvedManifestPluginConfig>
 }
-export type FileSorter = (normalizedFilePath: string, mimeType: Nullable<string>, configs: AllConfigs) => FileSortMode | Promise<FileSortMode>;
+export type FileSorter = (fileInfo: FileInfo, configs: AllConfigs) => FileSortMode | Promise<FileSortMode>;
+export interface FileInfo {
+	/**
+	 * The href of the file.
+	 * 
+	 * @note This has the base URL removed and doesn't start with "/" or "./"
+	 */
+	href: string,
+	/**
+	 * The absolute path to the file on this computer.
+	 * 
+	 * @note Use `href` instead of this for categorising files based on paths
+	 */
+	localFilePath: string,
+	/**
+	 * The MIME type associated with the file's extension. Provided by mime-types.
+	 * 
+	 * @note If mime-types doesn't recognise the extension, the value will be `null`
+	 */
+	mimeType: Nullable<string>,
+	/**
+	 * If the file is static or not. Based on if `viteInfo` has `name` defined.
+	 * 
+	 * @note This will be `null` if the manifest plugin isn't being used
+	 */
+	isStatic: Nullable<boolean>,
+	/**
+	 * The size of this file in bytes.
+	 * 
+	 * @note Due to compression, the resource might take significantly less data to download than this 
+	 */
+	size: number,
+	/**
+	 * The `OutputAsset` or `OutputChunk` provided by Vite.
+	 * 
+	 * @note This will be null if there's no corresponding item in the bundle or if the manifest plugin isn't being used 
+	 */
+	viteInfo: Nullable<OutputAsset | OutputChunk>
+}
+
 export type ManifestProcessor = (parsed: object, configs: ManifestProcessorConfigs) => Promise<string | object> | string | object;
 export interface ManifestProcessorConfigs {
 	viteConfig: ViteConfig,
@@ -146,12 +185,6 @@ export interface ManifestProcessorConfigs {
 export type FileSortMode = "pre-cache" | "lazy" | "stale-lazy" | "strict-lazy" | "semi-lazy" | "never-cache";
 export interface AllConfigs extends LastInfoProviderConfigs {
 	svelteConfig: SvelteConfig
-}
-export interface FileInfo {
-	mime: Nullable<string>,
-	isStatic: boolean,
-	isRoute: boolean,
-	viteInfo: OutputAsset | OutputChunk
 }
 
 export interface MinimalViteConfig {
