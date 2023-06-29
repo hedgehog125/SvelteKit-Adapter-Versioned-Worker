@@ -4,6 +4,7 @@ Handle HEAD requests
 Upgrade svelte-package
 What cache mode should fetch use in the worker? Always no-store?
 Treat some HTTP status codes like network errors
+Disable passthrough by default
 
 # Bugs
 TypeScript compile errors aren't emitted
@@ -19,7 +20,7 @@ Configuring TypeScript for the hooks file, along with other build plugins
 Allow running code after everything is done
 Add message handle (postMessage)
 Add an easy way to modify headers before the response is sent. New hook? Maybe only for requests using the default mechanism (not handled)?
-File info argument for file sorters. Or an async function so files don't always have to be statted. Also provide the Vite info. Maybe put it all in 1 object?
+Allow FileSorters to return null and create a utility function that runs through an array of them until one returns something other than null 
 
 # Tweaks
 Use sets instead of arrays for the constants?
