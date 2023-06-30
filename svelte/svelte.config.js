@@ -33,13 +33,14 @@ const config = {
 			lastInfo: standardGetLast("https://hedgehog125.github.io/SvelteKit-Plugin-Versioned-Worker/versionedWorker.json", disableBaseURL),
 			sortFile({ href, size, viteInfo }) {
 				if (href === "ping.txt") return "never-cache";
-				if (size > 100_000) {
-					console.log(viteInfo);
-				}
 				if (viteInfo) {
+					if (size > 100_000) {
+						if (viteInfo.type === "asset") {
+							return "strict-lazy";
+						}
+					}
 					if (viteInfo.type === "chunk") {
 						if (viteInfo.isDynamicEntry && (! viteInfo.isEntry) && size > 5000) {
-							console.log(viteInfo.name);
 							return "strict-lazy";
 						}
 					}

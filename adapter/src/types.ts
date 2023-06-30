@@ -1,6 +1,6 @@
 import type { Builder } from "@sveltejs/kit";
 import type { ResolvedConfig } from "vite";
-import type { OutputAsset, OutputChunk } from "rollup";
+import type { OutputAsset, OutputBundle, OutputChunk } from "rollup";
 
 // To make things a bit less confusing
 export type SvelteConfig = Builder["config"];
@@ -12,7 +12,7 @@ export interface AdapterConfig {
 	/**
 	 * Provides the contents of the versionedWorker.json file from the last build.
 	 * 
-	 * Most of the time, you can import and call `fetchLast` or `readLast` to return a function for this property. But you can also make a custom one by returning a promise that resolves to the contents of the versionedWorker.json file, or null if there isn't one. Generally, you should emit a warning using the `warn` method on the provided `VersionedWorkerLogger` in this case, unless you have some way of verifying that this is the first build (both the built-in methods don't). You can also immediately return the contents or null, rather than returning a promise for one.
+	 * Most of the time, you can import and call `standardGetLast` to return a function for this property. But you can also make a custom one by returning a promise that resolves to the contents of the versionedWorker.json file, or `null` if there isn't one. Generally, you should emit a warning using the `warn` method on the provided `VersionedWorkerLogger` in this case, unless you have some way of verifying that this is the first build (both the built-in methods don't). You can also immediately return the contents or `null`, rather than returning a promise for one.
 	 */
 	lastInfo: LastInfoProvider,
 
@@ -25,6 +25,9 @@ export interface AdapterConfig {
 
 	/**
 	 * TODO
+	 * 
+	 * @note Routes always use the `"pre-cache"` mode without calling this function
+	 * @note Some other files are always set to `"never-cache"`, again without calling this function
 	 */
 	sortFile?: Nullable<FileSorter>,
 
@@ -44,9 +47,9 @@ export interface AdapterConfig {
 	outputVersionDir?: string,
 
 	/**
-	 * The base name for the cache storage. The name used will be "{this config property}-{appVersion}".
+	 * The base name for the cache storage. The name used will be `"{this config property}-{appVersion}"`.
 	 * 
-	 * Defaults to the base URL if one is being used or to "VersionedWorkerStorage" otherwise.
+	 * Defaults to the base URL if one is being used or to `"VersionedWorkerStorage"` otherwise.
 	 */
 	cacheStorageName?: Nullable<string>
 
@@ -67,27 +70,29 @@ export interface AdapterConfig {
 }
 export interface ManifestPluginConfig {
 	/**
-	 * Enables and disables this manifest generator plugin. If you can, it's best to disable the plugin this way as it still helps the adapter work better, even when disabled
+	 * Enables and disables this manifest generator plugin.
+	 * 
+	 * @note If you can, it's best to disable the plugin this way as it still helps the adapter work better, even when disabled.
 	 * 
 	 * @default true
 	 */
 	enable?: boolean,
 
 	/**
-	 * The path to the input web app manifest file, relative to "src" folder
+	 * The path to the input web app manifest file, relative to "src" folder.
 	 * 
 	 * @note
-	 * Ending the path with .json/.webmanifest extension is optional. The file is looked for with both extensions
+	 * Ending the path with .json/.webmanifest extension is optional. The file is looked for with both extensions.
 	 * 
 	 * @default "manifest.webmanifest" // (which also means manifest.json)
 	 */
 	src?: string,
 
 	/**
-	 * Where to output the file in the build folder/the route on the development server
+	 * Where to output the file in the build folder/the route on the development server.
 	 * 
 	 * @note
-	 * Either extension can be used here (one is required though), but ".webmanifest" is the official standard (compared to the more commonly used ".json").
+	 * Either extension can be used here (one is required though), but `".webmanifest"` is the official standard (compared to the more commonly used `".json"`).
 	 * 
 	 * @default "manifest.webmanifest"
 	 */
@@ -121,8 +126,8 @@ export interface LastInfoProviderConfigs {
 	adapterConfig: ResolvedAdapterConfig,
 	manifestPluginConfig: Nullable<ResolvedManifestPluginConfig>
 }
-export type FileSorter = (fileInfo: FileInfo, configs: AllConfigs) => FileSortMode | Promise<FileSortMode>;
-export interface FileInfo {
+export type FileSorter = (fileInfo: VWBuildFile, overallInfo: BuildInfo, configs: AllConfigs) => FileSortMode | Promise<FileSortMode>;
+export interface VWBuildFile {
 	/**
 	 * The href of the file.
 	 * 
@@ -154,11 +159,60 @@ export interface FileInfo {
 	 */
 	size: number,
 	/**
+	 * The ID of the file in the array of build files.
+	 * 
+	 * @note The build files aren't sorted and could be in any order
+	 * @note Due to some files being sorted without calling the `FileSorter` (like routes), this will skip numbers
+	 */
+	fileID: number,
+	/**
 	 * The `OutputAsset` or `OutputChunk` provided by Vite.
 	 * 
 	 * @note This will be null if there's no corresponding item in the bundle or if the manifest plugin isn't being used 
 	 */
-	viteInfo: Nullable<OutputAsset | OutputChunk>
+	viteInfo: Nullable<OutputAsset | OutputChunk>,
+
+	/**
+	 * Displays a message alongside the filename and other info after the files have been sorted.
+	 * 
+	 * @param message The message to display
+	 */
+	addBuildMessage: (message: string) => void,
+	/**
+	 * Displays a warning alongside the filename and other info after the files have been sorted.
+	 * 
+	 * @param message The warning message to display
+	 */
+	addBuildWarning: (message: string) => void
+}
+export interface BuildInfo {
+	/**
+	 * The whole Vite bundle. The key is the filename and the value is the `OutputAsset` or `OutputChunk`.
+	 * 
+	 * @note This will be `null` if the manifest plugin isn't being used
+	 * @note Some files might not have a corresponding item in the bundle 
+	 */
+	viteBundle: Nullable<OutputBundle>,
+	/**
+	 * All of the file paths of the build files, relative to the build directory.
+	 * 
+	 * @note They are normalised to be UNIX like (`"/"` instead of `"\"` on Windows)
+	 * @note They **don't** start with `"./"`
+	 */
+	fullFileList: Set<string>,
+	/**
+	 * All of the route file paths, relative to the build directory.
+	 * 
+	 * @note They are normalised to be UNIX like (`"/"` instead of `"\"` on Windows)
+	 * @note They **don't** start with `"./"`
+	 */
+	routeFiles: Set<string>,
+	/**
+	 * All of `fullFileList` mapped to each's size in bytes.
+	 * 
+	 * @note Due to compression, some files might take significantly less data to download than this number
+	 */
+	fileSizes: Map<string, number>
 }
 
 export type ManifestProcessor = (parsed: object, configs: ManifestProcessorConfigs) => Promise<string | object> | string | object;

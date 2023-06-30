@@ -9,7 +9,7 @@ import type {
 	VersionedWorkerLogger,
 	LastInfoProvider,
 	FileSorter,
-	FileInfo,
+	VWBuildFile,
 	ManifestProcessor,
 	LastInfoProviderConfigs,
 
@@ -87,7 +87,7 @@ export {
 	VersionedWorkerLogger,
 	LastInfoProvider,
 	FileSorter,
-	FileInfo,
+	VWBuildFile,
 	ManifestProcessor,
 	LastInfoProviderConfigs,
 	AllConfigs,

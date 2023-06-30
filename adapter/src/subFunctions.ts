@@ -207,11 +207,12 @@ export async function categorizeFilesIntoModes(
 	const { minimalViteConfig, adapterConfig } = configs;
 	const buildDirPath = path.join(minimalViteConfig.root, adapterConfig.outputDir);
 
-	const fileModes = await Promise.all(completeFileList.map(async (filePath: string): Promise<FileSortMode> => {
+	const fullFileListAsSet = new Set(completeFileList);
+
+	const fileModes = await Promise.all(completeFileList.map(async (filePath, fileID): Promise<FileSortMode> => {
 		const mimeType = lookup(filePath) || null;
 		
 		if (routeFiles.has(filePath)) return "never-cache"; // Routes are stored separately
-		if (path.basename(filePath).startsWith(".")) return "never-cache";
 		if (filePath === minimalViteConfig.manifest) return "never-cache";
 		// if (filePath === svelteConfig.kit.appDir + "/version.json") return "never-cache"; // TODO: can this be excluded?
 		if (filePath === "robots.txt") return "never-cache";
@@ -228,7 +229,20 @@ export async function categorizeFilesIntoModes(
 			mimeType,
 			isStatic,
 			size: fileSizes.get(filePath) as number,
-			viteInfo
+			fileID,
+			viteInfo,
+
+			addBuildMessage(message) {
+				// TODO
+			},
+			addBuildWarning(message) {
+				// TODO
+			}
+		}, {
+			viteBundle,
+			fullFileList: fullFileListAsSet,
+			routeFiles,
+			fileSizes
 		}, configs);
 	}));
 

@@ -5,6 +5,7 @@ Upgrade svelte-package
 What cache mode should fetch use in the worker? Always no-store?
 Treat some HTTP status codes like network errors
 Disable passthrough by default
+Log based on what files are new? e.g only list newly added lazy files?
 
 # Bugs
 TypeScript compile errors aren't emitted
