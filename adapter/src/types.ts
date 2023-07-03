@@ -230,13 +230,13 @@ export interface ManifestProcessorConfigs {
  * Note that a new version has to be released for Versioned Worker to detect a file as outdated. If you want more control for some files, you may need to set their modes to `"never-cache"` and implement the caching yourself.
  * 
  * * `"pre-cache"` resources should always be available as they're downloaded during the worker install. They're also updated with the new worker if they've changed and will always be from the same version as each other.
- * * `"lazy"` only downloads and caches the resource when it's requested. If the latest version is cached, that will be sent. Otherwise it'll try and fetch the resource from the network, if that fails, the worker will send a stale version. The fetch will only fail if the user is offline and there's no version of the resource in the cache.
- * * `"stale-lazy"` (stale while revalidate) is similar to `"lazy"` but serves stale responses before downloading the current version. If and when this current version is downloaded, it's stored in the cache for next time. Like with `"lazy"`, it won't use the network if the resource is up-to-date.
- * * `"strict-lazy"` is also similar to "lazy" but will fail instead of sending stale responses. Resources using this mode are deleted from the cache if and when they become outdated, but not until the whole app has updated first.
- * * `"semi-lazy"` is a hybrid between `"pre-cache"` and `"lazy"`. Once the resource has been accessed and cached once, it'll be kept updated when new versions are installed. It's mostly only useful for web app manifest icons.
+ * * `"lax-lazy"` only downloads and caches the resource when it's requested. If the latest version is cached, that will be sent. Otherwise it'll try and fetch the resource from the network, if that fails, the worker will send a stale version. The fetch will only fail if the user is offline and there's no version of the resource in the cache.
+ * * `"stale-lazy"` (stale while revalidate) is similar to `"lax-lazy"` but serves stale responses before downloading the current version. If and when this current version is downloaded, it's stored in the cache for next time. Like with `"lax-lazy"`, it won't use the network if the resource is up-to-date.
+ * * `"strict-lazy"` is also similar to "lax-lazy" but will fail instead of sending stale responses. Resources using this mode are deleted from the cache if and when they become outdated, but not until the whole app has updated first.
+ * * `"semi-lazy"` is a hybrid between `"pre-cache"` and `"lax-lazy"`. Once the resource has been accessed and cached once, it'll be kept updated when new versions are installed. It's mostly only useful for web app manifest icons.
  * * And `"never-cache"` always gets the resource using the network and doesn't cache the responses at all.
  */
-export type FileSortMode = "pre-cache" | "lazy" | "stale-lazy" | "strict-lazy" | "semi-lazy" | "never-cache";
+export type FileSortMode = "pre-cache" | "lax-lazy" | "stale-lazy" | "strict-lazy" | "semi-lazy" | "never-cache";
 export interface AllConfigs extends LastInfoProviderConfigs {
 	svelteConfig: SvelteConfig
 }

@@ -35,7 +35,7 @@ export interface InputFiles {
 
 export interface CategorizedBuildFiles {
 	precache: string[],
-	lazy: string[],
+	laxLazy: string[],
 	staleLazy: string[],
 	strictLazy: string[],
 	semiLazy: string[],
@@ -49,7 +49,7 @@ export interface WorkerConstants {
 	ROUTES: string[],
 	
 	PRECACHE: string[],
-	LAZY_CACHE: string[],
+	LAX_LAZY: string[],
 	STALE_LAZY: string[],
 	STRICT_LAZY: string[],
 	SEMI_LAZY: string[],

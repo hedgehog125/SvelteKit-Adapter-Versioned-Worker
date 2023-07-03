@@ -2,8 +2,9 @@ const URL_PREFIX = "SvelteKit-Adapter-Versioned-Worker"; // <-- Set this to the 
 
 import { adapter, standardGetLast } from "internal-adapter";
 import { vitePreprocess } from "@sveltejs/kit/vite";
-
-const disableBaseURL = process.env.DISABLE_BASE_URL == null? false : process.env.DISABLE_BASE_URL === "true";
+ 
+const isDev = process.env.NODE_ENV != "production";
+const disableBaseURL = isDev || (process.env.DISABLE_BASE_URL == null? false : process.env.DISABLE_BASE_URL === "true");
 const baseURL = (
 	disableBaseURL
 	|| URL_PREFIX === ""

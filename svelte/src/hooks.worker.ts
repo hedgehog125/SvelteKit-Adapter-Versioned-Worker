@@ -28,7 +28,9 @@ export const handle = ((path, isPage, fetchEvent) => {
 async function hiddenPage(): Promise<Response> {
 	await initTask;
 	
-	const count = await db.get("misc", "counter") as number;
+	let count = await db.get("misc", "counter") as Nullable<number>;
+	if (count == null) count = 0;
+
 	await db.put("misc", count + 1, "counter");
 	return new Response(count.toString(), {
 		headers: {

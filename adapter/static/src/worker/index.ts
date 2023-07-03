@@ -8,7 +8,7 @@ import type {
 import {
 	ROUTES,
 	PRECACHE,
-	LAZY_CACHE,
+	LAX_LAZY,
 	STALE_LAZY,
 	STRICT_LAZY,
 	SEMI_LAZY,
@@ -33,13 +33,13 @@ const currentStorageName = STORAGE_PREFIX + VERSION;
 const COMPLETE_CACHE_LIST = new Set<string>([
 	...ROUTES,
 	...PRECACHE,
-	...LAZY_CACHE,
+	...LAX_LAZY,
 	...STALE_LAZY,
 	...STRICT_LAZY,
 	...SEMI_LAZY
 ]);
 const REUSABLE_BETWEEN_VERSIONS = new Set<string>([
-	...LAZY_CACHE,
+	...LAX_LAZY,
 	...STALE_LAZY
 ]);
 const cachePromise = caches.open(currentStorageName);

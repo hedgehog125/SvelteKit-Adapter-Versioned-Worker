@@ -3,7 +3,7 @@ export type HandleHook = (path: string, isPage: boolean, e: FetchEvent, fullPath
 export const ROUTES: string[];
 	
 export const PRECACHE: string[];
-export const LAZY_CACHE: string[];
+export const LAX_LAZY: string[];
 export const STALE_LAZY: string[];
 export const STRICT_LAZY: string[];
 export const SEMI_LAZY: string[];

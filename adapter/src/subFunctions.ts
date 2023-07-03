@@ -247,7 +247,7 @@ export async function categorizeFilesIntoModes(
 	}));
 
 	let precache: string[] = [];
-	let lazy: string[] = [];
+	let laxLazy: string[] = [];
 	let staleLazy: string[] = [];
 	let strictLazy: string[] = [];
 	let semiLazy: string[] = [];
@@ -260,7 +260,7 @@ export async function categorizeFilesIntoModes(
 		
 		completeList.push(fileName);
 		if (fileMode === "pre-cache") precache.push(fileName);
-		else if (fileMode === "lazy") lazy.push(fileName);
+		else if (fileMode === "lax-lazy") laxLazy.push(fileName);
 		else if (fileMode === "stale-lazy") staleLazy.push(fileName);
 		else if (fileMode === "strict-lazy") strictLazy.push(fileName);
 		else if (fileMode === "semi-lazy") semiLazy.push(fileName);
@@ -268,7 +268,7 @@ export async function categorizeFilesIntoModes(
 
 	return {
 		precache,
-		lazy,
+		laxLazy,
 		staleLazy,
 		strictLazy,
 		semiLazy,
@@ -358,7 +358,7 @@ export function createWorkerConstants(
 		ROUTES: routes,
 
 		PRECACHE: categorizedBuildFiles.precache,
-		LAZY_CACHE: categorizedBuildFiles.lazy,
+		LAX_LAZY: categorizedBuildFiles.laxLazy,
 		STALE_LAZY: categorizedBuildFiles.staleLazy,
 		STRICT_LAZY: categorizedBuildFiles.strictLazy,
 		SEMI_LAZY: categorizedBuildFiles.semiLazy,

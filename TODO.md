@@ -1,4 +1,4 @@
-Rename lazy to relaxed-lazy
+Check and handle if lax-lazy and stale-lazy resources are stale
 Handle HEAD requests
 Upgrade svelte-package
 What cache mode should fetch use in the worker? Always no-store?

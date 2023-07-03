@@ -2,34 +2,38 @@
 	"name": "internal-adapter",
 	"version": "1.0.0",
 	"files": [
-		"build/*",
+		"build",
 		"static",
 		"!static/tsconfig.json",
-		"worker.js",
-		"worker.d.ts"
+		"virtual-modules",
+		"src",
+		"index.ts"
 	],
-	"types": "./build/index.d.ts",
 	"exports": {
 		"./package.json": "./package.json",
 		".": {
 			"types": "./build/index.d.ts",
-			"import": "./build/index.js",
-			"module": "./build/index.js"
+			"import": "./build/index.js"
 		},
 		"./worker": {
-			"types": "./worker.d.ts",
-			"import": "./worker.js",
-			"module": "./worker.js"
+			"types": "./virtual-modules/worker.d.ts",
+			"import": "./virtual-modules/worker.js"
 		},
 		"./worker/util": {
 			"types": "./build/src/worker/util.d.ts",
-			"import": "./build/src/util.js",
-			"module": "./build/src/util.js"
+			"import": "./build/src/util.js"
 		},
 		"./runtime-constants": {
-			"types": "./runtime-constants.d.ts",
-			"import": "./runtime-constants.js",
-			"module": "./runtime-constants.js"
+			"types": "./virtual-modules/runtime-constants.d.ts",
+			"import": "./virtual-modules/runtime-constants.js"
+		}
+	},
+	"types": "./build/index.d.ts",
+	"typesVersions": {
+		"*": {
+			"worker": ["./virtual-modules/worker.d.ts"],
+			"worker/util": ["./build/src/worker/util.d.ts"],
+			"runtime-constants": ["./virtual-modules/runtime-constants.d.ts"]
 		}
 	},
 	"scripts": {
