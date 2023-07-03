@@ -1,95 +1,90 @@
-const VARY_HEADER = "vary";
+type Nullable<T> = T | null;
 
-export type SummarizedRequest = [method: string, url: string, headers: Record<string, string>, varyHeaderNames: string[]];
+const VARY_HEADER = "vary";
 /**
- * Allows requests to be postmessaged and compared more easily.
+ * Checks if a default fetch with the same URL would likely return the same response.
  * 
- * @param request The request to summarise
- * @returns A `SummarizedRequest`
+ * @param request The request associated with `response`
+ * @param response The response from fetching with unknown changes (if any) to the default headers
+ * @param ignoreVaryWildcard If the `vary` header being `"*"` should be ignored
+ * @returns `true` if a default fetch would likely return the same response, else `false`
+ * 
+ * @note This doesn't send another request
+ * @note The bodies of `response` and `request` are **not** consumed
+ * @note Non `GET` requests will always return `false`
+ * @note Responses with a `vary` wildcard return `false` unless `ignoreVaryWildcard` is set to `true`
  */
-export function summarizeRequest(request: Request): SummarizedRequest {
-	const varyHeaders = (request.headers.get(VARY_HEADER)?? "")
+export function isResponseTheDefault(request: Request, response: Response, ignoreVaryWildcard: boolean = false): boolean {
+	if (request.method !== "GET") return false;
+
+	const varyHeaders = (response.headers.get(VARY_HEADER)?? "")
 		.split(",")
 		.map(rawHeaderName => rawHeaderName.trim().toLowerCase())
 		.filter(headerName => headerName !== "")
 	;
 
-	return [
-		request.method,
-		request.url,
-		Object.fromEntries(
-			Array.from(request.headers)
-			.map(([headerName, value]) => [headerName.toLowerCase(), value])
-			.sort((pair1, pair2) => sortCompare(pair1[0], pair2[0]))
-		),
-		varyHeaders.filter(headerName => request.headers.has(headerName)).sort(sortCompare)
-	];
-
-	function sortCompare(value1: string, value2: string): number {
-		if (value1 < value2) return -1;
-		if (value1 > value2) return 1;
-		return 0;
-	}
-}
-/**
- * Compares 2 `SummarizedRequest`s.
- * 
- * @param req1 The 1st `SummarizedRequest` of the comparison
- * @param req2 The 2nd `SummarizedRequest` of the comparison
- * @param ignoreVaryWildcard By default, either requests having their vary header as "*" will cause the function to return false. Setting this to true will instead treat the headers as if they were blank.
- * 
- * @returns `true` if the requests match, else `false`
- */
-export function compareRequests(req1: SummarizedRequest, req2: SummarizedRequest, ignoreVaryWildcard = false): boolean {
-	if (req1[1] !== req2[1] || req1[0] !== req2[0]) return false; // Check the URL and methods are the same
-
 	if (! ignoreVaryWildcard) {
-		// 3 is vary headers
-		if (req1[3].toString() === "*" || req2[3].toString() === "*") {
-			return false;
-		}
+		if (varyHeaders.toString() === "*") return false;
 	}
 
-	const unionOfVaryHeaders = new Set<string>([
-		...req1[3],
-		...req2[3]
-	]);
-	const headersAsMaps = [
-		new Map(Object.entries(req1[2])),
-		new Map(Object.entries(req2[2]))
-	];
-	for (const headerName of unionOfVaryHeaders) {
-		if (headersAsMaps[0].get(headerName) !== headersAsMaps[1].get(headerName)) return false;
-	}
+	// Remaking the request removes the forbidden headers and those will always be the default value
+	const programmaticHeaders = new Request(request.url, {
+		headers: request.headers
+	}).headers;
 
+	for (const [headerName] of programmaticHeaders) {
+		if (headerName === "accept" || headerName === "user-agent") continue; // These will be in programmaticHeaders but are unlikely to have been changed from their default values
+		if (varyHeaders.includes(headerName)) return false; // Since the header has been set, it's probably not the default value
+	}
 	return true;
 }
+
 /**
- * Compares the request to another request created with the same URL.
+ * Creates a new `Request` with the modified headers.
  * 
- * @param request The request to compare to the default one 
- * @returns `true` if the requests match, else `false`
+ * @param request The request to "modify"
+ * @param newHeaders An object where each key is the header to modify and its value is the new value
+ * @returns A `Request` with the modified headers
+ * 
+ * @note
+ * This function consumes the body of `request`. If you still want to use body of the original `request`, call this function with `<request>.clone()` instead of just `<request>`.
+ * @note Headers can be removed by setting them to `null`.
  */
-export function isRequestDefault(request: Request): boolean {
-	return compareRequests(summarizeRequest(request), summarizeRequest(new Request(request.url)));
+export function modifyRequestHeaders(request: Request, newHeaders: Record<string, Nullable<string>>): Request {
+	return new Request(request, { // This *doesn't* clone the response body
+		headers: modifyHeaders(request.headers, newHeaders)
+	});
 }
 
 /**
- * Creates a new response with the modified headers.
+ * Creates a new `Response` with the modified headers.
  * 
  * @param response The response to "modify"
  * @param newHeaders An object where each key is the header to modify and its value is the new value
- * @returns A response with the modified headers
+ * @returns A `Response` with the modified headers
  * 
  * @note
- * This function consumes the body of `response`. If you still want to use body of the original `response`, call this function with `<response>.clone()` instead of just `<response>`. 
+ * This function consumes the body of `response`. If you still want to use body of the original `response`, call this function with `<response>.clone()` instead of just `<response>`.
+ * @note Headers can be removed by setting them to `null`.
  */
-export function modifyResponseHeaders(response: Response, newHeaders: Record<string, string>): Response {
+export function modifyResponseHeaders(response: Response, newHeaders: Record<string, Nullable<string>>): Response {
 	return new Response(response.body, {
 		status: response.status,
-		headers: {
-			...Object.fromEntries(response.headers),
-			...newHeaders
-		}
+		headers: modifyHeaders(response.headers, newHeaders)
+	});
+}
+
+function makeHeadersLowercase(headers: Record<string, Nullable<string>>): Record<string, Nullable<string>> {
+	return Object.fromEntries(Object.entries(headers).map(([headerName, headerValue]) => [headerName.toLowerCase(), headerValue]));
+}
+
+function removeNullHeaders(headers: Record<string, Nullable<string>>): [string, string][] {
+	return Object.entries(headers).filter(([, headerValue]) => headerValue != null) as [string, string][];
+}
+
+function modifyHeaders(original: Headers, newHeaders: Record<string, Nullable<string>>): [string, string][] {
+	return removeNullHeaders({
+		...Object.fromEntries(original),
+		...makeHeadersLowercase(newHeaders)
 	});
 }

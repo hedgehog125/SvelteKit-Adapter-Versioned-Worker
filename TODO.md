@@ -1,4 +1,3 @@
-Implement stale lazy and lazy
 Rename lazy to relaxed-lazy
 Handle HEAD requests
 Upgrade svelte-package
@@ -6,6 +5,8 @@ What cache mode should fetch use in the worker? Always no-store?
 Treat some HTTP status codes like network errors
 Disable passthrough by default
 Log based on what files are new? e.g only list newly added lazy files?
+Improve how the worker updates
+Warnings for large media files since they won't stream
 
 # Bugs
 TypeScript compile errors aren't emitted
@@ -27,6 +28,6 @@ Allow FileSorters to return null and create a utility function that runs through
 Use sets instead of arrays for the constants?
 
 # Tests to make
-Abort signals, both for cached and uncached requests
 Are the custom headers always correct?
 Do the different cache modes work?
+Abort signals, both for cached and uncached requests (no browser support though `:(`)

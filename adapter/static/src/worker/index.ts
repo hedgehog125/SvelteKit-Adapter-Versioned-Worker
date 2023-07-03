@@ -21,7 +21,10 @@ import {
 	BASE_URL
 } from "sveltekit-adapter-versioned-worker/worker";
 
-import { modifyResponseHeaders, isRequestDefault } from "sveltekit-adapter-versioned-worker/internal/worker-util-alias";
+import {
+	modifyRequestHeaders, modifyResponseHeaders,
+	isResponseTheDefault
+} from "sveltekit-adapter-versioned-worker/internal/worker-util-alias";
 import * as hooks from "sveltekit-adapter-versioned-worker/internal/hooks";
 
 type Nullable<T> = T | null;
@@ -70,8 +73,13 @@ addEventListener("install", e => {
 								addToToCopyIfNewer(false);
 							}
 						}
-						else if (SEMI_LAZY.includes(path) && changed) {
-							toDownload.add(path);
+						else if (SEMI_LAZY.includes(path)) {
+							if (changed) {
+								toDownload.add(path);
+							}
+							else {
+								addToToCopyIfNewer(false);
+							}
 						}
 						else if (COMPLETE_CACHE_LIST.has(path)) {
 							const staleAndAcceptable = changed && REUSABLE_BETWEEN_VERSIONS.has(path); // Don't check if it's in REUSABLE_BETWEEN_VERSIONS if it's unchanged
@@ -171,12 +179,17 @@ addEventListener("fetch", e => {
 			}
 
 			const cache = await cachePromise;
-			let cached = await cache.match(fetchEvent.request);
-			if (cached) return cached;
-		
-			let resource;
+			if (inCacheList) {
+				let cached = await cache.match(fetchEvent.request);
+				if (cached) return cached;
+			
+			}
+
+			const requestWithoutRange = modifyRequestHeaders(fetchEvent.request, { range: null });
+
+			let resource: Response;
 			try {
-				resource = await fetch(fetchEvent.request);
+				resource = await fetch(requestWithoutRange);
 			}
 			catch {
 				if (ROUTES.includes(pathWithoutBase) && isPage) {
@@ -188,9 +201,9 @@ addEventListener("fetch", e => {
 			}
 
 			resource = addVWHeaders(resource);
-			if (inCacheList && fetchEvent.request.method === "GET") {
-				if (isRequestDefault(fetchEvent.request)) {
-					fetchEvent.waitUntil(cache.put(fetchEvent.request, resource.clone())); // Update it in the background
+			if (inCacheList) {
+				if (isResponseTheDefault(requestWithoutRange, resource) && resource.status !== 206) { // Also checks that it's a GET request
+					fetchEvent.waitUntil(cache.put(requestWithoutRange, resource.clone())); // Update it in the background
 				}
 			}
 			return resource;
@@ -252,26 +265,41 @@ async function getInstalled(): Promise<number[]> {
 async function getUpdated(installedVersions: number[]): Promise< Nullable<Set<string>> > {
 	if (installedVersions.length === 0) return null; // Clean install
 	const newestInstalled = Math.max(...installedVersions);
+	if (newestInstalled > VERSION) return null; // The version number has gone down for some reason, so clean install
 	
-	// Fetch all the version files between the versions
+	/* Fetch all the version files between the versions */
+
+	// Once the number of version files reaches MAX_VERSION_FILES, the version files are shifted down by 1
+	// + 1 and ceil so v100 gives an offset of -1 and <= -2 starts at 110 
+	const batchOffset = Math.min(MAX_VERSION_FILES - Math.ceil((VERSION + 1) / VERSION_FILE_BATCH_SIZE), 0); // Always <= 0
+
 	const rangeToDownload = [
-		Math.floor((newestInstalled + 1) / VERSION_FILE_BATCH_SIZE), // +1 because we don't need this version file if the installed version is the last one in it
-		Math.floor(VERSION / VERSION_FILE_BATCH_SIZE)
+		Math.floor((newestInstalled + 1) / VERSION_FILE_BATCH_SIZE) + batchOffset, // +1 because we don't need this version file if the installed version is the last one in it
+		Math.floor(VERSION / VERSION_FILE_BATCH_SIZE) + batchOffset
 	];
+	if (rangeToDownload[0] < 0) return null; // The current installed version is too old, do a clean install
+
 	const idInBatchOfOneAfterInstalled = (newestInstalled + 1) % VERSION_FILE_BATCH_SIZE;
 	const installedInDownloadRange = idInBatchOfOneAfterInstalled !== 0; // If it's the last version in the batch, it won't be
 	const numberToDownload = (rangeToDownload[1] - rangeToDownload[0]) + 1;
-	if (numberToDownload > MAX_VERSION_FILES) return null; // Clean install
 	
 	let versionFiles = await Promise.all(
 		new Array(numberToDownload).fill(null).map(async (_, offset) => {
 			let fileID = offset + rangeToDownload[0];
 			const res = await fetch(`${VERSION_FOLDER}/${fileID}.txt`, { cache: "no-store" });
+
+			if (! res.ok) {
+				return {
+					formatVersion: -1,
+					updated: []
+				} satisfies VersionFile;
+			}
+
 			return parseUpdatedList(await res.text());
 		})
 	);
 
-	if (versionFiles.find(versionFile => versionFile.formatVersion === -1)) return null; // Unknown format version, so do a clean install
+	if (versionFiles.find(versionFile => versionFile.formatVersion === -1)) return null; // Unknown format version or not ok status, so do a clean install
 
 	let updated = new Set<string>();
 	for (let i = 0; i < versionFiles.length; i++) {
