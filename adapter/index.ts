@@ -62,7 +62,8 @@ import {
 	writeInfoFile,
 	createWorkerFolder,
 	writeWorkerImporter,
-	getFileSizes
+	getFileSizes,
+	listStaticFolderFiles
 } from "./src/subFunctions.js";
 import {
 	applyAdapterConfigDefaults,
@@ -299,11 +300,14 @@ async function init(config: ResolvedAdapterConfig) { // Not run in dev mode
 }
 
 async function processBuild(configs: AllConfigs, builder: Builder): Promise<ProcessedBuild> {	
-	const fullFileList = await listAllBuildFiles(configs);
+	const [fullFileList, staticFolderFileList] = await Promise.all([
+		listAllBuildFiles(configs),
+		listStaticFolderFiles(configs)
+	]);
 	const routeFiles = new Set(Array.from(builder.prerendered.pages).map(([, { file }]) => file));
 
 	const fileSizes = await getFileSizes(fullFileList, viteBundle, configs);
-	const categorizedFiles = await categorizeFilesIntoModes(fullFileList, routeFiles, fileSizes, viteBundle, configs);
+	const categorizedFiles = await categorizeFilesIntoModes(fullFileList, staticFolderFileList, routeFiles, fileSizes, viteBundle, configs);
 	const staticFileHashes = await hashFiles(categorizedFiles.completeList, routeFiles, viteBundle, configs);
 
 	return [categorizedFiles, routeFiles, staticFileHashes, fileSizes];

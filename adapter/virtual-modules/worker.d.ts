@@ -1,4 +1,5 @@
 export type HandleHook = (path: string, isPage: boolean, e: FetchEvent, fullPath: string) => Promise<Response | null> | Response | null;
+export type VWRequestMode = "default" | "no-network" | "passthrough";
 
 export const ROUTES: string[];
 	

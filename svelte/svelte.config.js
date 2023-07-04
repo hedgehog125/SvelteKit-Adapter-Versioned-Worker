@@ -32,14 +32,12 @@ const config = {
 
 		adapter: adapter({
 			lastInfo: standardGetLast("https://hedgehog125.github.io/SvelteKit-Plugin-Versioned-Worker/versionedWorker.json", disableBaseURL),
-			sortFile({ href, size, viteInfo }) {
+			sortFile({ href, size, viteInfo, isStatic }) {
 				if (href === "ping.txt") return "never-cache";
+				if (isStatic) {
+					if (size > 100_000) return "stale-lazy";
+				}
 				if (viteInfo) {
-					if (size > 100_000) {
-						if (viteInfo.type === "asset") {
-							return "strict-lazy";
-						}
-					}
 					if (viteInfo.type === "chunk") {
 						if (viteInfo.isDynamicEntry && (! viteInfo.isEntry) && size > 5000) {
 							return "strict-lazy";

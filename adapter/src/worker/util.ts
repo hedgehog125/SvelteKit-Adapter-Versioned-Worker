@@ -44,14 +44,19 @@ export function isResponseTheDefault(request: Request, response: Response, ignor
  * 
  * @param request The request to "modify"
  * @param newHeaders An object where each key is the header to modify and its value is the new value
+ * @param newOptions The options to be merged in, in the format of the 2nd argument of the `Request` constructor
  * @returns A `Request` with the modified headers
  * 
  * @note
  * This function consumes the body of `request`. If you still want to use body of the original `request`, call this function with `<request>.clone()` instead of just `<request>`.
  * @note Headers can be removed by setting them to `null`.
  */
-export function modifyRequestHeaders(request: Request, newHeaders: Record<string, Nullable<string>>): Request {
+export function modifyRequestHeaders(
+	request: Request, newHeaders: Record<string, Nullable<string>>,
+	newOptions: RequestInit = {}
+): Request {
 	return new Request(request, { // This *doesn't* clone the response body
+		...newOptions,
 		headers: modifyHeaders(request.headers, newHeaders)
 	});
 }

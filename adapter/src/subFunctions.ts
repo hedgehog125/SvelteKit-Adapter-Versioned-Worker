@@ -200,29 +200,47 @@ export async function listAllBuildFiles(configs: AllConfigs): Promise<string[]> 
 		.map(fullFilePath => normalizePath(path.relative(buildDirPath, fullFilePath)))
 	);
 }
+export async function listStaticFolderFiles(configs: AllConfigs): Promise<string[]> {
+	const { svelteConfig } = configs;
+
+	const staticDirPath = path.join(svelteConfig.kit.files.assets);
+	const list = await rReadDir(staticDirPath);	
+
+	return (list
+		.filter(fullFilePath => ! path.basename(fullFilePath).startsWith("."))
+		.map(fullFilePath => normalizePath(path.relative(staticDirPath, fullFilePath)))
+	);
+}
 export async function categorizeFilesIntoModes(
-	completeFileList: string[], routeFiles: Set<string>,
-	fileSizes: Map<string, number>, viteBundle: Nullable<OutputBundle>, configs: AllConfigs
+	completeFileList: string[], staticFolderFileList: string[],
+	routeFiles: Set<string>, fileSizes: Map<string, number>,
+	viteBundle: Nullable<OutputBundle>, configs: AllConfigs
 ): Promise<CategorizedBuildFiles> {
 	const { minimalViteConfig, adapterConfig } = configs;
 	const buildDirPath = path.join(minimalViteConfig.root, adapterConfig.outputDir);
 
 	const fullFileListAsSet = new Set(completeFileList);
+	const staticFolderFileListAsSet = new Set(staticFolderFileList);
 
 	const fileModes = await Promise.all(completeFileList.map(async (filePath, fileID): Promise<FileSortMode> => {
 		const mimeType = lookup(filePath) || null;
 		
 		if (routeFiles.has(filePath)) return "never-cache"; // Routes are stored separately
 		if (filePath === minimalViteConfig.manifest) return "never-cache";
-		// if (filePath === svelteConfig.kit.appDir + "/version.json") return "never-cache"; // TODO: can this be excluded?
 		if (filePath === "robots.txt") return "never-cache";
 
 		if (adapterConfig.sortFile == null) return "pre-cache";
 
 
 		const viteInfo = viteBundle?.[filePath]?? null;
-		const nameProperty = viteInfo?.name;
-		const isStatic = viteInfo == null? null : nameProperty == null; // Null if no viteInfo. False if it has a name defined, else true.
+		let isStatic: Nullable<boolean> = null;
+		if (staticFolderFileListAsSet.has(filePath)) {
+			isStatic = true;
+		}
+		else if (viteInfo) {
+			isStatic = viteInfo?.name == null;
+		}
+
 		return await adapterConfig.sortFile({
 			href: filePath,
 			localFilePath: path.join(buildDirPath, filePath),

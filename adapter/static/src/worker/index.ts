@@ -1,8 +1,11 @@
 import type {
+	InstallEvent,
 	ActivateEvent,
 	FetchEvent,
 
-	VersionFile, MessageEventData, InstallEvent
+	VersionFile,
+	VWRequestMode,
+	MessageEventData
 } from "sveltekit-adapter-versioned-worker/worker";
 
 import {
@@ -102,7 +105,10 @@ addEventListener("install", e => {
 							}
 						}
 					}
-				}	
+				}
+			}
+			else {
+				console.warn("Versioned Worker: Performing clean install");
 			}
 
 			const cache = await cachePromise;
@@ -146,8 +152,14 @@ addEventListener("activate", e => {
 });
 addEventListener("fetch", e => {
 	const fetchEvent = e as FetchEvent;
-	const isPage = fetchEvent.request.mode === "navigate" && fetchEvent.request.method === "GET";
-	const fullPath = new URL(fetchEvent.request.url).pathname;
+	const req = fetchEvent.request;
+	const vwMode = getVWRequestMode(req);
+	if (vwMode === "passthrough") return;
+
+	const isGetRequest = req.method === "GET";
+	const isHeadRequest = req.method === "HEAD";
+	const isPage = req.mode === "navigate" && isGetRequest;
+	const fullPath = new URL(req.url).pathname;
 	const pathWithoutBase = fullPath.slice(BASE_URL.length);
 	const inCacheList = COMPLETE_CACHE_LIST.has(pathWithoutBase);
 
@@ -178,36 +190,46 @@ addEventListener("fetch", e => {
 				if (handleOutput != null) return handleOutput;
 			}
 
-			const cache = await cachePromise;
-			if (inCacheList) {
-				let cached = await cache.match(fetchEvent.request);
-				if (cached) {
-					const stale = parseInt(cached.headers.get("vw-version") as string) !== VERSION;
-					if (! stale) return cached;
-
-					const requestWithoutRange = removeRangeHeaderFromRequest(fetchEvent);
-					if (STALE_LAZY.includes(pathWithoutBase)) {
-						updateResourceInBackground(requestWithoutRange, cache, fetchEvent);
-						return cached; // The outdated version
-					}
-					else { // Must be a lax-lazy resource
-						const [resource, isError] = await fetchResource(pathWithoutBase, requestWithoutRange, isPage);
-						if (! isError) return cached;
-
-						updateResourceInBackground(requestWithoutRange, cache, fetchEvent, resource.clone());
-						return resource;
-					}
+			if (! (isGetRequest || isHeadRequest)) { // Sort of passthrough: no headers are added
+				try {
+					return await fetch(req);
 				}
-			
+				catch {
+					return Response.error();
+				}
 			}
 
-			const requestWithoutRange = removeRangeHeaderFromRequest(fetchEvent);
-			const [resource, isError] = await fetchResource(pathWithoutBase, requestWithoutRange, isPage);
-			if (isError) return resource; // Send the error response
-			
-			// The response won't be in the cache if this point is reached
-			if (inCacheList) updateResourceInBackground(requestWithoutRange, cache, fetchEvent, resource.clone());
-			return resource;
+			const cache = await cachePromise;
+			if (inCacheList) {
+				const modifiedRequest = modifyRequestForCaching(req);
+				let cached = await cache.match(modifiedRequest);
+				if (cached) {
+					const stale = parseInt(cached.headers.get("vw-version") as string) !== VERSION;
+					if (! stale) return handleHeadRequest(cached, isHeadRequest);
+
+					if (vwMode === "no-network" || STALE_LAZY.includes(pathWithoutBase)) {
+						if (vwMode !== "no-network") updateResourceInBackground(modifiedRequest, cache, fetchEvent);
+						return handleHeadRequest(cached, isHeadRequest); // The outdated version
+					}
+					else { // Must be a lax-lazy resource
+						const [resource, isError] = await fetchResource(pathWithoutBase, modifiedRequest, isPage);
+						if (! isError) return handleHeadRequest(cached, isHeadRequest);
+
+						updateResourceInBackground(modifiedRequest, cache, fetchEvent, resource.clone());
+						return handleHeadRequest(resource, isHeadRequest);
+					}
+				}
+			}
+
+			/* The response won't already be in the cache if this point is reached (but could be in the cache list) */
+			if (vwMode === "no-network") return Response.error();
+
+			const modifiedRequest = modifyRequestForCaching(req, false); // Could be a HEAD request
+			const [resource, isError] = await fetchResource(pathWithoutBase, modifiedRequest, isPage);
+			if (isError || isHeadRequest) return resource; // Send the error response or send the HEAD response from the server if applicable, as it can't be cached
+
+			if (inCacheList) updateResourceInBackground(modifiedRequest, cache, fetchEvent, resource.clone());
+			return handleHeadRequest(resource, isHeadRequest);
         })()
     );
 });
@@ -266,7 +288,7 @@ async function getInstalled(): Promise<number[]> {
 async function getUpdated(installedVersions: number[]): Promise< Nullable<Set<string>> > {
 	if (installedVersions.length === 0) return null; // Clean install
 	const newestInstalled = Math.max(...installedVersions);
-	if (newestInstalled > VERSION) return null; // The version number has gone down for some reason, so clean install
+	if (newestInstalled >= VERSION) return null; // The version number has gone down for some reason, so clean install
 	
 	/* Fetch all the version files between the versions */
 
@@ -285,7 +307,7 @@ async function getUpdated(installedVersions: number[]): Promise< Nullable<Set<st
 	const numberToDownload = (rangeToDownload[1] - rangeToDownload[0]) + 1;
 	
 	let versionFiles = await Promise.all(
-		new Array(numberToDownload).fill(null).map(async (_, offset) => {
+		new Array(numberToDownload).fill(null).map(async (_, offset): Promise<VersionFile> => {
 			let fileID = offset + rangeToDownload[0];
 			const res = await fetch(`${VERSION_FOLDER}/${fileID}.txt`, { cache: "no-store" });
 
@@ -293,14 +315,14 @@ async function getUpdated(installedVersions: number[]): Promise< Nullable<Set<st
 				return {
 					formatVersion: -1,
 					updated: []
-				} satisfies VersionFile;
+				};
 			}
 
 			return parseUpdatedList(await res.text());
 		})
 	);
 
-	if (versionFiles.find(versionFile => versionFile.formatVersion === -1)) return null; // Unknown format version or not ok status, so do a clean install
+	if (versionFiles.some(versionFile => versionFile.formatVersion === -1)) return null; // Unknown format version or not ok status, so do a clean install
 
 	let updated = new Set<string>();
 	for (let i = 0; i < versionFiles.length; i++) {
@@ -317,6 +339,12 @@ async function getUpdated(installedVersions: number[]): Promise< Nullable<Set<st
 	return updated;
 }
 
+function getVWRequestMode(request: Request): VWRequestMode {
+	const headerValue = request.headers.get("vw-mode");
+	if (headerValue === "no-network" || headerValue === "passthrough") return headerValue;
+
+	return "default";
+}
 /**
  * @note This consumes `response`
  * @note This assumes the response is from the latest version
@@ -326,14 +354,26 @@ function addVWHeaders(response: Response): Response {
 		"vw-version": VERSION.toString()
 	});
 }
-function removeRangeHeaderFromRequest(fetchEvent: FetchEvent) {
-	return modifyRequestHeaders(fetchEvent.request, { range: null });
+/**
+ * Removes the `Range` and `VW-Mode` headers, sets the method to `"GET"` and the cache mode to `"no-store"`.
+ */
+function modifyRequestForCaching(request: Request, enforceGetRequest: boolean = true) {
+	return modifyRequestHeaders(request, {
+		range: null,
+		"vw-mode": null
+	}, {
+		method: enforceGetRequest? "GET" : request.method,
+		cache: "no-store"
+	});
 }
 
-async function fetchResource(pathWithoutBase: string, requestWithoutRange: Request, isPage: boolean): Promise<[response: Response, isError: boolean]> {
+/**
+ * Also adds the Versioned Worker headers
+ */
+async function fetchResource(pathWithoutBase: string, modifiedRequest: Request, isPage: boolean): Promise<[response: Response, isError: boolean]> {
 	let resource: Response;
 	try {
-		resource = await fetch(requestWithoutRange);
+		resource = await fetch(modifiedRequest);
 	}
 	catch {
 		if (ROUTES.includes(pathWithoutBase) && isPage) {
@@ -351,16 +391,25 @@ async function fetchResource(pathWithoutBase: string, requestWithoutRange: Reque
  * @note This consumes `resource`, if provided
  */
 function updateResourceInBackground(
-	requestWithoutRange: Request, cache: Cache,
+	modifiedRequest: Request, cache: Cache,
 	fetchEvent: FetchEvent, resource?: Response
 ) {
 	fetchEvent.waitUntil(
 		(async () => {
-			if (resource == null) resource = await fetch(requestWithoutRange);
+			if (resource == null) resource = addVWHeaders(await fetch(modifiedRequest));
 
-			if (isResponseTheDefault(requestWithoutRange, resource) && resource.status !== 206) { // Also checks that it's a GET request
-				cache.put(requestWithoutRange, resource); // Update it in the background
+			if (isResponseTheDefault(modifiedRequest, resource) && resource.status !== 206) { // Also checks that it's a GET request
+				cache.put(modifiedRequest, resource); // Update it in the background
 			}
 		})()
 	);
+}
+
+function handleHeadRequest(response: Response, isHeadRequest: boolean): Response {
+	if ((! isHeadRequest) || response.body == null) return response;
+
+	response.body.cancel(); // This doesn't seem to be needed in Chrome or Firefox but it seems like a good idea to explicitly do this
+	return new Response(null, {
+		headers: response.headers
+	});
 }

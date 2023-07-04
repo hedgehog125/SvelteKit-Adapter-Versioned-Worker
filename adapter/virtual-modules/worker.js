@@ -1,2 +1,2 @@
 import { VersionedWorkerError } from "./build/src/helper.js";
-throw new VersionedWorkerError("This module can't be used outside of the worker hooks file.");
+throw new VersionedWorkerError("This module can't be used outside of the service worker but there might be an equivalent in sveltekit-adapter-versioned-worker/runtime-constants");

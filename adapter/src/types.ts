@@ -147,9 +147,9 @@ export interface VWBuildFile {
 	 */
 	mimeType: Nullable<string>,
 	/**
-	 * If the file is static or not. Based on if `viteInfo` has `name` defined.
+	 * If the file is static or not. `true` if the file is in the static folder. Otherwise it's based on if `viteInfo` has `name` defined.
 	 * 
-	 * @note This will be `null` if the manifest plugin isn't being used
+	 * @note This will be `null` if the manifest plugin isn't being used and the file isn't in the static folder
 	 */
 	isStatic: Nullable<boolean>,
 	/**

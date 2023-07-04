@@ -1,11 +1,11 @@
-Handle HEAD requests
+Update handle to use a single object as its argument
 Upgrade svelte-package
-What cache mode should fetch use in the worker? Always no-store?
 Treat some HTTP status codes like network errors
 Disable passthrough by default
 Log based on what files are new? e.g only list newly added lazy files?
 Improve how the worker updates
 Warnings for large media files since they won't stream
+Warnings for non-static files using lax or stale lazy as they will become unreferenced and removed when updated
 
 # Bugs
 TypeScript compile errors aren't emitted
