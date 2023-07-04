@@ -111,7 +111,6 @@ let isSSR: boolean;
 let isDev: boolean;
 
 
-let usingManifestPlugin = false;
 let initTask: Nullable<Promise<void>> = null;
 let initTaskDone = false;
 
@@ -121,7 +120,7 @@ let initTaskDone = false;
  * @param inputConfig The required configuration object for this adapter. It should have a `fetchLast` property.
  * @returns A SvelteKit adapter that builds your service worker.
  */
-export function adapter(inputConfig: AdapterConfig) : Adapter {
+export function adapter(inputConfig: AdapterConfig): Adapter {
 	if (typeof inputConfig !== "object" || typeof inputConfig.lastInfo !== "function") {
 		throw new VersionedWorkerError("This adapter requires a configuration object with a \"lastInfo\" function.");
 	}
@@ -178,8 +177,6 @@ export function adapter(inputConfig: AdapterConfig) : Adapter {
  * @returns A Vite manifest generator plugin.
  */
 export function manifestGenerator(inputConfig: ManifestPluginConfig = {}): Plugin[] {
-	usingManifestPlugin = true;
-
 	manifestPluginConfig = applyManifestPluginConfigDefaults(inputConfig);
 	const config = manifestPluginConfig;
 	let manifestPlugin: Plugin = null as any as Plugin; // It'll be defined by the time its used

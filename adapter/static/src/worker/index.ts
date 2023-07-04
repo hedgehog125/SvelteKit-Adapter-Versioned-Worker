@@ -117,7 +117,7 @@ addEventListener("install", e => {
 					const existing = (await oldCache.match(path)) as Response; // It was already found in the cache before
 					const withUpdatedVersionHeader = isStale?
 						existing
-						: addVWHeaders(existing)
+						: addVWHeaders(existing) // Update the "vw-version" header
 					;
 
 					await cache.put(path, withUpdatedVersionHeader);
@@ -181,31 +181,32 @@ addEventListener("fetch", e => {
 			const cache = await cachePromise;
 			if (inCacheList) {
 				let cached = await cache.match(fetchEvent.request);
-				if (cached) return cached;
+				if (cached) {
+					const stale = parseInt(cached.headers.get("vw-version") as string) !== VERSION;
+					if (! stale) return cached;
+
+					const requestWithoutRange = removeRangeHeaderFromRequest(fetchEvent);
+					if (STALE_LAZY.includes(pathWithoutBase)) {
+						updateResourceInBackground(requestWithoutRange, cache, fetchEvent);
+						return cached; // The outdated version
+					}
+					else { // Must be a lax-lazy resource
+						const [resource, isError] = await fetchResource(pathWithoutBase, requestWithoutRange, isPage);
+						if (! isError) return cached;
+
+						updateResourceInBackground(requestWithoutRange, cache, fetchEvent, resource.clone());
+						return resource;
+					}
+				}
 			
 			}
 
-			const requestWithoutRange = modifyRequestHeaders(fetchEvent.request, { range: null });
-
-			let resource: Response;
-			try {
-				resource = await fetch(requestWithoutRange);
-			}
-			catch {
-				if (ROUTES.includes(pathWithoutBase) && isPage) {
-					return new Response("Something went wrong. Please connect to the internet and try again.");
-				}
-				else {
-					return Response.error();
-				}
-			}
-
-			resource = addVWHeaders(resource);
-			if (inCacheList) {
-				if (isResponseTheDefault(requestWithoutRange, resource) && resource.status !== 206) { // Also checks that it's a GET request
-					fetchEvent.waitUntil(cache.put(requestWithoutRange, resource.clone())); // Update it in the background
-				}
-			}
+			const requestWithoutRange = removeRangeHeaderFromRequest(fetchEvent);
+			const [resource, isError] = await fetchResource(pathWithoutBase, requestWithoutRange, isPage);
+			if (isError) return resource; // Send the error response
+			
+			// The response won't be in the cache if this point is reached
+			if (inCacheList) updateResourceInBackground(requestWithoutRange, cache, fetchEvent, resource.clone());
 			return resource;
         })()
     );
@@ -317,11 +318,49 @@ async function getUpdated(installedVersions: number[]): Promise< Nullable<Set<st
 }
 
 /**
- * @note This consumes the original response
+ * @note This consumes `response`
  * @note This assumes the response is from the latest version
  */
 function addVWHeaders(response: Response): Response {
 	return modifyResponseHeaders(response, {
-		"VW-VERSION": VERSION.toString()
+		"vw-version": VERSION.toString()
 	});
+}
+function removeRangeHeaderFromRequest(fetchEvent: FetchEvent) {
+	return modifyRequestHeaders(fetchEvent.request, { range: null });
+}
+
+async function fetchResource(pathWithoutBase: string, requestWithoutRange: Request, isPage: boolean): Promise<[response: Response, isError: boolean]> {
+	let resource: Response;
+	try {
+		resource = await fetch(requestWithoutRange);
+	}
+	catch {
+		if (ROUTES.includes(pathWithoutBase) && isPage) {
+			return [new Response("Something went wrong. Please connect to the internet and try again."), true];
+		}
+		else {
+			return [Response.error(), true];
+		}
+	}
+
+	resource = addVWHeaders(resource);
+	return [resource, false];
+}
+/**
+ * @note This consumes `resource`, if provided
+ */
+function updateResourceInBackground(
+	requestWithoutRange: Request, cache: Cache,
+	fetchEvent: FetchEvent, resource?: Response
+) {
+	fetchEvent.waitUntil(
+		(async () => {
+			if (resource == null) resource = await fetch(requestWithoutRange);
+
+			if (isResponseTheDefault(requestWithoutRange, resource) && resource.status !== 206) { // Also checks that it's a GET request
+				cache.put(requestWithoutRange, resource); // Update it in the background
+			}
+		})()
+	);
 }
