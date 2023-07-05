@@ -1,33 +1,38 @@
 {
-	"name": "svelte-components",
+	"name": "internal-components",
 	"scripts": {
 		"dev": "vite dev",
 		"debugDev": "npm --node-options=--inspect-brk run dev",
-		"build": "svelte-kit sync && svelte-package",
-		"buildSite": "vite build",
+		"package": "svelte-kit sync && svelte-package",
+		"build": "vite build",
 		"testBuild": "cross-env DISABLE_BASE_URL=true vite build",
 		"testBuildAndPreview": "npm run testBuild && npm run preview",
-		"debugDuringBuild": "cross-env DISABLE_BASE_URL=true npm --node-options=--inspect-brk run buildSite",
-		"debugDuringBuildWithBase": "npm --node-options=--inspect-brk run buildSite",
+		"debugDuringBuild": "cross-env DISABLE_BASE_URL=true npm --node-options=--inspect-brk run build",
+		"debugDuringBuildWithBase": "npm --node-options=--inspect-brk run build",
 		"preview": "http-server build",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
 	},
+	"exports": {
+		".": {
+			"svelte": "./dist/index.js"
+		}
+	},
 	"dependencies": {
-		"svelte": "^3.55.1"
+		"svelte": "^3.55.1",
+		"@sveltejs/kit": "^1.19.0"
 	},
 	"devDependencies": {
 		"@rollup/plugin-virtual": "^3.0.1",
-		"@sveltejs/kit": "^1.19.0",
-		"@sveltejs/package": "^1.0.0",
+		"@sveltejs/package": "^2.1.0",
 		"@types/html-minifier": "^4.0.2",
 		"cross-env": "^7.0.3",
 		"html-minifier": "^4.0.0",
 		"idb": "^7.1.1",
 		"svelte-check": "^3.0.1",
 		"tslib": "^2.4.1",
-		"vite": "^4.0.0",
-		"typescript": "^5.1.6"
+		"typescript": "^5.1.6",
+		"vite": "^4.0.0"
 	},
 	"type": "module"
 }

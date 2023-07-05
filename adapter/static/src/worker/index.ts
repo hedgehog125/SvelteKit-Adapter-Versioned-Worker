@@ -157,7 +157,7 @@ addEventListener("fetch", e => {
 	const fetchEvent = e as FetchEvent;
 	const req = fetchEvent.request;
 	const vwMode = getVWRequestMode(req);
-	if (vwMode === "passthrough") return;
+	if (vwMode === "force-passthrough") return;
 
 	const isGetRequest = req.method === "GET";
 	const isHeadRequest = req.method === "HEAD";
@@ -345,8 +345,8 @@ async function getUpdated(installedVersions: number[]): Promise< Nullable<Set<st
 }
 
 function getVWRequestMode(request: Request): VWRequestMode {
-	const headerValue = request.headers.get("vw-mode");
-	if (headerValue === "no-network" || headerValue === "passthrough") return headerValue;
+	const headerValue = request.headers.get("vw-mode") as VWRequestMode | null; // Or also any other string
+	if (headerValue === "no-network" || headerValue === "force-passthrough") return headerValue;
 
 	return "default";
 }

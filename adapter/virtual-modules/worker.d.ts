@@ -30,7 +30,7 @@ export interface VWRequest {
 	 */
 	event: FetchEvent
 }
-export type VWRequestMode = "default" | "no-network" | "passthrough";
+export type VWRequestMode = "default" | "no-network" | "force-passthrough";
 
 /* Build constants */
 

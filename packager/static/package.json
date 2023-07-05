@@ -1,11 +1,18 @@
 {
-	"name": "internal-adapter",
+	"name": "sveltekit-adapter-versioned-worker",
+	"description": "A SvelteKit adapter for generating service workers",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/hedgehog125/SvelteKit-Adapter-Versioned-Worker.git"
+	},
 	"version": "1.0.0",
 	"files": [
 		"build",
 		"static",
 		"!static/tsconfig.json",
 		"virtual-modules",
+		"svelte",
+
 		"src",
 		"index.ts"
 	],
@@ -26,6 +33,12 @@
 		"./runtime-constants": {
 			"types": "./virtual-modules/runtime-constants.d.ts",
 			"import": "./virtual-modules/runtime-constants.js"
+		},
+
+		"./svelte": {
+			"types": "./svelte/index.d.ts",
+			"import": "./svelte/index.js",
+			"svelte": "./svelte/index.js"
 		}
 	},
 	"types": "./build/index.d.ts",
@@ -33,14 +46,11 @@
 		"*": {
 			"worker": ["./virtual-modules/worker.d.ts"],
 			"worker/util": ["./build/src/worker/util.d.ts"],
-			"runtime-constants": ["./virtual-modules/runtime-constants.d.ts"]
+			"runtime-constants": ["./virtual-modules/runtime-constants.d.ts"],
+			"svelte": ["./svelte/index.d.ts"]
 		}
 	},
-	"scripts": {
-		"build": "tsc",
-		"dev": "tsc --watch",
-		"test": "echo \"Error: no test specified\" && exit 1"
-	},
+	"scripts": {},
 	"dependencies": {
 		"@rollup/plugin-alias": "^4.0.3",
 		"@rollup/plugin-node-resolve": "^15.0.1",
@@ -55,15 +65,20 @@
 		"rollup-plugin-esbuild": "^5.0.0",
 		"vite": "^4.3.9",
 		"tslib": "^2.5.0",
-		"typescript": "^5.0.2"
+		"typescript": "^5.0.2",
+
+		"svelte": "^3.55.1",
+		"@sveltejs/kit": "^1.19.0"
 	},
-	"devDependencies": {
-		"@sveltejs/kit": "^1.19.0",
-		"@types/mime-types": "^2.1.1",
-		"@types/node": "^18.13.0",
-		"@types/recursive-readdir": "^2.2.1"
-	},
-	"keywords": [],
-	"author": "",
+	"devDependencies": {},
+	"keywords": [
+		"svelte",
+		"sveltekit",
+		"pwa",
+		"service-worker",
+		"sveltekit-adapter"
+	],
+	"author": "Nicholas Clack (Hedgehog125 on GitHub)",
+	"license": "GNU GPL v3",
 	"type": "module"
 }

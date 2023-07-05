@@ -1,4 +1,3 @@
-Upgrade svelte-package
 Log based on what files are new? e.g only list newly added lazy files?
 Improve how the worker updates
 Warnings for large media files since they won't stream

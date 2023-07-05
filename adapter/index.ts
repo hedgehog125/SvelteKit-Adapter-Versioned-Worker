@@ -119,8 +119,8 @@ let initTaskDone = false;
 /**
  * When called with an `AdapterConfig` object, this function returns a SvelteKit adapter that builds your service worker.
  * 
- * @param inputConfig The required configuration object for this adapter. It should have a `fetchLast` property.
- * @returns A SvelteKit adapter that builds your service worker.
+ * @param inputConfig The required configuration object for this adapter. It should have a `fetchLast` property
+ * @returns A SvelteKit adapter that builds your service worker
  */
 export function adapter(inputConfig: AdapterConfig): Adapter {
 	if (typeof inputConfig !== "object" || typeof inputConfig.lastInfo !== "function") {
@@ -176,7 +176,7 @@ export function adapter(inputConfig: AdapterConfig): Adapter {
  * You should still use this plugin even if you don't want to use its main feature, as it improves a few things about the adapter. To do this, set the `enable` property in the `inputConfig` to `false`.
  * 
  * @param inputConfig An optional configuration object for this Vite plugin
- * @returns A Vite manifest generator plugin.
+ * @returns A Vite manifest generator plugin
  */
 export function manifestGenerator(inputConfig: ManifestPluginConfig = {}): Plugin[] {
 	manifestPluginConfig = applyManifestPluginConfigDefaults(inputConfig);
@@ -361,7 +361,7 @@ async function generateManifest(): Promise<Nullable<string>> {
  * @param url The URL of your versionedWorker.json file or where it will be
  * @returns A `LastInfoProvider` that gets your versionedWorker.json file using the Fetch API
  * 
- * @note Most of the time you'll want to use `standardGetLast` instead, as it allows you to test how builds update locally.
+ * @note Most of the time you'll want to use `standardGetLast` instead, as it allows you to test how builds update locally
  * 
  * @example
  * // svelte.config.js
