@@ -1,5 +1,5 @@
 import type { IDBPDatabase } from "idb";
-import type { HandleHook } from "internal-adapter/worker";
+import type { HandleFetchHook } from "internal-adapter/worker";
 
 import { openDB } from "idb";
 
@@ -16,14 +16,14 @@ const initTask = (async () => {
 })();
 
 // Not async so null can be returned synchronously
-export const handle = ((path, isPage, fetchEvent) => {
+export const handleFetch = (({ href, isPage }) => {
 	if (isPage) {
-		if (path === "hidden-page") return hiddenPage();
+		if (href === "hidden-page") return hiddenPage();
 	}
 
 	// return new Promise(resolve => resolve(null));
 	return null;
-}) satisfies HandleHook;
+}) satisfies HandleFetchHook;
 
 async function hiddenPage(): Promise<Response> {
 	await initTask;

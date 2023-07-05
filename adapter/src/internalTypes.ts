@@ -59,7 +59,9 @@ export interface WorkerConstants {
 	VERSION_FOLDER: string,
 	VERSION_FILE_BATCH_SIZE: number,
 	MAX_VERSION_FILES: number,
-	BASE_URL: string
+	BASE_URL: string,
+
+	ENABLE_PASSTHROUGH: boolean
 }
 
 /**

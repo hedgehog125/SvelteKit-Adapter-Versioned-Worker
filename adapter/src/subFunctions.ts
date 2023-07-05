@@ -386,7 +386,9 @@ export function createWorkerConstants(
 		VERSION_FOLDER: adapterConfig.outputVersionDir,
 		VERSION_FILE_BATCH_SIZE,
 		MAX_VERSION_FILES,
-		BASE_URL: baseURL
+		BASE_URL: baseURL,
+
+		ENABLE_PASSTHROUGH: adapterConfig.enablePassthrough
 	};
 }
 export function generateVirtualModules(workerConstants: WorkerConstants): VirtualModuleSources {
@@ -569,18 +571,21 @@ export async function writeInfoFile(infoFile: InfoFile, { minimalViteConfig, ada
 }
 
 
-export function createRuntimeConstantsModule(lastInfo: Nullable<InfoFile>): string {
-	if (lastInfo) {
-		return createConstantsModule({
-			VERSION: lastInfo.version + 1
-		});
-	}
-	else {
-		return createConstantsModule({
-			VERSION: -1
-		});
-	}
+export function createRuntimeConstantsModule(
+	adapterConfig: ResolvedAdapterConfig, lastInfo: InfoFile
+): string {
+	return createConstantsModule({
+		VERSION: lastInfo.version + 1,
+		ENABLE_PASSTHROUGH: adapterConfig.enablePassthrough
+	});
 }
+export function createPlaceholderRuntimeConstantsModule(): string {
+	return createConstantsModule({
+		VERSION: null,
+		ENABLE_PASSTHROUGH: null
+	});
+}
+
 export async function getManifestSource(
 	inputFiles: InputFiles, manifestPluginConfig: ResolvedManifestPluginConfig,
 	adapterConfig: Nullable<ResolvedAdapterConfig>, viteConfig: MinimalViteConfig

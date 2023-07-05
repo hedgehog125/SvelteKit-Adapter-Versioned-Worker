@@ -18,7 +18,8 @@ export function applyAdapterConfigDefaults(config: AdapterConfig): ResolvedAdapt
 		outputWorkerFileName: "sw.js",
 		cacheStorageName: null,
 		warnOnViteConfigUnresolved: true,
-		redirectTrailingSlash: true
+		redirectTrailingSlash: true,
+		enablePassthrough: false
 	}) as ResolvedAdapterConfig;
 }
 export function applyManifestPluginConfigDefaults(config: ManifestPluginConfig): ResolvedManifestPluginConfig {

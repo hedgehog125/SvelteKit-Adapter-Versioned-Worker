@@ -66,7 +66,12 @@ export interface AdapterConfig {
 	/**
 	 * TODO
 	 */
-	redirectTrailingSlash?: boolean
+	redirectTrailingSlash?: boolean,
+
+	/**
+	 * TODO
+	 */
+	enablePassthrough?: boolean
 }
 export interface ManifestPluginConfig {
 	/**

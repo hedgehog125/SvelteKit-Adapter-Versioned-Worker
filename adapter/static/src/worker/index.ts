@@ -21,7 +21,9 @@ import {
 	VERSION_FOLDER,
 	VERSION_FILE_BATCH_SIZE,
 	MAX_VERSION_FILES,
-	BASE_URL
+	BASE_URL,
+
+	ENABLE_PASSTHROUGH
 } from "sveltekit-adapter-versioned-worker/worker";
 
 import {
@@ -116,6 +118,7 @@ addEventListener("install", e => {
 				...[...toDownload].map(async path => {
 					if (path === "") path = BASE_URL; // Otherwise it'll point to sw.js
 					const res = addVWHeaders(await fetch(path, { cache: "no-store" }));
+					if (! isResponseUsable(res)) throw "";
 
 					await cache.put(path, res);
 				}),
@@ -164,12 +167,20 @@ addEventListener("fetch", e => {
 	const inCacheList = COMPLETE_CACHE_LIST.has(pathWithoutBase);
 
 	let handleOutput: Promise<Nullable<Response>> | Nullable<Response> = null;
-	if (hooks.handle) {
-		handleOutput = hooks.handle(pathWithoutBase, isPage, fetchEvent, fullPath);
+	if (hooks.handleFetch) {
+		handleOutput = hooks.handleFetch({
+			href: pathWithoutBase,
+			fullHref: fullPath,
+			isPage,
+			vwMode,
+			inCacheList,
+			request: req,
+			event: fetchEvent
+		});
 
-		if (handleOutput == null && (! inCacheList)) { // Passthrough
-			return;
-		} 
+		if (ENABLE_PASSTHROUGH) {
+			if (handleOutput == null && (! inCacheList)) return;
+		}
 	}
 
     fetchEvent.respondWith(
@@ -310,13 +321,7 @@ async function getUpdated(installedVersions: number[]): Promise< Nullable<Set<st
 		new Array(numberToDownload).fill(null).map(async (_, offset): Promise<VersionFile> => {
 			let fileID = offset + rangeToDownload[0];
 			const res = await fetch(`${VERSION_FOLDER}/${fileID}.txt`, { cache: "no-store" });
-
-			if (! res.ok) {
-				return {
-					formatVersion: -1,
-					updated: []
-				};
-			}
+			if (! isResponseUsable(res)) throw "";
 
 			return parseUpdatedList(await res.text());
 		})
@@ -370,7 +375,9 @@ function modifyRequestForCaching(request: Request, enforceGetRequest: boolean = 
 /**
  * Also adds the Versioned Worker headers
  */
-async function fetchResource(pathWithoutBase: string, modifiedRequest: Request, isPage: boolean): Promise<[response: Response, isError: boolean]> {
+async function fetchResource(
+	pathWithoutBase: string, modifiedRequest: Request, isPage: boolean
+): Promise<[response: Response, isError: boolean]> {
 	let resource: Response;
 	try {
 		resource = await fetch(modifiedRequest);
@@ -397,9 +404,11 @@ function updateResourceInBackground(
 	fetchEvent.waitUntil(
 		(async () => {
 			if (resource == null) resource = addVWHeaders(await fetch(modifiedRequest));
-
-			if (isResponseTheDefault(modifiedRequest, resource) && resource.status !== 206) { // Also checks that it's a GET request
-				cache.put(modifiedRequest, resource); // Update it in the background
+			
+			if (isResponseUsable(resource)) {
+				if (isResponseTheDefault(modifiedRequest, resource) && resource.status !== 206) { // Also checks that it's a GET request
+					cache.put(modifiedRequest, resource); // Update it in the background
+				}
 			}
 		})()
 	);
@@ -412,4 +421,11 @@ function handleHeadRequest(response: Response, isHeadRequest: boolean): Response
 	return new Response(null, {
 		headers: response.headers
 	});
+}
+
+function isResponseUsable(response: Response): boolean {
+	const codeRange = Math.floor(response.status / 100);
+	if (codeRange === 4 || codeRange === 5) return false;
+
+	return true;
 }

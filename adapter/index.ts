@@ -63,7 +63,8 @@ import {
 	createWorkerFolder,
 	writeWorkerImporter,
 	getFileSizes,
-	listStaticFolderFiles
+	listStaticFolderFiles,
+	createPlaceholderRuntimeConstantsModule
 } from "./src/subFunctions.js";
 import {
 	applyAdapterConfigDefaults,
@@ -234,7 +235,7 @@ export function manifestGenerator(inputConfig: ManifestPluginConfig = {}): Plugi
 				"sveltekit-adapter-versioned-worker/runtime-constants": (async (): Promise<string> => {
 					await configResolved;
 
-					if (adapterConfig == null || initTask == null) return createRuntimeConstantsModule(null);
+					if (adapterConfig == null || initTask == null) return createPlaceholderRuntimeConstantsModule();
 					
 					await Promise.race([
 						initTask,
@@ -247,7 +248,7 @@ export function manifestGenerator(inputConfig: ManifestPluginConfig = {}): Plugi
 						await initTask;
 					}
 
-					return createRuntimeConstantsModule(lastInfo);
+					return createRuntimeConstantsModule(adapterConfig, lastInfo);
 				})()
 			}),
 			name: "vite-plugin-vw2-virtual-modules",

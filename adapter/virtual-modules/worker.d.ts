@@ -1,5 +1,38 @@
-export type HandleHook = (path: string, isPage: boolean, e: FetchEvent, fullPath: string) => Promise<Response | null> | Response | null;
+export type HandleFetchHook = (requestInfo: VWRequest) => Promise<Response | null> | Response | null;
+export interface VWRequest {
+	/**
+	 * TODO
+	 */
+	href: string,
+	/**
+	 * TODO
+	 */
+	fullHref: string,
+	/**
+	 * TODO
+	 */
+	isPage: boolean,
+	/**
+	 * TODO
+	 */
+	vwMode: VWRequestMode,
+	/**
+	 * TODO
+	 */
+	inCacheList: boolean
+
+	/**
+	 * TODO
+	 */
+	request: Request,
+	/**
+	 * TODO
+	 */
+	event: FetchEvent
+}
 export type VWRequestMode = "default" | "no-network" | "passthrough";
+
+/* Build constants */
 
 export const ROUTES: string[];
 	
@@ -15,6 +48,11 @@ export const VERSION_FOLDER: string;
 export const VERSION_FILE_BATCH_SIZE: number;
 export const MAX_VERSION_FILES: number;
 export const BASE_URL: string;
+
+// Config
+export const ENABLE_PASSTHROUGH: boolean;
+
+/* End of build constants */
 
 export interface VersionFile {
 	formatVersion: number,
