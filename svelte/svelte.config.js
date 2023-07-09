@@ -46,7 +46,8 @@ const config = {
 				}
 
 				return "pre-cache";
-			}
+			},
+			outputWorkerSourceMap: disableBaseURL? "inline" : false
 		})
 	}
 };

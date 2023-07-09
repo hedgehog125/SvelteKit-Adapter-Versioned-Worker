@@ -1,5 +1,5 @@
-Inline and external source maps. Off by default?
 Create util functions for things like only handling same origin requests
+Warn that unresolved Vite config could cause some issues and the plugin to not work as well, but remove mention of function to provide it
 Log based on what files are new? e.g only list newly added lazy files?
 Improve how the worker updates
 Warnings for large media files since they won't stream
@@ -34,3 +34,6 @@ Should just be able to modify request and response headers using their methods (
 Are the custom headers always correct?
 Do the different cache modes work?
 Abort signals, both for cached and uncached requests (no browser support though `:(`)
+
+# Manually test
+Does the adapter work without the Vite plugin?

@@ -452,7 +452,7 @@ export async function rollupBuild(
 		});
 	}
 
-	const outputFileName = path.join(
+	const outputPath = path.join(
 		minimalViteConfig.root, adapterConfig.outputDir,
 		adapterConfig.outputVersionDir, adapterConfig.outputWorkerFileName
 	);
@@ -489,7 +489,8 @@ export async function rollupBuild(
 		}
 	});
 	await bundle.write({
-		file: outputFileName,
+		file: outputPath,
+		sourcemap: adapterConfig.outputWorkerSourceMap,
 		format: "iife"
 	});
 	await bundle.close();

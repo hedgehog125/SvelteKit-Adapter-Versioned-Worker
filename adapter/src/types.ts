@@ -1,6 +1,6 @@
 import type { Builder } from "@sveltejs/kit";
 import type { ResolvedConfig } from "vite";
-import type { OutputAsset, OutputBundle, OutputChunk } from "rollup";
+import type { OutputAsset, OutputBundle, OutputChunk, OutputOptions } from "rollup";
 
 // To make things a bit less confusing
 export type SvelteConfig = Builder["config"];
@@ -40,6 +40,11 @@ export interface AdapterConfig {
 	 * TODO
 	 */
 	outputWorkerFileName?: string,
+
+	/**
+	 * TODO
+	 */
+	outputWorkerSourceMap?: OutputOptions["sourcemap"],
 
 	/**
 	 * TODO
