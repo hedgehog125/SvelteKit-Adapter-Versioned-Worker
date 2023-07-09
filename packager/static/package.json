@@ -28,7 +28,7 @@
 		},
 		"./worker/util": {
 			"types": "./build/src/worker/util.d.ts",
-			"import": "./build/src/util.js"
+			"import": "./build/src/worker/util.js"
 		},
 		"./runtime-constants": {
 			"types": "./virtual-modules/runtime-constants.d.ts",

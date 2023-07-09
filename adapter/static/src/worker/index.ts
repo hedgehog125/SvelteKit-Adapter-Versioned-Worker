@@ -5,6 +5,7 @@ import type {
 
 	VersionFile,
 	VWRequestMode,
+	HandleFetchHook,
 	MessageEventData
 } from "sveltekit-adapter-versioned-worker/worker";
 
@@ -27,9 +28,14 @@ import {
 } from "sveltekit-adapter-versioned-worker/worker";
 
 import {
-	modifyRequestHeaders, modifyResponseHeaders,
-	isResponseTheDefault
+	VIRTUAL_FETCH_PREFIX,
+
+	modifyRequestHeaders,
+	modifyResponseHeaders,
+	isResponseTheDefault,
+	summarizeRequest
 } from "sveltekit-adapter-versioned-worker/internal/worker-util-alias";
+import { workerState } from "sveltekit-adapter-versioned-worker/internal/worker-shared";
 import * as hooks from "sveltekit-adapter-versioned-worker/internal/hooks";
 
 type Nullable<T> = T | null;
@@ -48,6 +54,33 @@ const REUSABLE_BETWEEN_VERSIONS = new Set<string>([
 	...STALE_LAZY
 ]);
 const cachePromise = caches.open(currentStorageName);
+
+/* Optional functions */
+// The code referencing them might be unreachable depending on the config, so some of these might not be in the build
+
+const handleQuickFetch = (async ({ searchParams, request }) => {
+	const unwrappedURL = searchParams.get("url");
+	const specifiedHeadersRaw = searchParams.get("specified");
+	if (unwrappedURL == null || specifiedHeadersRaw == null) {
+		console.error("Versioned Worker quick fetch: invalid request.");
+		return Response.error();
+	}
+
+	const unwrappedRequest = new Request(unwrappedURL, request);
+	const stringRequest = JSON.stringify(summarizeRequest(unwrappedRequest, JSON.parse(specifiedHeadersRaw)));
+	const fetchPromise = workerState.quickFetchPromises.get(stringRequest);
+
+	if (fetchPromise) {
+		workerState.quickFetchPromises.delete(stringRequest);
+		return await fetchPromise;
+	}
+	else {
+		return await fetch(unwrappedRequest);
+	}
+}) satisfies HandleFetchHook;
+
+/* End of optional functions */
+
 
 addEventListener("install", e => {
     (e as InstallEvent).waitUntil(
@@ -117,7 +150,7 @@ addEventListener("install", e => {
 			await Promise.all([
 				...[...toDownload].map(async path => {
 					if (path === "") path = BASE_URL; // Otherwise it'll point to sw.js
-					const res = addVWHeaders(await fetch(path, { cache: "no-store" }));
+					const res = addVWHeaders(await fetch(path, { cache: "no-cache" }));
 					if (! isResponseUsable(res)) throw "";
 
 					await cache.put(path, res);
@@ -156,22 +189,32 @@ addEventListener("activate", e => {
 addEventListener("fetch", e => {
 	const fetchEvent = e as FetchEvent;
 	const req = fetchEvent.request;
-	const vwMode = getVWRequestMode(req);
+	const urlObj = new URL(req.url);
+	const fullPath = urlObj.pathname;
+	const pathWithoutBase = fullPath.slice(BASE_URL.length);
+	const hasVirtualPrefix = pathWithoutBase.startsWith(VIRTUAL_FETCH_PREFIX);
+	const searchParams = urlObj.searchParams;
+	const vwMode = getVWRequestMode(req, hasVirtualPrefix, searchParams);
 	if (vwMode === "force-passthrough") return;
 
 	const isGetRequest = req.method === "GET";
 	const isHeadRequest = req.method === "HEAD";
 	const isPage = req.mode === "navigate" && isGetRequest;
-	const fullPath = new URL(req.url).pathname;
-	const pathWithoutBase = fullPath.slice(BASE_URL.length);
-	const inCacheList = COMPLETE_CACHE_LIST.has(pathWithoutBase);
+	const isCrossOrigin = urlObj.origin !== location.origin;
+	const inCacheList = (! isCrossOrigin) && (isGetRequest || isHeadRequest) && COMPLETE_CACHE_LIST.has(pathWithoutBase);
 
+	const virtualHref = hasVirtualPrefix? pathWithoutBase.slice(VIRTUAL_FETCH_PREFIX.length) : null;
+	const fetchHandler = selectHandleFetchFunction(virtualHref, isCrossOrigin);
 	let handleOutput: Promise<Nullable<Response>> | Nullable<Response> = null;
-	if (hooks.handleFetch) {
-		handleOutput = hooks.handleFetch({
+	if (fetchHandler) {
+		handleOutput = fetchHandler({
 			href: pathWithoutBase,
 			fullHref: fullPath,
+			virtualHref,
+			searchParams,
+			urlObj,
 			isPage,
+			isCrossOrigin,
 			vwMode,
 			inCacheList,
 			request: req,
@@ -179,29 +222,32 @@ addEventListener("fetch", e => {
 		});
 
 		if (ENABLE_PASSTHROUGH) {
-			if (handleOutput == null && (! inCacheList)) return;
+			if (handleOutput == null && (! inCacheList) && vwMode !== "handle-only") return;
 		}
 	}
 
     fetchEvent.respondWith(
         (async (): Promise<Response> => {
-			if (isPage && registration.waiting) { // Based on https://redfin.engineering/how-to-fix-the-refresh-button-when-using-service-workers-a8e27af6df68
-				const activeClients = await clients.matchAll();
-				if (activeClients.length > 1) {
-					activeClients.forEach(client => client.postMessage({ type: "vw-waiting" }));
-				}
-				else {
-					registration.waiting.postMessage({ type: "skipWaiting" });
-					return new Response("", { headers: { Refresh: "0" } }); // Send an empty response but with a refresh header so it reloads instantly
+			if (vwMode !== "handle-only") {
+				if (isPage && registration.waiting) { // Based on https://redfin.engineering/how-to-fix-the-refresh-button-when-using-service-workers-a8e27af6df68
+					const activeClients = await clients.matchAll();
+					if (activeClients.length > 1) {
+						activeClients.forEach(client => client.postMessage({ type: "vw-waiting" }));
+					}
+					else {
+						registration.waiting.postMessage({ type: "skipWaiting" });
+						return new Response("", { headers: { Refresh: "0" } }); // Send an empty response but with a refresh header so it reloads instantly
+					}
 				}
 			}
-
+			
 			if (handleOutput) {
 				handleOutput = await handleOutput;
 				if (handleOutput != null) return handleOutput;
 			}
+			if (vwMode === "handle-only") return Response.error();
 
-			if (! (isGetRequest || isHeadRequest)) { // Sort of passthrough: no headers are added
+			if (isCrossOrigin || (! (isGetRequest || isHeadRequest))) { // Sort of passthrough: no headers are added
 				try {
 					return await fetch(req);
 				}
@@ -320,7 +366,7 @@ async function getUpdated(installedVersions: number[]): Promise< Nullable<Set<st
 	let versionFiles = await Promise.all(
 		new Array(numberToDownload).fill(null).map(async (_, offset): Promise<VersionFile> => {
 			let fileID = offset + rangeToDownload[0];
-			const res = await fetch(`${VERSION_FOLDER}/${fileID}.txt`, { cache: "no-store" });
+			const res = await fetch(`${VERSION_FOLDER}/${fileID}.txt`, { cache: "no-cache" });
 			if (! isResponseUsable(res)) throw "";
 
 			return parseUpdatedList(await res.text());
@@ -344,11 +390,19 @@ async function getUpdated(installedVersions: number[]): Promise< Nullable<Set<st
 	return updated;
 }
 
-function getVWRequestMode(request: Request): VWRequestMode {
+const vwRequestModes = new Set<VWRequestMode>([
+	"force-passthrough",
+	"handle-only",
+	"no-network"
+	// "default" isn't needed
+]);
+function getVWRequestMode(request: Request, hasVirtualPrefix: boolean, searchParams: URLSearchParams): VWRequestMode {
 	const headerValue = request.headers.get("vw-mode") as VWRequestMode | null; // Or also any other string
-	if (headerValue === "no-network" || headerValue === "force-passthrough") return headerValue;
+	if (vwRequestModes.has(headerValue as VWRequestMode)) return headerValue as VWRequestMode;
+	const searchParamValue = searchParams.get("vw-mode");
+	if (vwRequestModes.has(searchParamValue as VWRequestMode)) return searchParamValue as VWRequestMode; 
 
-	return "default";
+	return hasVirtualPrefix? "handle-only" : "default";
 }
 /**
  * @note This consumes `response`
@@ -360,7 +414,7 @@ function addVWHeaders(response: Response): Response {
 	});
 }
 /**
- * Removes the `Range` and `VW-Mode` headers, sets the method to `"GET"` and the cache mode to `"no-store"`.
+ * Removes the `Range` and `VW-Mode` headers, sets the method to `"GET"` and the cache mode to `"no-cache"`.
  */
 function modifyRequestForCaching(request: Request, enforceGetRequest: boolean = true) {
 	return modifyRequestHeaders(request, {
@@ -368,10 +422,14 @@ function modifyRequestForCaching(request: Request, enforceGetRequest: boolean = 
 		"vw-mode": null
 	}, {
 		method: enforceGetRequest? "GET" : request.method,
-		cache: "no-store"
+		cache: "no-cache"
 	});
 }
 
+const acceptableResponseTypes = new Set([
+	"default",
+	"basic"
+]);
 /**
  * Also adds the Versioned Worker headers
  */
@@ -391,7 +449,9 @@ async function fetchResource(
 		}
 	}
 
-	resource = addVWHeaders(resource);
+	if (acceptableResponseTypes.has(resource.type)) { // Other types are errors or redirects
+		resource = addVWHeaders(resource);
+	}
 	return [resource, false];
 }
 /**
@@ -424,8 +484,19 @@ function handleHeadRequest(response: Response, isHeadRequest: boolean): Response
 }
 
 function isResponseUsable(response: Response): boolean {
+	if (! acceptableResponseTypes.has(response.type)) return false;
 	const codeRange = Math.floor(response.status / 100);
 	if (codeRange === 4 || codeRange === 5) return false;
 
 	return true;
+}
+
+/**
+ * Returns a built-in function if applicable, otherwise returns the user provided one
+ */
+function selectHandleFetchFunction(virtualHref: string | null, isCrossOrigin: boolean): Nullable<HandleFetchHook> {
+	if (isCrossOrigin) return hooks.handleFetch;
+	if (virtualHref === "quick-fetch" && true) return handleQuickFetch; // TODO: add config option to disable it
+
+	return hooks.handleFetch;
 }

@@ -16,6 +16,11 @@
 		"skipLibCheck": true,
 		"declaration": true,
 		"outDir": "build",
-		"declarationMap": true
+		"declarationMap": true,
+
+		"paths": {
+			"sveltekit-adapter-versioned-worker/internal/worker-shared": ["./src/worker/shared"],
+			"sveltekit-adapter-versioned-worker/internal/worker-util-alias": ["./src/worker/util"]
+		}
 	}
 }

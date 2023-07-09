@@ -1,5 +1,7 @@
 type Nullable<T> = T | null;
 
+export const VIRTUAL_FETCH_PREFIX = "__vw_virtual__/";
+
 const VARY_HEADER = "vary";
 /**
  * Checks if a default fetch with the same URL would likely return the same response.
@@ -92,4 +94,36 @@ function modifyHeaders(original: Headers, newHeaders: Record<string, Nullable<st
 		...Object.fromEntries(original),
 		...makeHeadersLowercase(newHeaders)
 	});
+}
+
+export type SummarizedRequest = [method: string, url: string, headers: Record<string, string>];
+/**
+ * Allows requests to be postmessaged and compared more easily. To compare 2, `JSON.s 
+ * 
+ * @param request The request to summarise
+ * @param headersToInclude If specified, the `SummarizedRequest` will only include these headers
+ * @returns A `SummarizedRequest`
+ */
+export function summarizeRequest(request: Request, headersToInclude?: string[]): SummarizedRequest {
+	let unsortedHeaders = Array.from(request.headers)
+		.map(([headerName, value]) => [headerName.toLowerCase(), value])
+	;
+	if (headersToInclude) {
+		headersToInclude = headersToInclude.map(headerName => headerName.toLowerCase());
+		unsortedHeaders = unsortedHeaders.filter(([headerName]) => (headersToInclude as string[]).includes(headerName));
+	}
+
+	return [
+		request.method,
+		request.url,
+		Object.fromEntries(
+			unsortedHeaders.sort((pair1, pair2) => sortCompare(pair1[0], pair2[0]))
+		)
+	];
+
+	function sortCompare(value1: string, value2: string): number {
+		if (value1 < value2) return -1;
+		if (value1 > value2) return 1;
+		return 0;
+	}
 }

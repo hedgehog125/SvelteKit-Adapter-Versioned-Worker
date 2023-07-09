@@ -21,6 +21,7 @@ Since these don't have exports, d.ts files aren't generated */
 		"paths": {
 			"sveltekit-adapter-versioned-worker/worker": ["../virtual-modules/worker"],
 			"sveltekit-adapter-versioned-worker/internal/worker-util-alias": ["../build/src/worker/util"],
+			"sveltekit-adapter-versioned-worker/internal/worker-shared": ["../build/src/worker/shared"]
 		}
 	}
 }

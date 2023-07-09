@@ -2,16 +2,41 @@ export type HandleFetchHook = (requestInfo: VWRequest) => Promise<Response | nul
 export interface VWRequest {
 	/**
 	 * TODO
+	 * 
+	 * @note This doesn't start with a slash
+	 * @note This doesn't include search parameters
 	 */
 	href: string,
 	/**
 	 * TODO
+	 * 
+	 * @note This doesn't include search parameters
 	 */
 	fullHref: string,
+	/**
+	 * The href of the virtual request.
+	 * 
+	 * @note This doesn't start with a slash or the virtual prefix
+	 * @note This will be `null` if the request doesn't have the virtual prefix
+	 */
+	virtualHref: string | null,
+	/**
+	 * TODO
+	 */
+	searchParams: URLSearchParams,
+	/**
+	 * TODO
+	 */
+	urlObj: URL,
+
 	/**
 	 * TODO
 	 */
 	isPage: boolean,
+	/**
+	 * TODO
+	 */
+	isCrossOrigin: boolean,
 	/**
 	 * TODO
 	 */
@@ -30,7 +55,7 @@ export interface VWRequest {
 	 */
 	event: FetchEvent
 }
-export type VWRequestMode = "default" | "no-network" | "force-passthrough";
+export type VWRequestMode = "default" | "no-network" | "handle-only" | "force-passthrough";
 
 /* Build constants */
 
@@ -171,3 +196,6 @@ export type Registration = ServiceWorkerRegistration;
  * declare var skipWaiting: import("sveltekit-adapter-versioned-worker/worker").SkipWaiting;
  */
 export type SkipWaiting = () => void;
+
+
+export * from "../build/src/worker/staticVirtual";

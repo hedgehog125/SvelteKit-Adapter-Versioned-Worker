@@ -392,8 +392,9 @@ export function createWorkerConstants(
 	};
 }
 export function generateVirtualModules(workerConstants: WorkerConstants): VirtualModuleSources {
+	const staticVirtualModulePath = path.join(adapterFilesPath, "build/src/worker/staticVirtual.js");
 	return [
-		createConstantsModule(workerConstants)
+		`${createConstantsModule(workerConstants)}\nexport * from ${JSON.stringify(staticVirtualModulePath)};`
 	];
 }
 export async function configureTypescript(configs: AllConfigs): Promise<Nullable<RollupTypescriptOptions>> {
@@ -432,6 +433,10 @@ export async function rollupBuild(
 		{
 			find: "sveltekit-adapter-versioned-worker/internal/worker-util-alias",
 			replacement: path.join(adapterFilesPath, "build/src/worker/util.js")
+		},
+		{
+			find: "sveltekit-adapter-versioned-worker/internal/worker-shared",
+			replacement: path.join(adapterFilesPath, "build/src/worker/shared.js")
 		}
 	];
 

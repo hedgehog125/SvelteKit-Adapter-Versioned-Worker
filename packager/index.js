@@ -15,7 +15,7 @@ const COPY_LIST = [
 	["svelte/dist", "svelte"],
 	["packager/static", ""],
 
-	//["LICENSE.md", "LICENSE.md"]
+	["LICENSE.md", "LICENSE.md"]
 ];
 
 import { makeOutputDir, copyFiles } from "./src/subFunctions.js";

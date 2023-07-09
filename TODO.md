@@ -1,7 +1,10 @@
+Inline and external source maps. Off by default?
+Create util functions for things like only handling same origin requests
 Log based on what files are new? e.g only list newly added lazy files?
 Improve how the worker updates
 Warnings for large media files since they won't stream
 Warnings for non-static files using lax or stale lazy as they will become unreferenced and removed when updated
+Search param as alternative for vw-mode header?
 
 # Svelte Utils
 Stat resource
@@ -10,7 +13,7 @@ Check if worker is active
 # Bugs
 TypeScript compile errors aren't emitted
 Handle worker build errors somehow. Should the info file still be generated for the sake of readLast?
-Redirect incorrect trailing slashes in the service worker. Also redirect /index.html. URLs paths always start with a slash, enforced by the browser
+Redirect incorrect trailing slashes in the service worker. Also redirect /index.html. URLs paths always start with a slash, enforced by the browser. Remove from the ends of URLs in handleFetch?
 Don't hardcode sw.js in ServiceWorker.svelte. Export from runtime-constants?
 
 # Features
@@ -25,7 +28,7 @@ Allow FileSorters to return null and create a utility function that runs through
 
 # Tweaks
 Use sets instead of arrays for the constants?
-Fetch from HTTP cache on initial install with max age of 1? Might create issues if the files are updated on the server betweene page load and worker init
+Should just be able to modify request and response headers using their methods (get, set, delete etc.)
 
 # Tests to make
 Are the custom headers always correct?
