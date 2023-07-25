@@ -6,7 +6,10 @@ import type {
 	VersionFile,
 	VWRequestMode,
 	HandleFetchHook,
-	MessageEventData
+	InputMessageData,
+	InputMessageEvent,
+	WindowClient,
+	OutputMessageData
 } from "sveltekit-adapter-versioned-worker/worker";
 
 import {
@@ -165,6 +168,9 @@ addEventListener("install", e => {
 					await cache.put(path, withUpdatedVersionHeader);
 				})
 			]);
+
+			const activeClients = await clients.matchAll({ includeUncontrolled: true });
+			activeClients.forEach(client => client.postMessage({ type: "vw-waiting" } satisfies OutputMessageData));
 		})()
 	);
 });
@@ -172,7 +178,7 @@ addEventListener("install", e => {
 addEventListener("activate", e => {
 	(e as ActivateEvent).waitUntil(
 		(async () => {
-			await clients.claim();
+			clients.claim();
 
 			// Clean up
 			const cacheNames = await caches.keys();
@@ -231,12 +237,10 @@ addEventListener("fetch", e => {
 			if (vwMode !== "handle-only") {
 				if (isPage && registration.waiting) { // Based on https://redfin.engineering/how-to-fix-the-refresh-button-when-using-service-workers-a8e27af6df68
 					const activeClients = await clients.matchAll();
-					if (activeClients.length > 1) {
-						activeClients.forEach(client => client.postMessage({ type: "vw-waiting" }));
-					}
-					else {
-						registration.waiting.postMessage({ type: "skipWaiting" });
-						return new Response("", { headers: { Refresh: "0" } }); // Send an empty response but with a refresh header so it reloads instantly
+					if (activeClients.length < 2) {
+						// TODO
+						//registration.waiting.postMessage({ type: "skipWaiting" } satisfies MessageEventData);
+						//return new Response("", { headers: { Refresh: "0" } }); // Send an empty response but with a refresh header so it reloads instantly
 					}
 				}
 			}
@@ -290,16 +294,32 @@ addEventListener("fetch", e => {
         })()
     );
 });
-interface MessageEventWithTypePropBase extends MessageEvent {
-	data: MessageEventData | string
-}
-addEventListener("message", ({ data }: MessageEventWithTypePropBase) => {
-	if (typeof data === "string") {
-		if (data === "skipWaiting") data = { type: "skipWaiting" }; // Backwards compatibility shenanigans
-		else return; // Invalid
+interface InputMessageEventBase extends MessageEvent {
+	data: InputMessageData | "skipWaiting"
+} 
+addEventListener("message", async ({ data: backwardCompatibleData }: InputMessageEventBase) => {
+	// We're going to assume that invalid data will never be post-messaged here
+
+	let data: InputMessageData;
+	if (backwardCompatibleData === "skipWaiting") {
+		data = { type: "skipWaiting" };
+	}
+	else {
+		data = backwardCompatibleData;
 	}
 
-	if (data.type === "skipWaiting") skipWaiting();
+	if (data.type === "skipWaiting") {
+		console.log("Skipped"); // TODO
+		skipWaiting();
+	}
+	else if (data.type === "conditionalSkipWaiting") {
+		const activeClients = (await clients.matchAll({ includeUncontrolled: true })) as WindowClient[];
+		console.log(activeClients.length, VERSION);
+		if (activeClients.length < 2) {
+			await Promise.all(activeClients.map(client => client.navigate(client.url)));
+			skipWaiting();
+		}
+	}
 });
 
 function parseUpdatedList(contents: string): VersionFile {

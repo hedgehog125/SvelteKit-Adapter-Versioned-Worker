@@ -84,14 +84,21 @@ export interface VersionFile {
 	updated: string[][]
 }
 
-export interface MessageEventData {
-	type: string,
-	[property: string]: unknown
+export type InputMessageType = "skipWaiting" | "conditionalSkipWaiting" | "custom";
+export interface InputMessageData {
+	type: InputMessageType
 }
-export interface MessageEventWithTypeProp extends MessageEvent {
-	data: MessageEventData
+export interface InputMessageEvent extends MessageEvent {
+	data: InputMessageData
 }
 
+export type OutputMessageType = "vw-waiting";
+export interface OutputMessageData {
+	type: OutputMessageType
+}
+export interface OutputMessageEvent extends MessageEvent {
+	data: OutputMessageData
+}
 
 /* Worker types */
 // Adapted from https://gist.github.com/ithinkihaveacat/227bfe8aa81328c5d64ec48f4e4df8e5 by Tiernan Cridland under ISC license:
@@ -101,51 +108,56 @@ export interface ExtendableEvent extends Event {
 	waitUntil(fn: Promise<any>): void;
 }
 export interface FetchEvent extends ExtendableEvent {
-	request: Request;
-	respondWith(response: Promise<Response>|Response): Promise<Response>;
+	clientId: string,
+	handled: Promise<void>,
+	preloadResponse: Promise<Response | undefined>
+	replacesClientId: string,
+	resultingClientId: string,
+	request: Request,
+	respondWith(response: Promise<Response> | Response): void
 }
 export interface InstallEvent extends ExtendableEvent {
 	activeWorker: ServiceWorker
 }
 export interface ActivateEvent extends ExtendableEvent { }
 export interface NotificationEvent {
-	action: string;
-	notification: Notification;
+	action: string,
+	notification: Notification
 }
 export interface PushEvent extends ExtendableEvent {
-	data: PushMessageData;
+	data: PushMessageData
 }
 export interface SyncEvent extends Event {
-	lastChance: boolean;
-	tag: string;
+	lastChance: boolean,
+	tag: string
 }
 
 export interface PushMessageData {
-	arrayBuffer(): ArrayBuffer;
-	blob(): Blob;
-	json(): unknown;
+	arrayBuffer(): ArrayBuffer,
+	blob(): Blob,
+	json(): unknown,
 	text(): string;
 }
 
 
 // Misc
 export interface ServiceWorkerNotificationOptions {
-	tag?: string;
+	tag?: string
 }
 export interface CacheStorageOptions {
-	cacheName?: string;
-	ignoreMethod?: boolean;
-	ignoreSearch?: boolean;
-	ignoreVary?: boolean;
+	cacheName?: string,
+	ignoreMethod?: boolean,
+	ignoreSearch?: boolean,
+	ignoreVary?: boolean
 }
 
 export interface Client {
-	frameType: ClientFrameType;
-	id: string;
-	url: string;
+	frameType: ClientFrameType,
+	id: string,
+	url: string,
 
 	// Based off the built-in lib.dom.d.ts
-    postMessage(message: any, transfer?: Transferable[]): void;
+    postMessage(message: any, transfer?: Transferable[]): void
 }
 
 /**
@@ -157,25 +169,25 @@ export interface Client {
  * 
  */
 export interface Clients {
-	claim(): Promise<void>;
-	get(id: string): Promise<Client>;
-	matchAll(options?: ClientMatchOptions): Promise<Array<Client>>;
-	openWindow(url: string): Promise<WindowClient>;
+	claim(): Promise<void>,
+	get(id: string): Promise<Client>,
+	matchAll(options?: ClientMatchOptions): Promise<Array<Client>>,
+	openWindow(url: string): Promise<WindowClient>
 }
 export interface ClientMatchOptions {
-	includeUncontrolled?: boolean;
-	type?: ClientMatchTypes;
+	includeUncontrolled?: boolean,
+	type?: ClientMatchTypes,
 }
-export interface WindowClient {
-	focused: boolean;
-	visibilityState: WindowClientState;
-	focus(): Promise<WindowClient>;
-	navigate(url: string): Promise<WindowClient>;
+export interface WindowClient extends Client {
+	focused: boolean,
+	visibilityState: WindowClientState,
+	focus(): Promise<WindowClient>,
+	navigate(url: string): Promise<WindowClient>
 }
 
 export type ClientFrameType = "auxiliary" | "top-level" | "nested" | "none";
 export type ClientMatchTypes = "window" | "worker" | "sharedworker" | "all";
-export type WindowClientState = "hidden" | "visible" | "prerender" | "unloaded";
+export type WindowClientState = "hidden" | "visible";
 
 /**
  * Shorthand for ServiceWorkerRegistration.
@@ -195,7 +207,7 @@ export type Registration = ServiceWorkerRegistration;
  * // In an ambient d.ts file or, so you don't your global scope, in your hooks.worker.ts file. You may prefer to use a static import for the second case.
  * declare var skipWaiting: import("sveltekit-adapter-versioned-worker/worker").SkipWaiting;
  */
-export type SkipWaiting = () => void;
+export type SkipWaiting = () => Promise<void>;
 
 
 export * from "../build/src/worker/staticVirtual";

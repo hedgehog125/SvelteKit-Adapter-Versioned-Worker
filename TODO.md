@@ -1,10 +1,11 @@
 Create util functions for things like only handling same origin requests
+Reload opportunity function. Also util functions for calling it for navigations and some way to stop it applying to others
+Rename ServiceWorker to VersionedWorker? What should it handle?
 Warn that unresolved Vite config could cause some issues and the plugin to not work as well, but remove mention of function to provide it
 Log based on what files are new? e.g only list newly added lazy files?
 Improve how the worker updates
 Warnings for large media files since they won't stream
 Warnings for non-static files using lax or stale lazy as they will become unreferenced and removed when updated
-Search param as alternative for vw-mode header?
 
 # Svelte Utils
 Stat resource
@@ -24,7 +25,8 @@ Configuring TypeScript for the hooks file, along with other build plugins
 Allow running code after everything is done
 Add message handle (postMessage)
 Add an easy way to modify headers before the response is sent. New hook? Maybe only for requests using the default mechanism (not handled)?
-Allow FileSorters to return null and create a utility function that runs through an array of them until one returns something other than null 
+Allow FileSorters to return null and create a utility function that runs through an array of them until one returns something other than null
+A way to mark an update as important
 
 # Tweaks
 Use sets instead of arrays for the constants?

@@ -80,3 +80,21 @@ export function createURLWithSearchParams(url: string, searchParams: Record<stri
 export function createURLWithVWMode(url: string, vwMode: VWRequestMode): string {
 	return createURLWithSearchParams(url, { "vw-mode": vwMode }).toString();
 }
+
+interface Listenable {
+	addEventListener: typeof addEventListener,
+	removeEventListener: typeof removeEventListener
+}
+/**
+ * TODO
+ * 
+ * @param listenable 
+ * @param eventName 
+ */
+export function waitForEvent(listenable: Listenable, eventName: string): Promise<Event> {
+	return new Promise(resolve => {
+		listenable.addEventListener(eventName, resolve, {
+			once: true
+		});
+	});
+}
