@@ -3,7 +3,6 @@ Reload opportunity function. Also util functions for calling it for navigations 
 Rename ServiceWorker to VersionedWorker? What should it handle?
 Warn that unresolved Vite config could cause some issues and the plugin to not work as well, but remove mention of function to provide it
 Log based on what files are new? e.g only list newly added lazy files?
-Improve how the worker updates
 Warnings for large media files since they won't stream
 Warnings for non-static files using lax or stale lazy as they will become unreferenced and removed when updated
 
@@ -19,6 +18,7 @@ Don't hardcode sw.js in ServiceWorker.svelte. Export from runtime-constants?
 
 # Features
 JavaScript support
+Different update types: patch, major and critical. Patch updates non-obtrusively, major lets the user know (with the standard popup) and critical forces an update
 How does this plugin work when deploying to Vercel? Since that changes how the static adapter works
 Configuring the static adapter
 Configuring TypeScript for the hooks file, along with other build plugins
@@ -31,6 +31,9 @@ A way to mark an update as important
 # Tweaks
 Use sets instead of arrays for the constants?
 Should just be able to modify request and response headers using their methods (get, set, delete etc.)
+
+# Low priority
+Chrome reloads multiple times when updating when it's forced to use the registration.waiting always null workaround (the one used for Firefox)
 
 # Tests to make
 Are the custom headers always correct?

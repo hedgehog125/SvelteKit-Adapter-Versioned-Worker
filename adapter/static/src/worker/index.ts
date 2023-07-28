@@ -57,6 +57,7 @@ const REUSABLE_BETWEEN_VERSIONS = new Set<string>([
 	...STALE_LAZY
 ]);
 const cachePromise = caches.open(currentStorageName);
+let finished = false; // When the message "finish" is received, this worker will only send the blank reload page. Used for updates
 
 /* Optional functions */
 // The code referencing them might be unreachable depending on the config, so some of these might not be in the build
@@ -146,7 +147,9 @@ addEventListener("install", e => {
 				}
 			}
 			else {
-				console.warn("Versioned Worker: Performing clean install");
+				if (installedVersions.length != 0) {
+					console.warn("Versioned Worker: Performing clean install");
+				}
 			}
 
 			const cache = await cachePromise;
@@ -168,9 +171,6 @@ addEventListener("install", e => {
 					await cache.put(path, withUpdatedVersionHeader);
 				})
 			]);
-
-			const activeClients = await clients.matchAll({ includeUncontrolled: true });
-			activeClients.forEach(client => client.postMessage({ type: "vw-waiting" } satisfies OutputMessageData));
 		})()
 	);
 });
@@ -178,7 +178,7 @@ addEventListener("install", e => {
 addEventListener("activate", e => {
 	(e as ActivateEvent).waitUntil(
 		(async () => {
-			clients.claim();
+			const claimTask = clients.claim();
 
 			// Clean up
 			const cacheNames = await caches.keys();
@@ -189,6 +189,8 @@ addEventListener("activate", e => {
 
 				await caches.delete(cacheName); // There'll probably only be 1 anyway so it's not worth doing in parallel
 			}
+
+			await claimTask;
 		})()
 	);
 });
@@ -234,14 +236,15 @@ addEventListener("fetch", e => {
 
     fetchEvent.respondWith(
         (async (): Promise<Response> => {
-			if (vwMode !== "handle-only") {
-				if (isPage && registration.waiting) { // Based on https://redfin.engineering/how-to-fix-the-refresh-button-when-using-service-workers-a8e27af6df68
-					const activeClients = await clients.matchAll();
-					if (activeClients.length < 2) {
-						// TODO
-						//registration.waiting.postMessage({ type: "skipWaiting" } satisfies MessageEventData);
-						//return new Response("", { headers: { Refresh: "0" } }); // Send an empty response but with a refresh header so it reloads instantly
+			if (isPage && (registration.waiting || finished)) { // Based on https://redfin.engineering/how-to-fix-the-refresh-button-when-using-service-workers-a8e27af6df68
+				const activeClients = await clients.matchAll();
+				if (activeClients.length < 2) {
+					console.log("Blank page");
+					if (! finished) { // Don't tell the waiting worker, it started this sequence
+						// Not sure why TypeScript didn't recognise this: for registration.waiting to be null, finished must be true as otherwise the first if statement wouldn't be true
+						(registration.waiting as ServiceWorker).postMessage({ type: "skipWaiting" } satisfies InputMessageData);
 					}
+					return new Response("", { headers: { Refresh: "0" } }); // Send an empty response but with a refresh header so it reloads instantly
 				}
 			}
 			
@@ -314,11 +317,27 @@ addEventListener("message", async ({ data: backwardCompatibleData }: InputMessag
 	}
 	else if (data.type === "conditionalSkipWaiting") {
 		const activeClients = (await clients.matchAll({ includeUncontrolled: true })) as WindowClient[];
-		console.log(activeClients.length, VERSION);
+		console.log(activeClients.length, VERSION); // TODO
 		if (activeClients.length < 2) {
-			await Promise.all(activeClients.map(client => client.navigate(client.url)));
 			skipWaiting();
+			registration.active?.postMessage({ type: "finish" } satisfies InputMessageData);
+			activeClients.forEach(client => client.postMessage({ type: "vw-reload" } satisfies OutputMessageData));
+			/* TODO
+			while (true) {
+				const succeeded = await Promise.race([
+					(async () => {
+						skipWaiting();
+						return true;
+					})(),
+					timePromise(10)
+				]);
+				if (succeeded) break;
+			}
+			*/
 		}
+	}
+	else if (data.type === "finish") {
+		finished = true;
 	}
 });
 
@@ -519,4 +538,8 @@ function selectHandleFetchFunction(virtualHref: string | null, isCrossOrigin: bo
 	if (virtualHref === "quick-fetch" && true) return handleQuickFetch; // TODO: add config option to disable it
 
 	return hooks.handleFetch;
+}
+
+function timePromise(duration: number): Promise<void> {
+	return new Promise(resolve => setTimeout(resolve, duration));
 }

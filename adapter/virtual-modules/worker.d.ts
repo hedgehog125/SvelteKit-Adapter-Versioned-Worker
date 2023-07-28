@@ -84,7 +84,7 @@ export interface VersionFile {
 	updated: string[][]
 }
 
-export type InputMessageType = "skipWaiting" | "conditionalSkipWaiting" | "custom";
+export type InputMessageType = "skipWaiting" | "conditionalSkipWaiting" | "finish" | "custom";
 export interface InputMessageData {
 	type: InputMessageType
 }
@@ -92,7 +92,7 @@ export interface InputMessageEvent extends MessageEvent {
 	data: InputMessageData
 }
 
-export type OutputMessageType = "vw-waiting";
+export type OutputMessageType = "vw-reload";
 export interface OutputMessageData {
 	type: OutputMessageType
 }
