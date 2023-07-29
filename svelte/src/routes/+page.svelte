@@ -49,6 +49,15 @@
 	<h4>LAN over WiFi with worse connection</h4> <br>
 	<span>Without passthrough</span>: _ seconds <br>
 	<span>With</span>: _ seconds <br>
+
+	<br><br>
+	<h2>Links</h2> <br>
+	<a href={link("is-even")}>Is Even</a> <br>
+	<a href={link("quick-fetch")}>Quick Fetch</a> <br>
+	<a href={link("dynamic-video")}>Dynamic Video</a> <br>
+	<a href={link("stat-video")}>Stat Video</a> <br>
+	<a href={link("blank-page")}>Blank Page</a> <br>
+	<a href={link("no-update-reload")}>No Update Reload</a> <br>
 </main>
 
 <style>

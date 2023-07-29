@@ -76,10 +76,10 @@ const handleQuickFetch = (async ({ searchParams, request }) => {
 
 	if (fetchPromise) {
 		workerState.quickFetchPromises.delete(stringRequest);
-		return await fetchPromise;
+		return await fetchPromise; // It's already wrapped
 	}
 	else {
-		return await fetch(unwrappedRequest);
+		return await wrappedFetch(unwrappedRequest);
 	}
 }) satisfies HandleFetchHook;
 
@@ -239,11 +239,12 @@ addEventListener("fetch", e => {
 			if (isPage && (registration.waiting || finished)) { // Based on https://redfin.engineering/how-to-fix-the-refresh-button-when-using-service-workers-a8e27af6df68
 				const activeClients = await clients.matchAll();
 				if (activeClients.length < 2) {
-					console.log("Blank page");
+					console.log("Blank page", registration.waiting, finished);
 					if (! finished) { // Don't tell the waiting worker, it started this sequence
 						// Not sure why TypeScript didn't recognise this: for registration.waiting to be null, finished must be true as otherwise the first if statement wouldn't be true
 						(registration.waiting as ServiceWorker).postMessage({ type: "skipWaiting" } satisfies InputMessageData);
 					}
+					finished = false; // Prevent an endless refresh loop if something goes wrong changing workers
 					return new Response("", { headers: { Refresh: "0" } }); // Send an empty response but with a refresh header so it reloads instantly
 				}
 			}
@@ -255,12 +256,7 @@ addEventListener("fetch", e => {
 			if (vwMode === "handle-only") return Response.error();
 
 			if (isCrossOrigin || (! (isGetRequest || isHeadRequest))) { // Sort of passthrough: no headers are added
-				try {
-					return await fetch(req);
-				}
-				catch {
-					return Response.error();
-				}
+				return await wrappedFetch(req);
 			}
 
 			const cache = await cachePromise;
@@ -322,18 +318,6 @@ addEventListener("message", async ({ data: backwardCompatibleData }: InputMessag
 			skipWaiting();
 			registration.active?.postMessage({ type: "finish" } satisfies InputMessageData);
 			activeClients.forEach(client => client.postMessage({ type: "vw-reload" } satisfies OutputMessageData));
-			/* TODO
-			while (true) {
-				const succeeded = await Promise.race([
-					(async () => {
-						skipWaiting();
-						return true;
-					})(),
-					timePromise(10)
-				]);
-				if (succeeded) break;
-			}
-			*/
 		}
 	}
 	else if (data.type === "finish") {
@@ -540,6 +524,14 @@ function selectHandleFetchFunction(virtualHref: string | null, isCrossOrigin: bo
 	return hooks.handleFetch;
 }
 
-function timePromise(duration: number): Promise<void> {
-	return new Promise(resolve => setTimeout(resolve, duration));
+/**
+ * Returns an error response rather than throwing if there's a network error.
+ */
+async function wrappedFetch(request: Request): Promise<Response> {
+	try {
+		return await fetch(request);
+	}
+	catch {
+		return Response.error();
+	}
 }

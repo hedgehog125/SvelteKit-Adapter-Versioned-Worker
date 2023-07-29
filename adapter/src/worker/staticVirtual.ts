@@ -17,7 +17,7 @@ export function preloadQuickFetch(url: string, init?: RequestInit): boolean {
 	const stringRequest = JSON.stringify(summarizeRequest(request));
 	if (workerState.quickFetchPromises.has(stringRequest)) return false; // Already being prefetched
 
-	const fetchPromise = fetch(request);
+	const fetchPromise = wrappedFetch(request);
 	fetchPromise.then(() => {
 		setTimeout(() => {
 			if (workerState.quickFetchPromises.delete(stringRequest)) {
@@ -28,4 +28,16 @@ export function preloadQuickFetch(url: string, init?: RequestInit): boolean {
 
 	workerState.quickFetchPromises.set(stringRequest, fetchPromise);
 	return true;
+}
+
+/**
+ * Same as the one in the worker base.
+ */
+async function wrappedFetch(request: Request): Promise<Response> {
+	try {
+		return await fetch(request);
+	}
+	catch {
+		return Response.error();
+	}
 }

@@ -44,13 +44,18 @@ export async function quickFetch(url: string, init?: RequestInit): Promise<Respo
 /**
  * TODO
  * 
- * @param fn 
+ * @param callback 
  * @returns 
  */
-export function loadOnMount<T>(fn: () => Promise<T> | T): Promise<T> {
-	return new Promise<T>(resolve => {
+export function loadOnMount<T>(callback: () => Promise<T> | T): Promise<T> {
+	return new Promise<T>((resolve, reject) => {
 		onMount(async () => {
-			resolve(await fn());
+			try {
+				resolve(await callback());
+			}
+			catch (error) {
+				reject(error);
+			}
 		});
 	});
 }

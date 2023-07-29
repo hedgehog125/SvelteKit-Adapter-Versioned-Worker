@@ -94,7 +94,6 @@ export {
 	LastInfoProviderConfigs,
 	AllConfigs,
 
-	Nullable,
 	WebAppManifest,
 
 	defaultManifestProcessor

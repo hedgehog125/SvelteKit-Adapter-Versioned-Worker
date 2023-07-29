@@ -5,12 +5,14 @@ Warn that unresolved Vite config could cause some issues and the plugin to not w
 Log based on what files are new? e.g only list newly added lazy files?
 Warnings for large media files since they won't stream
 Warnings for non-static files using lax or stale lazy as they will become unreferenced and removed when updated
+Virtual route providing some info about the worker. Mostly its VW template version 
 
 # Svelte Utils
 Stat resource
 Check if worker is active
 
 # Bugs
+Endless reloading and stuck loading loops. Maybe fixed?
 TypeScript compile errors aren't emitted
 Handle worker build errors somehow. Should the info file still be generated for the sake of readLast?
 Redirect incorrect trailing slashes in the service worker. Also redirect /index.html. URLs paths always start with a slash, enforced by the browser. Remove from the ends of URLs in handleFetch?

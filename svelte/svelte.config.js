@@ -27,7 +27,7 @@ const config = {
 			$snd: "src/lib/snds",
 			$vid: "src/lib/vids",
 
-			"internal-adapter/runtime-constants": "sveltekit-adapter-versioned-worker/runtime-constants"
+			...(isDev? {} : {"internal-adapter/runtime-constants": "sveltekit-adapter-versioned-worker/runtime-constants"})
 		},
 
 		adapter: adapter({

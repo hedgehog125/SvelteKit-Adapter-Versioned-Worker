@@ -1,4 +1,6 @@
 <script lang="ts">
+    import { link } from "$util";
+
 	let isEven: typeof import("virtual-is-even").default;
 
 	async function loadModule() {
@@ -33,4 +35,7 @@
 			{output? "Yes" : "No"}
 		{/if}
 	</form>
+
+	<br> <br>
+	<a href={link("")}>Back</a>
 </main>
