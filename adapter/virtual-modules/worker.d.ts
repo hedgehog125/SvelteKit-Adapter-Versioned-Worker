@@ -84,21 +84,66 @@ export interface VersionFile {
 	updated: string[][]
 }
 
+/**
+ * TODO
+ */
 export type InputMessageType = "skipWaiting" | "conditionalSkipWaiting" | "finish" | "custom";
+/**
+ * TODO
+ */
 export interface InputMessageData {
 	type: InputMessageType
 }
+/**
+ * TODO
+ */
 export interface InputMessageEvent extends MessageEvent {
 	data: InputMessageData
 }
 
-export type OutputMessageType = "vw-reload";
-export interface OutputMessageData {
-	type: OutputMessageType
+/**
+ * TODO
+ */
+export type OutputMessageVoidType = "vw-reload";
+/**
+ * TODO
+ */
+export type OutputMessageType = OutputMessageVoidType | ResumeMessageData["type"];
+/**
+ * TODO
+ */
+export interface OutputMessageVoidData {
+	type: OutputMessageVoidType
 }
+/**
+ * TODO
+ */
+export interface ResumeMessageData {
+	type: "vw-resume",
+	data: ResumableState
+}
+/**
+ * TODO
+ */
+export type OutputMessageData = OutputMessageVoidData | ResumeMessageData;
+/**
+ * TODO
+ */
 export interface OutputMessageEvent extends MessageEvent {
 	data: OutputMessageData
 }
+
+/**
+ * TODO
+ */
+export interface ResumableState {
+	formatVersion: number,
+	data: unknown
+}
+/**
+ * TODO
+ */
+export type ResumableStateCallback = () => Promise<ResumableState> | ResumableState;
 
 /* Worker types */
 // Adapted from https://gist.github.com/ithinkihaveacat/227bfe8aa81328c5d64ec48f4e4df8e5 by Tiernan Cridland under ISC license:

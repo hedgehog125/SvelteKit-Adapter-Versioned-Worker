@@ -8,6 +8,8 @@ export {
 	VIRTUAL_FETCH_PREFIX
 };
 
+type Nullable<T> = T | null;
+
 /**
  * TODO
  * 
@@ -15,9 +17,7 @@ export {
  * @returns 
  */
 export function link(relativePath: string): string {
-	if (base === "") return `/${relativePath}`;
-	
-	return base + relativePath;
+	return `${base}/${relativePath}`;
 }
 /**
  * TODO
@@ -95,11 +95,38 @@ interface Listenable {
  * 
  * @param listenable 
  * @param eventName 
+ * @param signal 
  */
-export function waitForEvent(listenable: Listenable, eventName: string): Promise<Event> {
-	return new Promise(resolve => {
+export function waitForEvent(listenable: Listenable, eventName: string, signal?: AbortSignal): Promise<Event> {
+	return new Promise((resolve, reject) => {
+		signal?.addEventListener("abort", () => {
+			listenable.removeEventListener(eventName, resolve);
+			reject(new Error("AbortError"));
+		});
+
 		listenable.addEventListener(eventName, resolve, {
 			once: true
 		});
 	});
 }
+
+/**
+ * TODO
+ * 
+ * @note The promise will resolve to `null` if the listener times out.
+ */
+export async function waitForEventWithTimeout(listenable: Listenable, eventName: string, timeout: number): Promise<Nullable<Event>> {
+	const abortController = new AbortController();
+	const timeoutTask = setTimeout(abortController.abort, timeout);
+
+	let event: Event;
+	try {
+		event = await waitForEvent(listenable, eventName, abortController.signal);
+	}
+	catch {
+		return null;
+	}
+
+	clearTimeout(timeoutTask);
+	return event;
+};

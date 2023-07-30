@@ -1,20 +1,27 @@
-import { beforeNavigate } from "$app/navigation";
-import { skipIfWaiting } from "$lib/internal.js"; 
-import { waitForEvent } from "$util";
+import type {
+	OutputMessageData,
+	ResumableState,
+	ResumableStateCallback
+} from "internal-adapter/worker";
 
+import { beforeNavigate } from "$app/navigation";
+import { internalState, skipIfWaiting } from "$lib/internal.js"; 
+import { waitForEventWithTimeout } from "$util";
 
 type Nullable<T> = T | null;
+
+
+/**
+ * The name of the `SessionStorage` item that remembers if there was any resumable state.
+ * 
+ * @note This is mostly only intended to be used internally.
+ */
+export const RESUMABLE_STATE_NAME = "vw-hasResumableState";
 /**
  * TODO
  */
-export interface ResumableState {
-	formatVersion: number,
-	data: any
-}
-/**
- * TODO
- */
-export type ResumableStateCallback = () => Promise<ResumableState> | ResumableState;
+export const RESUMABLE_STATE_TIMEOUT = 10000;
+
 /**
  * Tells Versioned Worker that it's ok to reload the page for an update now.
  * 
@@ -37,18 +44,30 @@ export function reloadOpportunity(navigateTo?: string, data?: ResumableState | R
  * @note This function uses a `SessionStorage` call, which are synchronous.
  */
 export function checkIfResumableState(): boolean {
-	// TODO: read from sessionstorage
+	return sessionStorage.getItem(RESUMABLE_STATE_NAME) === "1";
 }
 /**
  * TODO
  * 
- * @param guaranteeState Set to `true` if you've already ensured there's some resumable state as this prevents a second `SessionStorage` call, which are synchronous. Otherwise leave it at its default of `false`.
+ * @param guaranteeState Set this to `true` if you've already ensured there's some resumable state as this prevents a second `SessionStorage` call, which are synchronous. Otherwise leave it at its default of `false`.
  * @returns A promise resolving to a `ResumableState` object or `null` if there was no state.
  */
 export async function resumeState(guaranteeState = false): Promise<Nullable<ResumableState>> {
+	if (! internalState.registration) return null;
 	if (! (guaranteeState || checkIfResumableState())) return null;
 
-	// TODO: wait for message
+	while (true) {
+		const { data } = <{ data: OutputMessageData }>(await waitForEventWithTimeout(
+			internalState.registration,
+			"message" satisfies keyof ServiceWorkerContainerEventMap,
+			RESUMABLE_STATE_TIMEOUT
+		) as MessageEvent);
+		
+		if (data.type === "vw-resume") {
+			sessionStorage.removeItem(RESUMABLE_STATE_NAME);
+			return data.data;
+		}
+	}
 }
 
 /**

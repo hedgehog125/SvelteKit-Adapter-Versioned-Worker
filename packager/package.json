@@ -1,17 +1,21 @@
 {
-  "name": "internal-packager",
-  "version": "1.0.0",
-  "main": "index.js",
-  "scripts": {
-    "package": "node index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "module",
-  "description": "",
-  "dependencies": {
-    "fs-extra": "^11.1.1"
-  }
+	"name": "internal-packager",
+	"version": "1.0.0",
+	"main": "index.js",
+	"scripts": {
+		"package": "node index.js",
+		"fixImports": "node fixImports.js",
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"type": "module",
+	"description": "",
+	"dependencies": {
+		"acorn": "^8.10.0",
+		"acorn-typescript": "^1.4.1",
+		"fs-extra": "^11.1.1",
+		"recursive-readdir": "^2.2.3"
+	}
 }

@@ -1,5 +1,8 @@
 type Nullable<T> = T | null;
 
+/**
+ * TODO
+ */
 export const VIRTUAL_FETCH_PREFIX = "__vw_virtual__/";
 
 const VARY_HEADER = "vary";
