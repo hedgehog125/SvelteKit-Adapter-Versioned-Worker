@@ -6,7 +6,8 @@ import type {
 
 import { beforeNavigate } from "$app/navigation";
 import { internalState, skipIfWaiting } from "$lib/internal.js"; 
-import { waitForEventWithTimeout } from "$util";
+import { getNavigationDestURL, timeoutPromise, waitForEventWithTimeout } from "$util";
+import type { BeforeNavigate } from "@sveltejs/kit";
 
 type Nullable<T> = T | null;
 
@@ -20,22 +21,51 @@ export const RESUMABLE_STATE_NAME = "vw-hasResumableState";
 /**
  * TODO
  */
-export const RESUMABLE_STATE_TIMEOUT = 10000;
+export const RESUMABLE_STATE_TIMEOUT = 5000;
+/**
+ * TODO
+ */
+export const REQUEST_RESUMABLE_STATE_TIMEOUT = 100;
 
 /**
  * Tells Versioned Worker that it's ok to reload the page for an update now.
  * 
- * @param navigateTo An optional URL to navigate to as part of the reload.
- * @param data An optional `ResumableState` object. If creating it uses significant resources, provide a `ResumableStateCallback` instead as it will only be called if there's an update.
+ * @param navigateTo An optional URL to navigate to as part of the reload. You can also pass a `BeforeNavigate` object to use its destination URL.
+ * @param resumableState An optional `ResumableState` object. If creating it uses significant resources, provide a `ResumableStateCallback` instead as it will only be called if there's an update and it's possible to install it.
+ * @returns A promise that resolves to `false` if the page won't be reloaded. If a reload is triggered by this function, the promise will resolve to `true`, though the page will likely reload before that.
  * 
  * @note This works independently to `isReloadOnNavigateAllowed`, as when that's `true` it essentially just calls this function automatically.
  * @note If you're calling this within a `beforeNavigate`, make sure you pass `navigation.to?.url.toString()` as the first argument.
  */
-export function reloadOpportunity(navigateTo?: string, data?: ResumableState | ResumableStateCallback) {
-	// TODO: use both arguments
+export async function reloadOpportunity(navigateTo?: string | BeforeNavigate, resumableState?: ResumableState | ResumableStateCallback): Promise<boolean> {
+	if (internalState.registration == null) return false;
 	// TODO: keep worker alive using waituntil in activate until the message is posted
 
-	skipIfWaiting();
+	internalState.navigatingTo = navigateTo?
+		(typeof navigateTo === "string"? navigateTo : getNavigationDestURL(navigateTo))
+		: null
+	;
+	const isWorkerWaiting = skipIfWaiting(resumableState? true : null); // Always request a callback if there's ResumableState to avoid unnecessarily setting and clearing SessionStorage
+	if (! isWorkerWaiting) return false;
+
+	while (true) {
+		const event = await waitForEventWithTimeout(
+			navigator.serviceWorker,
+			"message" satisfies keyof ServiceWorkerContainerEventMap,
+			REQUEST_RESUMABLE_STATE_TIMEOUT
+		) as Nullable<MessageEvent>;
+		if (event == null) return false; // The state wasn't requested, so there won't be a reload
+
+		const { data } = <{ data: OutputMessageData }>(event);
+		if (data.type === "vw-reload") return true;
+
+		if (data.type === "vw-updateWithResumable") {
+			if (typeof resumableState === "function") resumableState = await resumableState();
+
+			sessionStorage.setItem(RESUMABLE_STATE_NAME, "1");
+			skipIfWaiting(resumableState?? null);
+		}
+	}		
 }
 
 /**
@@ -53,21 +83,18 @@ export function checkIfResumableState(): boolean {
  * @returns A promise resolving to a `ResumableState` object or `null` if there was no state.
  */
 export async function resumeState(guaranteeState = false): Promise<Nullable<ResumableState>> {
+	const waitingState = internalState.waitingResumableState;
+	if (waitingState) {
+		internalState.waitingResumableState = null;
+		return waitingState;
+	}
 	if (! internalState.registration) return null;
 	if (! (guaranteeState || checkIfResumableState())) return null;
 
-	while (true) {
-		const { data } = <{ data: OutputMessageData }>(await waitForEventWithTimeout(
-			internalState.registration,
-			"message" satisfies keyof ServiceWorkerContainerEventMap,
-			RESUMABLE_STATE_TIMEOUT
-		) as MessageEvent);
-		
-		if (data.type === "vw-resume") {
-			sessionStorage.removeItem(RESUMABLE_STATE_NAME);
-			return data.data;
-		}
-	}
+	return await Promise.race([
+		internalState.resumableStatePromise,
+		timeoutPromise(RESUMABLE_STATE_TIMEOUT) // Resolves to null if it times out
+	]);
 }
 
 /**

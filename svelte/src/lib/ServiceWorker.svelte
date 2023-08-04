@@ -3,9 +3,19 @@
 
 	import { onMount } from "svelte";
 	import { dev, browser } from "$app/environment";
-    import { link, waitForEvent } from "$lib/util.js";
+    import {
+		ExposedPromise,
+		getNavigationDestURL,
+		link,
+		waitForEvent
+	} from "$lib/util.js";
     import { beforeNavigate } from "$app/navigation";
-    import { dontAllowReloadForNextNavigation, isReloadOnNavigateAllowed } from "$lib/index.js";
+    import {
+		RESUMABLE_STATE_NAME,
+		checkIfResumableState,
+		dontAllowReloadForNextNavigation,
+		isReloadOnNavigateAllowed
+	} from "$lib/index.js";
 	import { internalState, skipWaiting, skipIfWaiting } from "$lib/internal.js";
 
 	let pageLoadTimestamp: number;
@@ -16,6 +26,9 @@
 
 		navigator.serviceWorker.addEventListener("message", onSWMessage);
 		const registration = await navigator.serviceWorker.register(link("sw.js"));
+		if (checkIfResumableState()) {
+			registration.active?.postMessage({ type: "resume" } satisfies InputMessageData);
+		}
 		internalState.registration = registration;
 
 		while (true) {
@@ -41,15 +54,21 @@
 		if (data.type === "vw-reload") {
 			reloadOnce();
 		}
+		else if (data.type === "vw-resume") {
+			const innerData = data.data;
+			internalState.waitingResumableState = innerData;
+			internalState.resumableStatePromise.resolve(innerData);
+			internalState.resumableStatePromise = new ExposedPromise();
+			sessionStorage.removeItem(RESUMABLE_STATE_NAME);
+		}
 	}
 	let reloading = false;
-	let navigatingTo: string | null = null;
 	function reloadOnce() {
 		if (reloading) return;
 		reloading = true;
 
-		if (navigatingTo) {
-			location.href = navigatingTo;
+		if (internalState.navigatingTo) {
+			location.href = internalState.navigatingTo;
 		}
 		else {
 			location.reload();
@@ -57,11 +76,10 @@
 	}
 
 	beforeNavigate(navigation => {
-		console.log(isReloadOnNavigateAllowed);
-		navigatingTo = null;
+		internalState.navigatingTo = null;
 		if (! isReloadOnNavigateAllowed) return;
-		skipIfWaiting();
-		navigatingTo = navigation.to?.url.toString()?? null;
+		skipIfWaiting(null);
+		internalState.navigatingTo = getNavigationDestURL(navigation);
 
 		dontAllowReloadForNextNavigation();
 	});
@@ -75,11 +93,9 @@
 
 	function handleWaitingWorker(waitingWorker: ServiceWorker) {
 		if (Date.now() - pageLoadTimestamp < 300) {
-			console.log("In time", waitingWorker); // TODO
-			skipWaiting(waitingWorker);
+			skipWaiting(waitingWorker, null);
 		}
 		else {
-			console.log("TODO: Prompt");
 			// TODO: prompt to reload
 		}
 	}

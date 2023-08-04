@@ -87,13 +87,28 @@ export interface VersionFile {
 /**
  * TODO
  */
-export type InputMessageType = "skipWaiting" | "conditionalSkipWaiting" | "finish" | "custom";
+export type InputMessageVoidType = "skipWaiting" | "finish" | "resume";
 /**
  * TODO
  */
-export interface InputMessageData {
-	type: InputMessageType
+export type InputMessageType = InputMessageVoidType | ConditionalSkipMessageData["type"];
+/**
+ * TODO
+ */
+export interface InputMessageVoidData {
+	type: InputMessageVoidType
 }
+/**
+ * TODO
+ */
+export interface ConditionalSkipMessageData {
+	type: "conditionalSkipWaiting",
+	/**
+	 * `true` means there's state that should be packaged up before the worker updates, if it can.
+	 */
+	resumableState: ResumableState | null | true
+}
+export type InputMessageData = InputMessageVoidData | ConditionalSkipMessageData;
 /**
  * TODO
  */
@@ -103,8 +118,10 @@ export interface InputMessageEvent extends MessageEvent {
 
 /**
  * TODO
+ * 
+ * @note `"vw-updateWithResumable"` is a response to a `"conditionalSkipWaiting"` input. 
  */
-export type OutputMessageVoidType = "vw-reload";
+export type OutputMessageVoidType = "vw-reload" | "vw-updateWithResumable";
 /**
  * TODO
  */
@@ -120,7 +137,7 @@ export interface OutputMessageVoidData {
  */
 export interface ResumeMessageData {
 	type: "vw-resume",
-	data: ResumableState
+	data: Nullable<ResumableState>
 }
 /**
  * TODO
@@ -165,6 +182,13 @@ export interface InstallEvent extends ExtendableEvent {
 	activeWorker: ServiceWorker
 }
 export interface ActivateEvent extends ExtendableEvent { }
+export interface ExtendableMessageEvent<T = any> extends ExtendableEvent {
+	data: T,
+	origin: string,
+	lastEventId: string,
+	source: Client | ServiceWorker | MessagePort,
+	ports: MessagePort[]
+}
 export interface NotificationEvent {
 	action: string,
 	notification: Notification
@@ -216,7 +240,7 @@ export interface Client {
 export interface Clients {
 	claim(): Promise<void>,
 	get(id: string): Promise<Client>,
-	matchAll(options?: ClientMatchOptions): Promise<Array<Client>>,
+	matchAll(options?: ClientMatchOptions): Promise<Client[]>,
 	openWindow(url: string): Promise<WindowClient>
 }
 export interface ClientMatchOptions {

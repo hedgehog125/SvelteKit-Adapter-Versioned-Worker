@@ -1,0 +1,16 @@
+{
+	"name": "internal-scripts",
+	"version": "1.0.0",
+	"description": "",
+	"main": "inlinedReloadPage.js",
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1",
+		"minifyInlinedReloadPage": "esbuild inlinedReloadPage.js --minify --outfile=output/inlinedReloadPage.min.js"
+	},
+	"keywords": [],
+	"author": "",
+	"dependencies": {
+		"esbuild": "^0.18.17",
+		"terser": "^5.19.2"
+	}
+}

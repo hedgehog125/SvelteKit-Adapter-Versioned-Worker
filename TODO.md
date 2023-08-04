@@ -1,5 +1,4 @@
 Create util functions for things like only handling same origin requests
-Reload opportunity function. Also util functions for calling it for navigations and some way to stop it applying to others
 Rename ServiceWorker to VersionedWorker? What should it handle?
 Warn that unresolved Vite config could cause some issues and the plugin to not work as well, but remove mention of function to provide it
 Log based on what files are new? e.g only list newly added lazy files?

@@ -1,4 +1,5 @@
 import type { VWRequestMode } from "internal-adapter/worker";
+import type { BeforeNavigate } from "@sveltejs/kit";
 
 import { onMount } from "svelte";
 import { base } from "$app/paths";
@@ -13,12 +14,41 @@ type Nullable<T> = T | null;
 /**
  * TODO
  * 
- * @param relativePath 
+ * @param relativePath TODO. It shouldn't start with a slash but it should end with one, if it's a page and you've enabled trailing slashes in your SvelteKit config.
  * @returns 
  */
 export function link(relativePath: string): string {
 	return `${base}/${relativePath}`;
 }
+/**
+ * TODO
+ */
+export function getNavigationDestURL(navigation: BeforeNavigate): Nullable<string> {
+	return navigation.to?.url.toString()?? null;
+}
+/**
+ * TODO
+ */
+export class ExposedPromise<T = void> extends Promise<T> {
+	public resolve: ExposedPromise.ResolveCallback<T>;
+	public reject: ExposedPromise.RejectCallback;
+
+	constructor() {
+		let _resolve!: ExposedPromise.ResolveCallback<T>, _reject!: ExposedPromise.RejectCallback;
+		super((__resolve, __reject) => {
+			_resolve = __resolve;
+			_reject = __reject;
+		});
+
+		this.resolve = _resolve;
+		this.reject = _reject;	
+	}
+}
+export namespace ExposedPromise {
+	export type ResolveCallback<T> = (value: T | PromiseLike<T>) => void;
+	export type RejectCallback = (reason?: any) => void;
+}
+
 /**
  * TODO
  * 
@@ -113,11 +143,11 @@ export function waitForEvent(listenable: Listenable, eventName: string, signal?:
 /**
  * TODO
  * 
- * @note The promise will resolve to `null` if the listener times out.
+ * @note The promise will resolve to `null` if the listener times out. Make sure you check for it before casting to a more specific event.
  */
 export async function waitForEventWithTimeout(listenable: Listenable, eventName: string, timeout: number): Promise<Nullable<Event>> {
 	const abortController = new AbortController();
-	const timeoutTask = setTimeout(abortController.abort, timeout);
+	const timeoutTask = setTimeout(() => abortController.abort(), timeout);
 
 	let event: Event;
 	try {
@@ -130,3 +160,12 @@ export async function waitForEventWithTimeout(listenable: Listenable, eventName:
 	clearTimeout(timeoutTask);
 	return event;
 };
+
+/**
+ * TODO
+ */
+export function timeoutPromise(delay: number): Promise<null> {
+	return new Promise(resolve => {
+		setTimeout(() => resolve(null), delay);
+	});
+}

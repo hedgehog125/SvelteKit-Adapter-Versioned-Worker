@@ -7,9 +7,10 @@ import type {
 	VWRequestMode,
 	HandleFetchHook,
 	InputMessageData,
-	InputMessageEvent,
 	WindowClient,
-	OutputMessageData
+	OutputMessageData,
+	ResumableState,
+	ExtendableMessageEvent
 } from "sveltekit-adapter-versioned-worker/worker";
 
 import {
@@ -38,7 +39,7 @@ import {
 	isResponseTheDefault,
 	summarizeRequest
 } from "sveltekit-adapter-versioned-worker/internal/worker-util-alias";
-import { workerState } from "sveltekit-adapter-versioned-worker/internal/worker-shared";
+import { workerState, INLINED_RELOAD_PAGE } from "sveltekit-adapter-versioned-worker/internal/worker-shared";
 import * as hooks from "sveltekit-adapter-versioned-worker/internal/hooks";
 
 type Nullable<T> = T | null;
@@ -58,6 +59,7 @@ const REUSABLE_BETWEEN_VERSIONS = new Set<string>([
 ]);
 const cachePromise = caches.open(currentStorageName);
 let finished = false; // When the message "finish" is received, this worker will only send the blank reload page. Used for updates
+let resumableState: Nullable<ResumableState> = null;
 
 /* Optional functions */
 // The code referencing them might be unreachable depending on the config, so some of these might not be in the build
@@ -84,7 +86,6 @@ const handleQuickFetch = (async ({ searchParams, request }) => {
 }) satisfies HandleFetchHook;
 
 /* End of optional functions */
-
 
 addEventListener("install", e => {
     (e as InstallEvent).waitUntil(
@@ -198,7 +199,7 @@ addEventListener("fetch", e => {
 	const fetchEvent = e as FetchEvent;
 	const req = fetchEvent.request;
 	const urlObj = new URL(req.url);
-	const fullPath = urlObj.pathname;
+	const fullPath = urlObj.pathname
 	const pathWithoutBase = fullPath.slice(BASE_URL.length);
 	const hasVirtualPrefix = pathWithoutBase.startsWith(VIRTUAL_FETCH_PREFIX);
 	const searchParams = urlObj.searchParams;
@@ -239,16 +240,15 @@ addEventListener("fetch", e => {
 			if (isPage && (registration.waiting || finished)) { // Based on https://redfin.engineering/how-to-fix-the-refresh-button-when-using-service-workers-a8e27af6df68
 				const activeClients = await clients.matchAll();
 				if (activeClients.length < 2) {
-					console.log("Blank page", registration.waiting, finished);
 					if (! finished) { // Don't tell the waiting worker, it started this sequence
-						// Not sure why TypeScript didn't recognise this: for registration.waiting to be null, finished must be true as otherwise the first if statement wouldn't be true
-						(registration.waiting as ServiceWorker).postMessage({ type: "skipWaiting" } satisfies InputMessageData);
+						// Because of the await, registration.waiting might now be null
+						registration.waiting?.postMessage({ type: "skipWaiting" } satisfies InputMessageData);
 					}
 					finished = false; // Prevent an endless refresh loop if something goes wrong changing workers
-					return new Response("", { headers: { Refresh: "0" } }); // Send an empty response but with a refresh header so it reloads instantly
+					return new Response(INLINED_RELOAD_PAGE, { headers: { "content-type": "text/html" } });
 				}
 			}
-			
+
 			if (handleOutput) {
 				handleOutput = await handleOutput;
 				if (handleOutput != null) return handleOutput;
@@ -293,10 +293,10 @@ addEventListener("fetch", e => {
         })()
     );
 });
-interface InputMessageEventBase extends MessageEvent {
-	data: InputMessageData | "skipWaiting"
-} 
-addEventListener("message", async ({ data: backwardCompatibleData }: InputMessageEventBase) => {
+// The type of addEventListener is based off of the window one which is incorrect, hence this cast
+type AddMessageListener = (type: "message", listener: ((this: typeof globalThis, event: ExtendableMessageEvent) => any)) => void;
+(addEventListener as unknown as AddMessageListener)("message", messageEvent => {
+	const backwardCompatibleData = messageEvent.data as InputMessageData | "skipWaiting";
 	// We're going to assume that invalid data will never be post-messaged here
 
 	let data: InputMessageData;
@@ -308,20 +308,45 @@ addEventListener("message", async ({ data: backwardCompatibleData }: InputMessag
 	}
 
 	if (data.type === "skipWaiting") {
-		console.log("Skipped"); // TODO
 		skipWaiting();
 	}
 	else if (data.type === "conditionalSkipWaiting") {
-		const activeClients = (await clients.matchAll({ includeUncontrolled: true })) as WindowClient[];
-		console.log(activeClients.length, VERSION); // TODO
-		if (activeClients.length < 2) {
-			skipWaiting();
-			registration.active?.postMessage({ type: "finish" } satisfies InputMessageData);
-			activeClients.forEach(client => client.postMessage({ type: "vw-reload" } satisfies OutputMessageData));
-		}
+		messageEvent.waitUntil((async () => {
+			const activeClients = (await clients.matchAll({ includeUncontrolled: true })) as WindowClient[];
+			if (activeClients.length < 2) {
+				if (data.resumableState === true) {
+					// Now the clients check has passed, get the client to send the message again with the actual state
+					broadcast(activeClients, { type: "vw-updateWithResumable" });
+				}
+				else {
+					resumableState = data.resumableState;
+					
+					const timedOut = await Promise.race([
+						skipWaiting(),
+						new Promise<boolean>(resolve => setTimeout(() => resolve(true), 100))
+					]);
+					if (timedOut) {
+						registration.active?.postMessage({ type: "finish" } satisfies InputMessageData);
+					}
+					broadcast(activeClients, { type: "vw-reload" });
+
+					// TODO: wait until message received
+				}
+			}
+		})());
 	}
 	else if (data.type === "finish") {
 		finished = true;
+	}
+	else if (data.type === "resume") {
+		messageEvent.waitUntil((async () => {
+			const activeClients = (await clients.matchAll({ includeUncontrolled: true })) as WindowClient[];
+			broadcast(activeClients, {
+				type: "vw-resume",
+				data: resumableState
+			}); // Should only be 1 client
+			resumableState = null;
+		})());
 	}
 });
 
@@ -534,4 +559,8 @@ async function wrappedFetch(request: Request): Promise<Response> {
 	catch {
 		return Response.error();
 	}
+}
+
+function broadcast(activeClients: WindowClient[], data: OutputMessageData) {
+	activeClients.forEach(client => client.postMessage(data));
 }

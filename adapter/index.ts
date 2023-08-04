@@ -180,7 +180,7 @@ export function adapter(inputConfig: AdapterConfig): Adapter {
 export function manifestGenerator(inputConfig: ManifestPluginConfig = {}): Plugin[] {
 	manifestPluginConfig = applyManifestPluginConfigDefaults(inputConfig);
 	const config = manifestPluginConfig;
-	let manifestPlugin: Plugin = null as any as Plugin; // It'll be defined by the time its used
+	let manifestPlugin: Plugin = null as unknown as Plugin; // It'll be defined by the time its used
 	const configResolved = new Promise<void>(resolveConfigPromise => {
 		manifestPlugin = {
 			name: "vite-plugin-vw2-manifest",

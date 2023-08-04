@@ -1,5 +1,6 @@
 import type { DBSchema, IDBPDatabase } from "idb";
 import { openDB } from "idb";
+import { writable } from "svelte/store";
 
 export interface SettingsDB extends DBSchema {
 	misc: {
@@ -14,4 +15,9 @@ export async function openSettingsDB(): Promise<IDBPDatabase<SettingsDB>> {
 			transaction.objectStore("misc").put(true, "enableQuickFetch");
 		}
 	});
+}
+
+export const counter = writable(0);
+export interface V1ResumableState {
+	counter: number
 }

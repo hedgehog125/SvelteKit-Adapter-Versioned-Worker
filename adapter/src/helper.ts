@@ -107,7 +107,7 @@ export function createInitialInfo(): UnprocessedInfoFile {
  * @returns undefined casted to the provided type
  */
 export function requiredProperty<T>(): T {
-	return undefined as any as T;
+	return undefined as unknown as T;
 }
 
 export function hash(data: crypto.BinaryLike): string {

@@ -52,12 +52,13 @@
 
 	<br><br>
 	<h2>Links</h2> <br>
-	<a href={link("is-even")}>Is Even</a> <br>
-	<a href={link("quick-fetch")}>Quick Fetch</a> <br>
-	<a href={link("dynamic-video")}>Dynamic Video</a> <br>
-	<a href={link("stat-video")}>Stat Video</a> <br>
-	<a href={link("blank-page")}>Blank Page</a> <br>
-	<a href={link("no-update-reload")}>No Update Reload</a> <br>
+	<a href={link("is-even/")}>Is Even</a> <br>
+	<a href={link("quick-fetch/")}>Quick Fetch</a> <br>
+	<a href={link("dynamic-video/")}>Dynamic Video</a> <br>
+	<a href={link("stat-video/")}>Stat Video</a> <br>
+	<a href={link("blank-page/")}>Blank Page</a> <br>
+	<a href={link("no-update-reload/")}>No Update Reload</a> <br>
+	<a href={link("basic-resumable-state/")}>Basic Resumable State</a> <br>
 </main>
 
 <style>
