@@ -17,15 +17,15 @@ type Nullable<T> = T | null;
  * 
  * @note This is mostly only intended to be used internally.
  */
-export const RESUMABLE_STATE_NAME = "vw-hasResumableState";
+export const RESUMABLE_STATE_NAME: string = "vw-hasResumableState";
 /**
  * TODO
  */
-export const RESUMABLE_STATE_TIMEOUT = 5000;
+export const RESUMABLE_STATE_TIMEOUT: number = 5000;
 /**
  * TODO
  */
-export const REQUEST_RESUMABLE_STATE_TIMEOUT = 100;
+export const REQUEST_RESUMABLE_STATE_TIMEOUT: number = 100;
 
 /**
  * Tells Versioned Worker that it's ok to reload the page for an update now.

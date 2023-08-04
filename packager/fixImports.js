@@ -11,7 +11,8 @@ const MUST_BE_REPLACED_PREFIX = "internal-adapter";
 const replacements = {
 	"internal-adapter": "build/index.js",
 	"internal-adapter/worker": "virtual-modules/worker.js",
-	"internal-adapter/worker/util": "build/src/worker/util.js"
+	"internal-adapter/worker/util": "build/src/worker/util.js",
+	"internal-adapter/internal/exported-by-svelte-module": "build/src/exportedBySvelteModule.js"
 };
 
 async function main() {
@@ -31,16 +32,24 @@ async function main() {
 		do {
 			if (parsed == null) {
 				const CustomParser = isJs? Parser : Parser.extend(tsPlugin({ dts: true }));
-				parsed = CustomParser.parse(contents, {
-					ecmaVersion: "latest",
-					sourceType: "module",
-					locations: true
-				});
+				try {
+					parsed = CustomParser.parse(contents, {
+						ecmaVersion: "latest",
+						sourceType: "module",
+						locations: true
+					});
+				}
+				catch (error) {
+					console.log(`Error while parsing ${filePath}:\n`);
+					throw error;
+				}
 				length = parsed.body.length;
 			}
 
 			const node = parsed.body[i];
-			if (node.type === "ImportDeclaration") {
+			const isImport = node.type === "ImportDeclaration";
+			const isReExport = node.type === "ExportNamedDeclaration" && node.source !== null;
+			if (isImport || isReExport) {
 				const modulePath = node.source.value;
 				const newRawPath = replacements[modulePath];
 				if (newRawPath == null) {

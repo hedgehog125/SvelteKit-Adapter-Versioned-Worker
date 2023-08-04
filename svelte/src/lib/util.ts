@@ -26,28 +26,6 @@ export function link(relativePath: string): string {
 export function getNavigationDestURL(navigation: BeforeNavigate): Nullable<string> {
 	return navigation.to?.url.toString()?? null;
 }
-/**
- * TODO
- */
-export class ExposedPromise<T = void> extends Promise<T> {
-	public resolve: ExposedPromise.ResolveCallback<T>;
-	public reject: ExposedPromise.RejectCallback;
-
-	constructor() {
-		let _resolve!: ExposedPromise.ResolveCallback<T>, _reject!: ExposedPromise.RejectCallback;
-		super((__resolve, __reject) => {
-			_resolve = __resolve;
-			_reject = __reject;
-		});
-
-		this.resolve = _resolve;
-		this.reject = _reject;	
-	}
-}
-export namespace ExposedPromise {
-	export type ResolveCallback<T> = (value: T | PromiseLike<T>) => void;
-	export type RejectCallback = (reason?: any) => void;
-}
 
 /**
  * TODO
@@ -169,3 +147,5 @@ export function timeoutPromise(delay: number): Promise<null> {
 		setTimeout(() => resolve(null), delay);
 	});
 }
+
+export { ExposedPromise } from "internal-adapter/internal/exported-by-svelte-module";

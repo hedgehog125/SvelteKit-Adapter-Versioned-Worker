@@ -26,6 +26,10 @@
 		"./runtime-constants": {
 			"types": "./virtual-modules/runtime-constants.d.ts",
 			"import": "./virtual-modules/runtime-constants.js"
+		},
+		"./internal/exported-by-svelte-module": {
+			"types": "./build/src/exportedBySvelteModule.d.ts",
+			"import": "./build/src/exportedBySvelteModule.js"
 		}
 	},
 	"types": "./build/index.d.ts",
@@ -33,7 +37,8 @@
 		"*": {
 			"worker": ["./virtual-modules/worker.d.ts"],
 			"worker/util": ["./build/src/worker/util.d.ts"],
-			"runtime-constants": ["./virtual-modules/runtime-constants.d.ts"]
+			"runtime-constants": ["./virtual-modules/runtime-constants.d.ts"],
+			"internal/exported-by-svelte-module": ["./build/src/exportedBySvelteModule.d.ts"]
 		}
 	},
 	"scripts": {

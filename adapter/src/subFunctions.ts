@@ -437,6 +437,10 @@ export async function rollupBuild(
 		{
 			find: "sveltekit-adapter-versioned-worker/internal/worker-shared",
 			replacement: path.join(adapterFilesPath, "build/src/worker/shared.js")
+		},
+		{
+			find: "sveltekit-adapter-versioned-worker/internal/exported-by-svelte-module",
+			replacement: path.join(adapterFilesPath, "build/src/exportedBySvelteModule.js")
 		}
 	];
 

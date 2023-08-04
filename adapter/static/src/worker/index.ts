@@ -39,6 +39,7 @@ import {
 	isResponseTheDefault,
 	summarizeRequest
 } from "sveltekit-adapter-versioned-worker/internal/worker-util-alias";
+import { ExposedPromise } from "sveltekit-adapter-versioned-worker/internal/exported-by-svelte-module";
 import { workerState, INLINED_RELOAD_PAGE } from "sveltekit-adapter-versioned-worker/internal/worker-shared";
 import * as hooks from "sveltekit-adapter-versioned-worker/internal/hooks";
 
@@ -60,6 +61,7 @@ const REUSABLE_BETWEEN_VERSIONS = new Set<string>([
 const cachePromise = caches.open(currentStorageName);
 let finished = false; // When the message "finish" is received, this worker will only send the blank reload page. Used for updates
 let resumableState: Nullable<ResumableState> = null;
+let resumableStateUsedPromise = new ExposedPromise(); // Awaited in a waituntil so the worker doesn't stop while it has ResumableState
 
 /* Optional functions */
 // The code referencing them might be unreachable depending on the config, so some of these might not be in the build
@@ -330,7 +332,7 @@ type AddMessageListener = (type: "message", listener: ((this: typeof globalThis,
 					}
 					broadcast(activeClients, { type: "vw-reload" });
 
-					// TODO: wait until message received
+					if (resumableState) await resumableStateUsedPromise; // resumableState is used rather than data.resumableState so if it's somehow already consumed, it doesn't await indefinitely
 				}
 			}
 		})());
@@ -345,7 +347,10 @@ type AddMessageListener = (type: "message", listener: ((this: typeof globalThis,
 				type: "vw-resume",
 				data: resumableState
 			}); // Should only be 1 client
+
 			resumableState = null;
+			resumableStateUsedPromise.resolve();
+			resumableStateUsedPromise = new ExposedPromise();
 		})());
 	}
 });

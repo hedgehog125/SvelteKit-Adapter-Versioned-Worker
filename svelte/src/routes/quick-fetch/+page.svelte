@@ -33,7 +33,7 @@
 <main>
 	{#await loadPromise}
 		<p>
-			Loading message from the Server...
+			Loading message from the server...
 		</p>
 	{:then [serverMessage, quickFetchEnabled]}
 		<p>
