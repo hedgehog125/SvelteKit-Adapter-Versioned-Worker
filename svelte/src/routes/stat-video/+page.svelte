@@ -27,7 +27,7 @@
 
 		const resourceVersion = parseInt(response.headers.get("vw-version") as string);
 		if (isNaN(resourceVersion)) return "error";
-		if (resourceVersion < VERSION) return "stale";
+		if (resourceVersion < (VERSION as number)) return "stale";
 		return "updated";
 	}
 </script>

@@ -20,7 +20,8 @@ export function applyAdapterConfigDefaults(config: AdapterConfig): ResolvedAdapt
 		cacheStorageName: null,
 		warnOnViteConfigUnresolved: true,
 		redirectTrailingSlash: true,
-		enablePassthrough: false
+		enablePassthrough: false,
+		autoPassthroughCrossOriginRequests: true
 	}) as ResolvedAdapterConfig;
 }
 export function applyManifestPluginConfigDefaults(config: ManifestPluginConfig): ResolvedManifestPluginConfig {

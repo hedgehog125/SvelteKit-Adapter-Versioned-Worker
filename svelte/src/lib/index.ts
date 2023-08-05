@@ -3,14 +3,56 @@ import type {
 	ResumableState,
 	ResumableStateCallback
 } from "internal-adapter/worker";
+import type { BeforeNavigate } from "@sveltejs/kit";
 
 import { beforeNavigate } from "$app/navigation";
 import { internalState, skipIfWaiting } from "$lib/internal.js"; 
-import { getNavigationDestURL, timeoutPromise, waitForEventWithTimeout } from "$util";
-import type { BeforeNavigate } from "@sveltejs/kit";
+import {
+	VIRTUAL_FETCH_PREFIX,
+	link,
+	getNavigationDestURL,
+	timeoutPromise,
+	waitForEventWithTimeout
+} from "$util";
 
 type Nullable<T> = T | null;
 
+
+/**
+ * TODO
+ * 
+ * @param url 
+ * @param init 
+ * @returns 
+ * 
+ * @see `preloadQuickFetch` for how to preload the resource in the worker.
+ */
+export async function quickFetch(url: string, init?: RequestInit): Promise<Response> {
+	if (navigator.serviceWorker?.controller) {
+		let specifiedHeaders: string[] = [...new Headers(init?.headers).keys()];
+
+		// TODO: error if it's disabled
+		const modifiedURL = new URL(link(`${VIRTUAL_FETCH_PREFIX}quick-fetch`), location.origin);
+		modifiedURL.searchParams.set("url", url);
+		modifiedURL.searchParams.set("specified", JSON.stringify(specifiedHeaders));
+
+		url = modifiedURL.toString();
+	}
+
+	return await fetch(url, init);
+}
+
+/**
+ * TODO
+ * 
+ * @param url 
+ * @param init 
+ * @param useVirtualPrefix
+ * @returns
+ */
+export function virtualFetch(url: string, init?: RequestInit, useVirtualPrefix = true) {
+	console.log("TODO: implement");
+}
 
 /**
  * The name of the `SessionStorage` item that remembers if there was any resumable state.

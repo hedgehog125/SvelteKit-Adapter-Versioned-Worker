@@ -1,7 +1,7 @@
 import type { IDBPDatabase } from "idb";
 import type { HandleFetchHook } from "internal-adapter/worker";
-// @ts-ignore - Complicated to fix and doesn't affect the packaged version
-import { preloadQuickFetch } from "sveltekit-adapter-versioned-worker/worker";
+// @ts-ignore - Complicated to fix and doesn't affect the packaged version. Use this instead of internal-adapter/worker
+import { preloadQuickFetch, virtualRoutes } from "sveltekit-adapter-versioned-worker/worker";
 
 import { openDB } from "idb";
 import { openSettingsDB } from "./demo.js";
@@ -18,19 +18,12 @@ const initTask = (async () => {
 	});
 })();
 
-// Not async so null can be returned synchronously
-export const handleFetch = (({ href, isPage, isCrossOrigin }) => {
-	if (isCrossOrigin) return null;
-	if (isPage) {
-		if (href === "hidden-page") return hiddenPage();
-		if (href === "quick-fetch/") {
-			quickFetchBackgroundTask();
-		}
+export const handleFetch = virtualRoutes({
+	"/hidden-page/": hiddenPage,
+	"/quick-fetch/": () => {
+		quickFetchBackgroundTask();
 	}
-
-	// return new Promise(resolve => resolve(null));
-	return null;
-}) satisfies HandleFetchHook;
+});
 
 async function hiddenPage(): Promise<Response> {
 	await initTask;

@@ -7,15 +7,17 @@ import { VIRTUAL_FETCH_PREFIX } from "internal-adapter/worker/util";
 
 export {
 	VIRTUAL_FETCH_PREFIX
-};
+}
 
 type Nullable<T> = T | null;
 
 /**
  * TODO
  * 
- * @param relativePath TODO. It shouldn't start with a slash but it should end with one, if it's a page and you've enabled trailing slashes in your SvelteKit config.
+ * @param relativePath TODO. It shouldn't start with a slash.
  * @returns 
+ * 
+ * @note If it's a page and you've enabled trailing slashes in your SvelteKit config, `relativePath` should end with a slash.
  */
 export function link(relativePath: string): string {
 	return `${base}/${relativePath}`;
@@ -25,28 +27,6 @@ export function link(relativePath: string): string {
  */
 export function getNavigationDestURL(navigation: BeforeNavigate): Nullable<string> {
 	return navigation.to?.url.toString()?? null;
-}
-
-/**
- * TODO
- * 
- * @param url 
- * @param init 
- * @returns 
- */
-export async function quickFetch(url: string, init?: RequestInit): Promise<Response> {
-	if (navigator.serviceWorker?.controller) {
-		let specifiedHeaders: string[] = [...new Headers(init?.headers).keys()];
-
-		// TODO: error if it's disabled
-		const modifiedURL = new URL(link(`${VIRTUAL_FETCH_PREFIX}quick-fetch`), location.origin);
-		modifiedURL.searchParams.set("url", url);
-		modifiedURL.searchParams.set("specified", JSON.stringify(specifiedHeaders));
-
-		url = modifiedURL.toString();
-	}
-
-	return await fetch(url, init);
 }
 
 /**
@@ -94,7 +74,7 @@ export function createURLWithVWMode(url: string, vwMode: VWRequestMode): string 
 	return createURLWithSearchParams(url, { "vw-mode": vwMode }).toString();
 }
 
-interface Listenable {
+export interface Listenable {
 	addEventListener: typeof addEventListener,
 	removeEventListener: typeof removeEventListener
 }

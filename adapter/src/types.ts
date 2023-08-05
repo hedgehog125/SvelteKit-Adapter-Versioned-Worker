@@ -76,7 +76,12 @@ export interface AdapterConfig {
 	/**
 	 * TODO
 	 */
-	enablePassthrough?: boolean
+	enablePassthrough?: boolean,
+
+	/**
+	 * TODO
+	 */
+	autoPassthroughCrossOriginRequests?: boolean
 }
 export interface ManifestPluginConfig {
 	/**

@@ -40,10 +40,15 @@ import {
 	summarizeRequest
 } from "sveltekit-adapter-versioned-worker/internal/worker-util-alias";
 import { ExposedPromise } from "sveltekit-adapter-versioned-worker/internal/exported-by-svelte-module";
-import { workerState, INLINED_RELOAD_PAGE } from "sveltekit-adapter-versioned-worker/internal/worker-shared";
+import {
+	workerState,
+	wrappedFetch,
+	INLINED_RELOAD_PAGE
+} from "sveltekit-adapter-versioned-worker/internal/worker-shared";
 import * as hooks from "sveltekit-adapter-versioned-worker/internal/hooks";
 
 type Nullable<T> = T | null;
+type MaybePromise<T> = Promise<T> | T;
 
 const currentStorageName = STORAGE_PREFIX + VERSION;
 const COMPLETE_CACHE_LIST = new Set<string>([
@@ -201,9 +206,10 @@ addEventListener("fetch", e => {
 	const fetchEvent = e as FetchEvent;
 	const req = fetchEvent.request;
 	const urlObj = new URL(req.url);
-	const fullPath = urlObj.pathname
+	const fullPath = urlObj.pathname;
 	const pathWithoutBase = fullPath.slice(BASE_URL.length);
-	const hasVirtualPrefix = pathWithoutBase.startsWith(VIRTUAL_FETCH_PREFIX);
+	const isCrossOrigin = urlObj.origin !== location.origin;
+	const hasVirtualPrefix = (! isCrossOrigin) && pathWithoutBase.startsWith(VIRTUAL_FETCH_PREFIX);
 	const searchParams = urlObj.searchParams;
 	const vwMode = getVWRequestMode(req, hasVirtualPrefix, searchParams);
 	if (vwMode === "force-passthrough") return;
@@ -211,12 +217,11 @@ addEventListener("fetch", e => {
 	const isGetRequest = req.method === "GET";
 	const isHeadRequest = req.method === "HEAD";
 	const isPage = req.mode === "navigate" && isGetRequest;
-	const isCrossOrigin = urlObj.origin !== location.origin;
 	const inCacheList = (! isCrossOrigin) && (isGetRequest || isHeadRequest) && COMPLETE_CACHE_LIST.has(pathWithoutBase);
 
 	const virtualHref = hasVirtualPrefix? pathWithoutBase.slice(VIRTUAL_FETCH_PREFIX.length) : null;
 	const fetchHandler = selectHandleFetchFunction(virtualHref, isCrossOrigin);
-	let handleOutput: Promise<Nullable<Response>> | Nullable<Response> = null;
+	let handleOutput: MaybePromise<Response | undefined | void>;
 	if (fetchHandler) {
 		handleOutput = fetchHandler({
 			href: pathWithoutBase,
@@ -552,18 +557,6 @@ function selectHandleFetchFunction(virtualHref: string | null, isCrossOrigin: bo
 	if (virtualHref === "quick-fetch" && true) return handleQuickFetch; // TODO: add config option to disable it
 
 	return hooks.handleFetch;
-}
-
-/**
- * Returns an error response rather than throwing if there's a network error.
- */
-async function wrappedFetch(request: Request): Promise<Response> {
-	try {
-		return await fetch(request);
-	}
-	catch {
-		return Response.error();
-	}
 }
 
 function broadcast(activeClients: WindowClient[], data: OutputMessageData) {

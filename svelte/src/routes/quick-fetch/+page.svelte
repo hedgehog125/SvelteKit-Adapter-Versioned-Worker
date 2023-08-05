@@ -1,5 +1,6 @@
 <script lang="ts">
-    import { createURLWithVWMode, loadOnMount, quickFetch } from "$lib/util.js";
+    import { quickFetch } from "$lib";
+    import { createURLWithVWMode, loadOnMount } from "$lib/util.js";
 	import { openSettingsDB } from "../../demo";
 
 	const quickFetchURL = "http://localhost:8081/";

@@ -1,17 +1,17 @@
-Create util functions for things like only handling same origin requests
-Rename ServiceWorker to VersionedWorker? What should it handle?
+Set mode of cross origin requests to "force-passthrough" by default. Add option to prevent it
+Update prompts and different behaviour depending on how long the app's been stuck on an old version
 Warn that unresolved Vite config could cause some issues and the plugin to not work as well, but remove mention of function to provide it
 Log based on what files are new? e.g only list newly added lazy files?
 Warnings for large media files since they won't stream
 Warnings for non-static files using lax or stale lazy as they will become unreferenced and removed when updated
-Virtual route providing some info about the worker. Mostly its VW template version 
+Virtual route providing some info about the worker. Mostly its VW template version
 
 # Svelte Utils
+Virtual fetch function. Adapt quickFetch to use it
 Stat resource
 Check if worker is active
 
 # Bugs
-Endless reloading and stuck loading loops. Maybe fixed?
 TypeScript compile errors aren't emitted
 Handle worker build errors somehow. Should the info file still be generated for the sake of readLast?
 Redirect incorrect trailing slashes in the service worker. Also redirect /index.html. URLs paths always start with a slash, enforced by the browser. Remove from the ends of URLs in handleFetch?
@@ -27,14 +27,14 @@ Allow running code after everything is done
 Add message handle (postMessage)
 Add an easy way to modify headers before the response is sent. New hook? Maybe only for requests using the default mechanism (not handled)?
 Allow FileSorters to return null and create a utility function that runs through an array of them until one returns something other than null
-A way to mark an update as important
 
 # Tweaks
-Use sets instead of arrays for the constants?
+Use sets instead of arrays for the constants
 Should just be able to modify request and response headers using their methods (get, set, delete etc.)
 
 # Low priority
 Chrome reloads multiple times when updating when it's forced to use the registration.waiting always null workaround (the one used for Firefox)
+Endless reloading and stuck loading loops. Maybe fixed?
 
 # Tests to make
 Are the custom headers always correct?
