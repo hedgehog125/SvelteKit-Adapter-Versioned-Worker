@@ -22,7 +22,6 @@ export interface AdapterConfig {
 	 * TODO
 	 */
 	hooksFile?: string,
-
 	/**
 	 * TODO
 	 * 
@@ -30,34 +29,28 @@ export interface AdapterConfig {
 	 * @note Some other files are always set to `"never-cache"`, again without calling this function
 	 */
 	sortFile?: Nullable<FileSorter>,
-
 	/**
 	 * TODO
 	 */
 	outputDir?: string,
-
 	/**
 	 * TODO
 	 */
 	outputWorkerFileName?: string,
-
 	/**
 	 * TODO
 	 */
 	outputWorkerSourceMap?: OutputOptions["sourcemap"],
-
 	/**
 	 * TODO
 	 */
 	outputVersionDir?: string,
-
 	/**
 	 * The base name for the cache storage. The name used will be `"{this config property}-{appVersion}"`.
 	 * 
 	 * Defaults to the base URL if one is being used or to `"VersionedWorkerStorage"` otherwise.
 	 */
 	cacheStorageName?: Nullable<string>
-
 	/**
 	 * Enables and disables the warning when the Vite config can't be resolved due to the manifest generator plugin being missing.
 	 * 
@@ -72,16 +65,18 @@ export interface AdapterConfig {
 	 * TODO
 	 */
 	redirectTrailingSlash?: boolean,
-
 	/**
 	 * TODO
 	 */
 	enablePassthrough?: boolean,
-
 	/**
 	 * TODO
 	 */
-	autoPassthroughCrossOriginRequests?: boolean
+	autoPassthroughCrossOriginRequests?: boolean,
+	/**
+	 * TODO
+	 */
+	enableQuickFetch?: boolean,
 }
 export interface ManifestPluginConfig {
 	/**

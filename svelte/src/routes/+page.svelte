@@ -1,5 +1,11 @@
 <script lang="ts">
-	import { VERSION } from "internal-adapter/runtime-constants";
+	import {
+		VERSION,
+		REDIRECT_TRAILING_SLASH,
+		ENABLE_PASSTHROUGH,
+		AUTO_PASSTHROUGH_CROSS_ORIGIN_REQUESTS,
+		ENABLE_QUICK_FETCH
+	} from "internal-adapter/runtime-constants";
     import { link } from "$lib/util.js";
     import { onMount } from "svelte";
 
@@ -26,6 +32,10 @@
 
 	<p>
 		Current version: {VERSION} <br>
+		Redirect trailing slash: {REDIRECT_TRAILING_SLASH} <br>
+		Enable passthrough: {ENABLE_PASSTHROUGH} <br>
+		Auto passthrough cross origin requests: {AUTO_PASSTHROUGH_CROSS_ORIGIN_REQUESTS} <br>
+		Enable quick fetch: {ENABLE_QUICK_FETCH} <br>
 	</p>
 
 	<br>

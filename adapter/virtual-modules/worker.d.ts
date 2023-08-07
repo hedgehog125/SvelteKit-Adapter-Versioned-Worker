@@ -16,7 +16,10 @@ export const MAX_VERSION_FILES: number;
 export const BASE_URL: string;
 
 // Config
+export const REDIRECT_TRAILING_SLASH: boolean;
 export const ENABLE_PASSTHROUGH: boolean;
+export const AUTO_PASSTHROUGH_CROSS_ORIGIN_REQUESTS: boolean;
+export const ENABLE_QUICK_FETCH: boolean;
 
 /* End of build constants */
 

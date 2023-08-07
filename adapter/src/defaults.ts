@@ -21,7 +21,8 @@ export function applyAdapterConfigDefaults(config: AdapterConfig): ResolvedAdapt
 		warnOnViteConfigUnresolved: true,
 		redirectTrailingSlash: true,
 		enablePassthrough: false,
-		autoPassthroughCrossOriginRequests: true
+		autoPassthroughCrossOriginRequests: true,
+		enableQuickFetch: true
 	}) as ResolvedAdapterConfig;
 }
 export function applyManifestPluginConfigDefaults(config: ManifestPluginConfig): ResolvedManifestPluginConfig {

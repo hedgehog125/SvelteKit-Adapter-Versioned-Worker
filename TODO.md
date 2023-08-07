@@ -1,4 +1,3 @@
-Set mode of cross origin requests to "force-passthrough" by default. Add option to prevent it
 Update prompts and different behaviour depending on how long the app's been stuck on an old version
 Warn that unresolved Vite config could cause some issues and the plugin to not work as well, but remove mention of function to provide it
 Log based on what files are new? e.g only list newly added lazy files?
@@ -43,3 +42,4 @@ Abort signals, both for cached and uncached requests (no browser support though 
 
 # Manually test
 Does the adapter work without the Vite plugin?
+Does it work when trailing slash is set to never?

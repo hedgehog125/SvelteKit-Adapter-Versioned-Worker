@@ -426,6 +426,7 @@ export function ignoreCrossOriginFetches(handler: HandleFetchHook): HandleFetchH
  * 
  * @note Whether or not each `href` starts with a slash is significant. If it does, the function will be called if the `href` matches it. If it doesn't, it's called based on the `virtualHref` instead. Generally, you should take the second approach.
  * @note `href`s that start with the slash still work off the `href` property rather than the `fullHref` property. This means they are unaffected by your base URL.
+ * @note `href`s that start with a slash and are the same as a page should match the Svelte's `"trailingSlash"` option.
  * @note The returned `HandleFetchHook` will return `undefined` if there's no match. This will cause the default behaviour for the `VWRequestMode`.
  * 
  * @example
@@ -436,11 +437,19 @@ export function ignoreCrossOriginFetches(handler: HandleFetchHook): HandleFetchH
  * // ...
  * 
  * export const handleFetch = virtualRoutes({
- *   "prefixed-virtual/": () => {
+ *   "prefixed-virtual": () => { // A fetch to /<base url>/<virtual prefix>/ won't call this as the trailing slash isn't removed
  *     return new Response("This is a virtual route with the virtual prefix.");
  *   },
- *   "/unprefixed-virtual/": () => {
+ *   "/unprefixed-virtual": () => { // Same applies here
  *     return new Response("This is a virtual route but without the virtual prefix.");
+ *   },
+ *   // Since this is also a normal route, it needs to have a trailing slash to match the Svelte option "trailingSlash"'s value of "always" in this example
+ *   "/settings/": () => {
+ *     console.log("The user accessed the settings page.");
+ *   },
+ *   // Because of this, this won't ever run in this example:
+ *   "/settings": () => {
+ *     console.log(`Presumably "trailingSlash" has been set to "never" or "ignore".`);
  *   }
  * });
  */

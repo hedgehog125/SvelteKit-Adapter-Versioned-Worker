@@ -14,6 +14,7 @@ import {
 	timeoutPromise,
 	waitForEventWithTimeout
 } from "$util";
+import { ENABLE_QUICK_FETCH } from "internal-adapter/runtime-constants";
 
 type Nullable<T> = T | null;
 
@@ -25,13 +26,24 @@ type Nullable<T> = T | null;
  * @param init 
  * @returns 
  * 
+ * @note If you keep getting error responses, it could be because you've set `"enableQuickFetch"` in your adapter config to `false` and you aren't using the manfiest plugin.
+ * 
  * @see `preloadQuickFetch` for how to preload the resource in the worker.
+ * @see `AdapterConfig.enableQuickFetch` to re-enable or disable the feature.
  */
+let quickFetchDisabledWarnedAlready = false;
 export async function quickFetch(url: string, init?: RequestInit): Promise<Response> {
-	if (navigator.serviceWorker?.controller) {
+	const enabled = ENABLE_QUICK_FETCH !== false; // Assume it's ok if it's null
+	if (! enabled) {
+		if (! quickFetchDisabledWarnedAlready) {
+			console.warn(`Versioned Worker quick fetch: since you've disabled the feature in your adapter config, "quickFetch" will just fetch normally. This warning won't reappear until the next page load.`);
+			quickFetchDisabledWarnedAlready = true;
+		}
+	}
+
+	if (enabled && navigator.serviceWorker?.controller) {
 		let specifiedHeaders: string[] = [...new Headers(init?.headers).keys()];
 
-		// TODO: error if it's disabled
 		const modifiedURL = new URL(link(`${VIRTUAL_FETCH_PREFIX}quick-fetch`), location.origin);
 		modifiedURL.searchParams.set("url", url);
 		modifiedURL.searchParams.set("specified", JSON.stringify(specifiedHeaders));

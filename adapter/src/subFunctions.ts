@@ -388,7 +388,10 @@ export function createWorkerConstants(
 		MAX_VERSION_FILES,
 		BASE_URL: baseURL,
 
-		ENABLE_PASSTHROUGH: adapterConfig.enablePassthrough
+		REDIRECT_TRAILING_SLASH: adapterConfig.redirectTrailingSlash,
+		ENABLE_PASSTHROUGH: adapterConfig.enablePassthrough,
+		AUTO_PASSTHROUGH_CROSS_ORIGIN_REQUESTS: adapterConfig.autoPassthroughCrossOriginRequests,
+		ENABLE_QUICK_FETCH: adapterConfig.enableQuickFetch
 	};
 }
 export function generateVirtualModules(workerConstants: WorkerConstants): VirtualModuleSources {
@@ -586,14 +589,22 @@ export function createRuntimeConstantsModule(
 ): string {
 	return createConstantsModule({
 		VERSION: lastInfo.version + 1,
-		ENABLE_PASSTHROUGH: adapterConfig.enablePassthrough
+		REDIRECT_TRAILING_SLASH: adapterConfig.redirectTrailingSlash,
+		ENABLE_PASSTHROUGH: adapterConfig.enablePassthrough,
+		AUTO_PASSTHROUGH_CROSS_ORIGIN_REQUESTS: adapterConfig.autoPassthroughCrossOriginRequests,
+		ENABLE_QUICK_FETCH: adapterConfig.enableQuickFetch
 	});
 }
 export function createPlaceholderRuntimeConstantsModule(): string {
-	return createConstantsModule({
-		VERSION: null,
-		ENABLE_PASSTHROUGH: null
-	});
+	return createConstantsModule(
+		Object.fromEntries([
+			"VERSION",
+			"REDIRECT_TRAILING_SLASH",
+			"ENABLE_PASSTHROUGH",
+			"AUTO_PASSTHROUGH_CROSS_ORIGIN_REQUESTS",
+			"ENABLE_QUICK_FETCH"
+		].map(key => [key, null]))
+	);
 }
 
 export async function getManifestSource(

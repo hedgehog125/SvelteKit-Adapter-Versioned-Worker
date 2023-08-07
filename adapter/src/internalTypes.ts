@@ -61,7 +61,10 @@ export interface WorkerConstants {
 	MAX_VERSION_FILES: number,
 	BASE_URL: string,
 
-	ENABLE_PASSTHROUGH: boolean
+	REDIRECT_TRAILING_SLASH: boolean,
+	ENABLE_PASSTHROUGH: boolean,
+	AUTO_PASSTHROUGH_CROSS_ORIGIN_REQUESTS: boolean,
+	ENABLE_QUICK_FETCH: boolean
 }
 
 /**

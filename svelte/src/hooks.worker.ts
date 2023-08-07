@@ -19,7 +19,7 @@ const initTask = (async () => {
 })();
 
 export const handleFetch = virtualRoutes({
-	"/hidden-page/": hiddenPage,
+	"/hidden-page": hiddenPage,
 	"/quick-fetch/": () => {
 		quickFetchBackgroundTask();
 	}

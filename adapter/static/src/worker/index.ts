@@ -28,7 +28,10 @@ import {
 	MAX_VERSION_FILES,
 	BASE_URL,
 
-	ENABLE_PASSTHROUGH
+	REDIRECT_TRAILING_SLASH,
+	ENABLE_PASSTHROUGH,
+	AUTO_PASSTHROUGH_CROSS_ORIGIN_REQUESTS,
+	ENABLE_QUICK_FETCH
 } from "sveltekit-adapter-versioned-worker/worker";
 
 import {
@@ -63,6 +66,11 @@ const REUSABLE_BETWEEN_VERSIONS = new Set<string>([
 	...LAX_LAZY,
 	...STALE_LAZY
 ]);
+/**
+ * This will be `false` if there's only an index route.
+ */
+const TRAILING_SLASH = ROUTES.find(pathWithoutBase => pathWithoutBase !== "")?.slice(-1) === "/";
+
 const cachePromise = caches.open(currentStorageName);
 let finished = false; // When the message "finish" is received, this worker will only send the blank reload page. Used for updates
 let resumableState: Nullable<ResumableState> = null;
@@ -211,12 +219,25 @@ addEventListener("fetch", e => {
 	const isCrossOrigin = urlObj.origin !== location.origin;
 	const hasVirtualPrefix = (! isCrossOrigin) && pathWithoutBase.startsWith(VIRTUAL_FETCH_PREFIX);
 	const searchParams = urlObj.searchParams;
-	const vwMode = getVWRequestMode(req, hasVirtualPrefix, searchParams);
+	const vwMode = getVWRequestMode(req, hasVirtualPrefix, isCrossOrigin, searchParams);
 	if (vwMode === "force-passthrough") return;
 
 	const isGetRequest = req.method === "GET";
 	const isHeadRequest = req.method === "HEAD";
 	const isPage = req.mode === "navigate" && isGetRequest;
+	if (REDIRECT_TRAILING_SLASH) {
+		if (
+			(isGetRequest || isHeadRequest)
+			&& (pathWithoutBase.slice(-1) === "/") !== TRAILING_SLASH
+		) {
+			// Non route files will also reach here
+			const withCorrectTrailingSlash = fixTrailingSlash(pathWithoutBase);
+			if (ROUTES.includes(withCorrectTrailingSlash)) {
+				fetchEvent.respondWith(Response.redirect(fixTrailingSlash(req.url)));
+				return;
+			}
+		}
+	}
 	const inCacheList = (! isCrossOrigin) && (isGetRequest || isHeadRequest) && COMPLETE_CACHE_LIST.has(pathWithoutBase);
 
 	const virtualHref = hasVirtualPrefix? pathWithoutBase.slice(VIRTUAL_FETCH_PREFIX.length) : null;
@@ -449,18 +470,24 @@ async function getUpdated(installedVersions: number[]): Promise< Nullable<Set<st
 }
 
 const vwRequestModes = new Set<VWRequestMode>([
+	"default", // Included so the unspecified behaviour can be overridden, as it won't always result in the mode being "default"
 	"force-passthrough",
 	"handle-only",
 	"no-network"
-	// "default" isn't needed
 ]);
-function getVWRequestMode(request: Request, hasVirtualPrefix: boolean, searchParams: URLSearchParams): VWRequestMode {
+function getVWRequestMode(
+	request: Request, hasVirtualPrefix: boolean,
+	isCrossOrigin: boolean, searchParams: URLSearchParams
+): VWRequestMode {
 	const headerValue = request.headers.get("vw-mode") as VWRequestMode | null; // Or also any other string
 	if (vwRequestModes.has(headerValue as VWRequestMode)) return headerValue as VWRequestMode;
 	const searchParamValue = searchParams.get("vw-mode");
 	if (vwRequestModes.has(searchParamValue as VWRequestMode)) return searchParamValue as VWRequestMode; 
 
-	return hasVirtualPrefix? "handle-only" : "default";
+	return (isCrossOrigin && AUTO_PASSTHROUGH_CROSS_ORIGIN_REQUESTS)?
+		"force-passthrough"
+		: (hasVirtualPrefix? "handle-only" : "default")
+	;
 }
 /**
  * @note This consumes `response`
@@ -554,11 +581,18 @@ function isResponseUsable(response: Response): boolean {
  */
 function selectHandleFetchFunction(virtualHref: string | null, isCrossOrigin: boolean): Nullable<HandleFetchHook> {
 	if (isCrossOrigin) return hooks.handleFetch;
-	if (virtualHref === "quick-fetch" && true) return handleQuickFetch; // TODO: add config option to disable it
+	if (ENABLE_QUICK_FETCH && virtualHref === "quick-fetch") return handleQuickFetch;
 
 	return hooks.handleFetch;
 }
 
 function broadcast(activeClients: WindowClient[], data: OutputMessageData) {
 	activeClients.forEach(client => client.postMessage(data));
+}
+
+function fixTrailingSlash(urlOrPath: string): string {
+	return TRAILING_SLASH?
+		(urlOrPath + "/")
+		: urlOrPath.slice(0, -1)
+	;
 }
