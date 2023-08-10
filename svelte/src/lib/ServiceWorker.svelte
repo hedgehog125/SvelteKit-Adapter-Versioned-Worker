@@ -1,7 +1,8 @@
 <script lang="ts">
 	import type { InputMessageData, OutputMessageData } from "internal-adapter/worker";
+	import type { WorkerRegistrationFailedReason } from "$lib";
 
-	import { onMount } from "svelte";
+	import { createEventDispatcher, onMount } from "svelte";
 	import { dev, browser } from "$app/environment";
     import {
 		ExposedPromise,
@@ -14,22 +15,56 @@
 		RESUMABLE_STATE_NAME,
 		checkIfResumableState,
 		dontAllowReloadForNextNavigation,
-		isReloadOnNavigateAllowed
+		isReloadOnNavigateAllowed,
+
+        isWorkerActivated
+
 	} from "$lib/index.js";
 	import { internalState, skipWaiting, skipIfWaiting } from "$lib/internal.js";
 
+	const dispatch = createEventDispatcher<{
+		/**
+		 * Called when the service worker is first activated. Or on mount if it is already.
+		 */
+		activate: null,
+		/**
+		 * Called on mount if service workers are unsupported by the browser or if you're using the development server. Otherwise, called if and when a service worker errors while being registered.
+		 */
+		fail: WorkerRegistrationFailedReason
+	}>();
+
+	let activateEventSent = false;
 	let pageLoadTimestamp: number;
 	onMount(async () => {
-		if (dev) return;
-		if (! ("serviceWorker" in navigator)) return;
+		if (dev) {
+			dispatch("fail", "dev");
+			return;
+		}
+		if (! ("serviceWorker" in navigator)) {
+			dispatch("fail", "unsupported");
+			return;
+		}
 		pageLoadTimestamp = Date.now();
 
+		if (isWorkerActivated()) {
+			dispatch("activate");
+			activateEventSent = true;
+		}
+
 		navigator.serviceWorker.addEventListener("message", onSWMessage);
-		const registration = await navigator.serviceWorker.register(link("sw.js"));
+		let registration: ServiceWorkerRegistration | null = null;
+		try {
+			registration = await navigator.serviceWorker.register(link("sw.js"));
+		}
+		catch {
+			dispatch("fail", "error");
+		}
+		if (registration == null) return;
+
+		internalState.registration = registration;
 		if (checkIfResumableState()) {
 			registration.active?.postMessage({ type: "resume" } satisfies InputMessageData);
 		}
-		internalState.registration = registration;
 
 		while (true) {
 			await waitForWorkerStateChangeIfNotNull(registration.installing);
@@ -46,7 +81,13 @@
 	}
 
 	function onControllerChange() {
-		reloadOnce(); // TODO: don't reload if there wasn't a worker before
+		if (activateEventSent) { // The worker was updated
+			reloadOnce();
+		}
+		else { // Wasn't registered before
+			dispatch("activate");
+			activateEventSent = true;
+		}
 	}
 	function onSWMessage(e: MessageEvent) {
 		const data = e.data as OutputMessageData;

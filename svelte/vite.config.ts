@@ -11,7 +11,7 @@ export default defineConfig({
 		virtualPlugin({
 			"virtual-is-even": (() => {
 				const initialIf = "if (number === 0) return true;";
-				const elseStatements = new Array(1000).fill(null).map((_, index) => `else if (number === ${index + 1}) return ${(index + 1) % 2 === 0};`).join("\n");
+				const elseStatements = Array.from(new Array(1000), (_, index) => `else if (number === ${index + 1}) return ${(index + 1) % 2 === 0};`).join("\n");
 				return `export default function isEven(number) {\n${initialIf}\n${elseStatements}\n}`;
 			})()
 		})

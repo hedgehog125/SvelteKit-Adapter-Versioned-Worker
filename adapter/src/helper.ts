@@ -77,7 +77,7 @@ export async function findUniqueFileName(dir: string, baseName: string, extensio
 	const characters = "abcdefghijklmnopqrstuvwxyz0123456789";
 
 	while (true) {
-		const randomCharacters = new Array(5).fill(null).map(() => randomItemOfString(characters)).join("");
+		const randomCharacters = Array.from(new Array(5), () => randomItemOfString(characters)).join("");
 		const fileName = `${baseName}-${randomCharacters}.${extension}`;
 
 		if (! (await fileExists(path.join(dir, fileName)))) return fileName;

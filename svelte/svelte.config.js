@@ -35,7 +35,7 @@ const config = {
 			sortFile({ href, size, viteInfo, isStatic }) {
 				if (href === "ping.txt") return "never-cache";
 				if (isStatic) {
-					if (size > 100_000) return "stale-lazy";
+					if (size > 100_000) return "lax-lazy";
 				}
 				if (viteInfo) {
 					if (viteInfo.type === "chunk") {

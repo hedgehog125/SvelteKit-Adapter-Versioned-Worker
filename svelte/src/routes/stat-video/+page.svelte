@@ -1,51 +1,28 @@
-<script lang="ts">
-	import type { VWRequestMode } from "internal-adapter/worker";
-	type ResourceState = "updated" | "stale" | "uncached" | "error";
+<script lang="ts">	
+	import { loadOnMount } from "$lib/util.js";
+    import { statResource } from "$lib";
+	
+	
+	const loadPromise = loadOnMount(async () => {
+		const info = await statResource("testVideo.mp4");
+		if (info == null) return -1;
 
-    import { onMount } from "svelte";
-	import { link } from "$lib/util.js";
-	import { VERSION } from "internal-adapter/runtime-constants";
-
-
-	let state: ResourceState;
-	onMount(async () => {
-		let res: Response | null = null;
-		try {
-			res = await fetch(link("testVideo.mp4"), {
-				method: "HEAD",
-				headers: {
-					"vw-mode": "no-network" satisfies VWRequestMode
-				}
-			});
-		}
-		catch {}
-		state = determineResourceState(res);		
+		return info.age;
 	});
-
-	function determineResourceState(response: Response | null): ResourceState {
-		if (response == null) return "uncached";
-
-		const resourceVersion = parseInt(response.headers.get("vw-version") as string);
-		if (isNaN(resourceVersion)) return "error";
-		if (resourceVersion < (VERSION as number)) return "stale";
-		return "updated";
-	}
 </script>
 
 <main>
 	<p>
-		{#if state == null}
+		{#await loadPromise}
 			Checking video state...
-		{:else}
-			{#if state === "updated"}
-				The video is up to date.
-			{:else if state === "stale"}
-				The video is stale.
-			{:else if state === "uncached"}
+		{:then age}
+			{#if age === -1}
 				The video hasn't been cached.
+			{:else if age === 0}
+				The video is up to date.
 			{:else}
-				The video has an invalid or missing "VW-Version" header.
+				The video is stale. It's {age} revisions out of date.
 			{/if}
-		{/if}
+		{/await}
 	</p>
 </main>

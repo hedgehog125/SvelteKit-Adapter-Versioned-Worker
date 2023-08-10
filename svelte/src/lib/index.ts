@@ -1,7 +1,8 @@
 import type {
 	OutputMessageData,
 	ResumableState,
-	ResumableStateCallback
+	ResumableStateCallback,
+	VWRequestMode
 } from "internal-adapter/worker";
 import type { BeforeNavigate } from "@sveltejs/kit";
 
@@ -21,8 +22,13 @@ type Nullable<T> = T | null;
 
 /**
  * TODO
+ */
+export type WorkerRegistrationFailedReason = "unsupported" | "error" | "dev";
+
+/**
+ * TODO
  * 
- * @param url 
+ * @param url TODO: should be absolute
  * @param init 
  * @returns 
  * 
@@ -41,29 +47,113 @@ export async function quickFetch(url: string, init?: RequestInit): Promise<Respo
 		}
 	}
 
-	if (enabled && navigator.serviceWorker?.controller) {
+	if (enabled && isWorkerActivated()) {
 		let specifiedHeaders: string[] = [...new Headers(init?.headers).keys()];
 
-		const modifiedURL = new URL(link(`${VIRTUAL_FETCH_PREFIX}quick-fetch`), location.origin);
-		modifiedURL.searchParams.set("url", url);
-		modifiedURL.searchParams.set("specified", JSON.stringify(specifiedHeaders));
-
-		url = modifiedURL.toString();
+		const response = await virtualFetch("quick-fetch", init, {
+			url,
+			specified: JSON.stringify(specifiedHeaders)
+		});
+		if (response) return response;
 	}
 
 	return await fetch(url, init);
 }
-
 /**
  * TODO
  * 
- * @param url 
+ * @param relativePath 
  * @param init 
+ * @param searchParams
  * @param useVirtualPrefix
- * @returns
+ * @returns A promise for a `Response` or `null`.
+ * 
+ * @note The returned promise will resolve to `null` if the worker isn't activated.
+ * 
+ * @see `isWorkerActivated` in this module for checking if it's activated yet.
+ * @see `on:activate` in this module for waiting until it's activated, if it ever will be.
+ * @see `on:fail` in this module for listening for registration errors.
  */
-export function virtualFetch(url: string, init?: RequestInit, useVirtualPrefix = true) {
-	console.log("TODO: implement");
+export async function virtualFetch(
+	relativePath: string, init?: RequestInit,
+	searchParams?: Record<string, string>,
+	useVirtualPrefix = true
+): Promise<Nullable<Response>> {
+	if (! isWorkerActivated()) return null;
+
+	relativePath = link(useVirtualPrefix?
+		(VIRTUAL_FETCH_PREFIX + relativePath)
+		: relativePath
+	);
+	if (searchParams) {
+		const urlObj = new URL(relativePath, location.origin);
+		Object.entries(searchParams).forEach(([key, value]) => urlObj.searchParams.set(key, value));
+		
+		relativePath = urlObj.toString();
+	}
+
+	return await fetch(relativePath, init);
+}
+
+/**
+ * TODO
+ */
+export function isWorkerActivated(): boolean {
+	return !!navigator.serviceWorker?.controller;
+}
+
+/**
+ * TODO
+ */
+export interface ResourceInfo {
+	/**
+	 * The version the resource is from.
+	 * 
+	 * @note This number will still increase with new app versions even if the resource hasn't changed.
+	 * 
+	 * @see `FileSortMode` in the module `"sveltekit-adapter-versioned-worker"` to see the different update behaviours of resources.
+	 */
+	version: number,
+	/**
+	 * The number of revisions the resource is behind by. If it's up-to-date, this will be `0`.
+	 * 
+	 * @note If the resource is updated infrequently, there will be a big disparity between this and `VERSION - resourceInfo.version`. For example, the app's version might be `25` and the resource might be the latest as of version `2`, but since it was only updated twice between those versions, its age would only be `2`. This is all assuming the resource's mode allows it to become stale though.
+	 * 
+	 * @see `FileSortMode` in the module `"sveltekit-adapter-versioned-worker"` to see the different update behaviours of resources.
+	 */
+	age: number
+}
+/**
+ * TODO
+ * 
+ * @param relativePath 
+ * @returns 
+ * 
+ * @note If the resource isn't cached, the promise will resolve to `null`.
+ * @note If the service worker isn't active, the promise will again resolve to `null`.
+ */
+export async function statResource(relativePath: string): Promise<Nullable<ResourceInfo>> {
+	let res: Nullable<Response>;
+	try {
+		res = await virtualFetch(relativePath, {
+			method: "HEAD",
+			headers: {
+				"vw-mode": "no-network" satisfies VWRequestMode
+			}
+		}, undefined, false);
+	}
+	catch {
+		return null;
+	}
+	if (res == null) return null;
+
+	const version = parseInt(res.headers.get("vw-version") as string);
+	const age = parseInt(res.headers.get("vw-age") as string);
+
+	return {
+		version,
+		age
+	};
 }
 
 /**
@@ -240,5 +330,8 @@ export function dontAllowReloadOnNavigateWhileMounted() {
 	beforeNavigate(dontAllowReloadForNextNavigation);
 }
 
+/**
+ * TODO
+*/
 // @ts-ignore
 export { default as ServiceWorker } from "./ServiceWorker.svelte";

@@ -1,3 +1,4 @@
+Option to not use importScripts. Should be enabled automatically if using inline source maps
 Update prompts and different behaviour depending on how long the app's been stuck on an old version
 Warn that unresolved Vite config could cause some issues and the plugin to not work as well, but remove mention of function to provide it
 Log based on what files are new? e.g only list newly added lazy files?
@@ -6,15 +7,12 @@ Warnings for non-static files using lax or stale lazy as they will become unrefe
 Virtual route providing some info about the worker. Mostly its VW template version
 
 # Svelte Utils
-Virtual fetch function. Adapt quickFetch to use it
-Stat resource
-Check if worker is active
 
 # Bugs
 TypeScript compile errors aren't emitted
 Handle worker build errors somehow. Should the info file still be generated for the sake of readLast?
-Redirect incorrect trailing slashes in the service worker. Also redirect /index.html. URLs paths always start with a slash, enforced by the browser. Remove from the ends of URLs in handleFetch?
 Don't hardcode sw.js in ServiceWorker.svelte. Export from runtime-constants?
+Strict lazy should error if it fetches a resource from a later version
 
 # Features
 JavaScript support
@@ -26,6 +24,7 @@ Allow running code after everything is done
 Add message handle (postMessage)
 Add an easy way to modify headers before the response is sent. New hook? Maybe only for requests using the default mechanism (not handled)?
 Allow FileSorters to return null and create a utility function that runs through an array of them until one returns something other than null
+A way to transfer info from the prerender to the file sorter
 
 # Tweaks
 Use sets instead of arrays for the constants

@@ -106,14 +106,14 @@ addEventListener("install", e => {
     (e as InstallEvent).waitUntil(
 		(async () => {
 			const installedVersions = await getInstalled();
-			const updatedList = await getUpdated(installedVersions);
+			const whenResourcesUpdated = await getWhenEachResourceUpdated(installedVersions);
 
 			const toDownload = new Set<string>([
 				...ROUTES,
 				...PRECACHE
 			]);
-			const toCopy = new Map<string, [containingCache: Cache, isStale: boolean, fromVersion: number]>(); // The key is the path
-			if (updatedList) { // Don't reuse anything if it's a clean install
+			const toCopy = new Map<string, [containingCache: Cache, firstUpdatedInVersion: [number, number] | undefined, fromVersion: number]>(); // The key is the path
+			if (whenResourcesUpdated) { // Don't reuse anything if it's a clean install
 				const cacheNames = await caches.keys();
 				for (const cacheName of cacheNames) {
 					if (! cacheName.startsWith(STORAGE_PREFIX)) continue;
@@ -123,12 +123,16 @@ addEventListener("install", e => {
 					const pathsInCache = (await cache.keys()).map(req => new URL(req.url).pathname.slice(BASE_URL.length));
 					const cacheVersion = parseInt(cacheName.slice(STORAGE_PREFIX.length));
 					for (const path of pathsInCache) {
-						const changed = updatedList.has(path) || ROUTES.includes(path);
+						const firstUpdatedInVersion = ROUTES.includes(path)?
+							undefined
+							: whenResourcesUpdated.get(path)
+						;
+						const changed = firstUpdatedInVersion != null;
 						if (PRECACHE.includes(path)) {
 							if (toDownload.has(path) && (! changed)) {
 								toDownload.delete(path);
 		
-								addToToCopyIfNewer(false);
+								addToToCopyIfNewer();
 							}
 						}
 						else if (SEMI_LAZY.includes(path)) {
@@ -136,27 +140,21 @@ addEventListener("install", e => {
 								toDownload.add(path);
 							}
 							else {
-								addToToCopyIfNewer(false);
+								addToToCopyIfNewer();
 							}
 						}
 						else if (COMPLETE_CACHE_LIST.has(path)) {
 							const staleAndAcceptable = changed && REUSABLE_BETWEEN_VERSIONS.has(path); // Don't check if it's in REUSABLE_BETWEEN_VERSIONS if it's unchanged
 							const reusable = (! changed) || staleAndAcceptable;
 
-							if (reusable) addToToCopyIfNewer(changed); // If it's reusable and has changed then it's stale
+							if (reusable) addToToCopyIfNewer(); // If it's reusable and has changed then it's stale
 						}
 
 
-						function addToToCopyIfNewer(isStale: boolean) {
+						function addToToCopyIfNewer() {
 							const itemInToCopy = toCopy.get(path);
-							const valueToPut: [Cache, boolean, number] = [cache, isStale, cacheVersion];
-							if (itemInToCopy) {
-								if (cacheVersion > itemInToCopy[2]) { // This assset is newer, use it instead
-									toCopy.set(path, valueToPut);
-								}
-							}
-							else {
-								toCopy.set(path, valueToPut);
+							if (itemInToCopy == null || cacheVersion > itemInToCopy[2]) { // Make sure the resource isn't already in it or is newer
+								toCopy.set(path, [cache, firstUpdatedInVersion, cacheVersion]);
 							}
 						}
 					}
@@ -177,12 +175,36 @@ addEventListener("install", e => {
 
 					await cache.put(path, res);
 				}),
-				...[...toCopy].map(async ([path, [oldCache, isStale]]) => {
+				...[...toCopy].map(async ([path, [oldCache, whenResourceUpdated]]) => {
+					if (path === "") path = BASE_URL; // Otherwise it'll point to sw.js
 					const existing = (await oldCache.match(path)) as Response; // It was already found in the cache before
-					const withUpdatedVersionHeader = isStale?
-						existing
-						: addVWHeaders(existing) // Update the "vw-version" header
-					;
+					// Set its version to the version before it was first updated
+
+					let age = parseInt(existing.headers.get("vw-age") as string);
+					if (isNaN(age)) age = 0;
+
+					let version : number | undefined;
+					if (whenResourceUpdated) {
+						const [firstUpdatedInVersion, revisions] = whenResourceUpdated;
+						version = firstUpdatedInVersion - 1;
+
+						age += revisions;
+					}
+					else {
+						const previousVersionHeader = parseInt(existing.headers.get("vw-version") as string);
+						if (! isNaN(previousVersionHeader)) {
+							if (age !== 0) {
+								version = previousVersionHeader;
+							}
+						}
+					}
+
+					
+					const withUpdatedVersionHeader = addVWHeaders(
+						existing,
+						version,
+						age
+					);
 
 					await cache.put(path, withUpdatedVersionHeader);
 				})
@@ -301,7 +323,7 @@ addEventListener("fetch", e => {
 					}
 					else { // Must be a lax-lazy resource
 						const [resource, isError] = await fetchResource(pathWithoutBase, modifiedRequest, isPage);
-						if (! isError) return handleHeadRequest(cached, isHeadRequest);
+						if (isError) return handleHeadRequest(cached, isHeadRequest);
 
 						updateResourceInBackground(modifiedRequest, cache, fetchEvent, resource.clone());
 						return handleHeadRequest(resource, isHeadRequest);
@@ -421,7 +443,12 @@ async function getInstalled(): Promise<number[]> {
 	installedVersions = installedVersions.sort((n1, n2) => n2 - n1); // Newest (highest) first
 	return installedVersions;
 }
-async function getUpdated(installedVersions: number[]): Promise< Nullable<Set<string>> > {
+/**
+ * Returns `null` if a clean install should be performed.
+ * 
+ * The key is the href (excluding the base) of a resource that was updated. The value is the version where it was first updated since the installed version.
+ */
+async function getWhenEachResourceUpdated(installedVersions: number[]): Promise< Nullable<Map<string, [versionWhenUpdated: number, revisions: number]>> > {
 	if (installedVersions.length === 0) return null; // Clean install
 	const newestInstalled = Math.max(...installedVersions);
 	if (newestInstalled >= VERSION) return null; // The version number has gone down for some reason, so clean install
@@ -443,10 +470,10 @@ async function getUpdated(installedVersions: number[]): Promise< Nullable<Set<st
 	const numberToDownload = (rangeToDownload[1] - rangeToDownload[0]) + 1;
 	
 	let versionFiles = await Promise.all(
-		new Array(numberToDownload).fill(null).map(async (_, offset): Promise<VersionFile> => {
+		Array.from(new Array(numberToDownload), async (_, offset): Promise<VersionFile> => {
 			let fileID = offset + rangeToDownload[0];
 			const res = await fetch(`${VERSION_FOLDER}/${fileID}.txt`, { cache: "no-cache" });
-			if (! isResponseUsable(res)) throw "";
+			if (! isResponseUsable(res)) throw ""; // Fail the install
 
 			return parseUpdatedList(await res.text());
 		})
@@ -454,7 +481,8 @@ async function getUpdated(installedVersions: number[]): Promise< Nullable<Set<st
 
 	if (versionFiles.some(versionFile => versionFile.formatVersion === -1)) return null; // Unknown format version or not ok status, so do a clean install
 
-	let updated = new Set<string>();
+	let whenResourcesUpdated = new Map<string, [number, number]>();
+	let currentVersion = newestInstalled + 1;
 	for (let i = 0; i < versionFiles.length; i++) {
 		const versionFile = versionFiles[i];
 
@@ -463,10 +491,20 @@ async function getUpdated(installedVersions: number[]): Promise< Nullable<Set<st
 		// ^ Ignore the files changed in versions before the installed
 
 		for (let versionInFile = startIndex; versionInFile < versionFile.updated.length; versionInFile++) {
-			versionFile.updated[versionInFile].forEach(href => updated.add(href));
+			for (const href of versionFile.updated[versionInFile]) {
+				const existing = whenResourcesUpdated.get(href);
+
+				if (existing) {
+					existing[1]++;
+				}
+				else {
+					whenResourcesUpdated.set(href, [currentVersion, 1]);
+				}
+			}
+			currentVersion++;
 		}
 	}
-	return updated;
+	return whenResourcesUpdated;
 }
 
 const vwRequestModes = new Set<VWRequestMode>([
@@ -491,11 +529,12 @@ function getVWRequestMode(
 }
 /**
  * @note This consumes `response`
- * @note This assumes the response is from the latest version
+ * @note This assumes the response is from the latest version if `version` isn't specified
  */
-function addVWHeaders(response: Response): Response {
+function addVWHeaders(response: Response, version?: number, age = 0): Response {
 	return modifyResponseHeaders(response, {
-		"vw-version": VERSION.toString()
+		"vw-version": (version?? VERSION).toString(),
+		"vw-age": age.toString()
 	});
 }
 /**

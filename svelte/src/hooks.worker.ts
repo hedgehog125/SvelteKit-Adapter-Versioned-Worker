@@ -22,6 +22,9 @@ export const handleFetch = virtualRoutes({
 	"/hidden-page": hiddenPage,
 	"/quick-fetch/": () => {
 		quickFetchBackgroundTask();
+	},
+	"virtual-hello": () => {
+		return new Response("Greetings");
 	}
 });
 
