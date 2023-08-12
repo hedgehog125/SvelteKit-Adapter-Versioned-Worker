@@ -1,4 +1,3 @@
-Option to not use importScripts. Should be enabled automatically if using inline source maps
 Update prompts and different behaviour depending on how long the app's been stuck on an old version
 Warn that unresolved Vite config could cause some issues and the plugin to not work as well, but remove mention of function to provide it
 Log based on what files are new? e.g only list newly added lazy files?

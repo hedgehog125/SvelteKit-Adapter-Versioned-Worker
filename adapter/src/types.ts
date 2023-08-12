@@ -39,8 +39,16 @@ export interface AdapterConfig {
 	outputWorkerFileName?: string,
 	/**
 	 * TODO
+	 * 
+	 * @note setting this to `"inline"` will set `useWorkerScriptImport` to `false` if unspecified.
 	 */
 	outputWorkerSourceMap?: OutputOptions["sourcemap"],
+	/**
+	 * TODO
+	 * 
+	 * @note This will default to `true` if `outputWorkerSourceMap` is set to `"inline"`, otherwise it defaults to `false`.
+	 */
+	useWorkerScriptImport?: boolean,
 	/**
 	 * TODO
 	 */

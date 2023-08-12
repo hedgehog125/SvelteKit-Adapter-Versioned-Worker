@@ -17,6 +17,7 @@ export function applyAdapterConfigDefaults(config: AdapterConfig): ResolvedAdapt
 		outputVersionDir: "sw",
 		outputWorkerFileName: "sw.js",
 		outputWorkerSourceMap: false,
+		useWorkerScriptImport: config.outputWorkerSourceMap !== "inline",
 		cacheStorageName: null,
 		warnOnViteConfigUnresolved: true,
 		redirectTrailingSlash: true,

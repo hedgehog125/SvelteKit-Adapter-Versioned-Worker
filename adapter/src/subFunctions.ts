@@ -461,7 +461,7 @@ export async function rollupBuild(
 
 	const outputPath = path.join(
 		minimalViteConfig.root, adapterConfig.outputDir,
-		adapterConfig.outputVersionDir, adapterConfig.outputWorkerFileName
+		...(adapterConfig.useWorkerScriptImport? [adapterConfig.outputVersionDir] : []), adapterConfig.outputWorkerFileName
 	);
 	const bundle = await rollup({
 		input: entryFilePath,
@@ -511,6 +511,8 @@ export async function rollupBuild(
  * Not to be confused with writeWorkerEntry which refers to the entry during the build.
  */
 export async function writeWorkerImporter(currentVersion: number, { adapterConfig, minimalViteConfig }: AllConfigs) {
+	if (! adapterConfig.useWorkerScriptImport) return;
+
 	const contents = `importScripts(${JSON.stringify(
 		`${adapterConfig.outputVersionDir}/${WORKER_MAIN_FILENAME}?v=${currentVersion}`
 	)})`;
