@@ -10,7 +10,9 @@ import type {
 	WindowClient,
 	OutputMessageData,
 	ResumableState,
-	ExtendableMessageEvent
+	ExtendableMessageEvent,
+	WorkerV1Info,
+	UpdatePriority
 } from "sveltekit-adapter-versioned-worker/worker";
 
 import {
@@ -36,6 +38,7 @@ import {
 
 import {
 	VIRTUAL_FETCH_PREFIX,
+	INFO_STORAGE_PATH,
 
 	modifyRequestHeaders,
 	modifyResponseHeaders,
@@ -70,6 +73,7 @@ const REUSABLE_BETWEEN_VERSIONS = new Set<string>([
  * This will be `false` if there's only an index route.
  */
 const TRAILING_SLASH = ROUTES.find(pathWithoutBase => pathWithoutBase !== "")?.slice(-1) === "/";
+const infoHref = VIRTUAL_FETCH_PREFIX + INFO_STORAGE_PATH;
 
 const cachePromise = caches.open(currentStorageName);
 let finished = false; // When the message "finish" is received, this worker will only send the blank reload page. Used for updates
@@ -106,7 +110,7 @@ addEventListener("install", e => {
     (e as InstallEvent).waitUntil(
 		(async () => {
 			const installedVersions = await getInstalled();
-			const whenResourcesUpdated = await getWhenEachResourceUpdated(installedVersions);
+			const [whenResourcesUpdated, updatePriority] = await getWhenEachResourceUpdated(installedVersions);
 
 			const toDownload = new Set<string>([
 				...ROUTES,
@@ -209,6 +213,8 @@ addEventListener("install", e => {
 					await cache.put(path, withUpdatedVersionHeader);
 				})
 			]);
+
+			await createInfoResource(updatePriority);
 		})()
 	);
 });
@@ -401,6 +407,16 @@ type AddMessageListener = (type: "message", listener: ((this: typeof globalThis,
 			resumableStateUsedPromise = new ExposedPromise();
 		})());
 	}
+	else if (data.type === "getInfo") {
+		messageEvent.waitUntil((async () => {
+			const activeClients = (await clients.matchAll({ includeUncontrolled: true })) as WindowClient[];
+			
+			broadcast(activeClients, {
+				type: "vw-info",
+				info: await getWorkerInfo()
+			})
+		})());
+	}
 });
 
 function parseUpdatedList(contents: string): VersionFile {
@@ -444,14 +460,19 @@ async function getInstalled(): Promise<number[]> {
 	return installedVersions;
 }
 /**
- * Returns `null` if a clean install should be performed.
+ * Returns `[null, 2]` if a clean install should be performed.
  * 
  * The key is the href (excluding the base) of a resource that was updated. The value is the version where it was first updated since the installed version.
  */
-async function getWhenEachResourceUpdated(installedVersions: number[]): Promise< Nullable<Map<string, [versionWhenUpdated: number, revisions: number]>> > {
-	if (installedVersions.length === 0) return null; // Clean install
+async function getWhenEachResourceUpdated(installedVersions: number[]): Promise<[
+	Nullable<Map<string, [versionWhenUpdated: number, revisions: number]>>,
+	UpdatePriority
+]> {
+	const cleanInstallReturnValue = [null, 2] satisfies Awaited<ReturnType<typeof getWhenEachResourceUpdated>>;
+
+	if (installedVersions.length === 0) return cleanInstallReturnValue; // Clean install
 	const newestInstalled = Math.max(...installedVersions);
-	if (newestInstalled >= VERSION) return null; // The version number has gone down for some reason, so clean install
+	if (newestInstalled >= VERSION) return cleanInstallReturnValue; // The version number has gone down for some reason, so clean install
 	
 	/* Fetch all the version files between the versions */
 
@@ -463,7 +484,7 @@ async function getWhenEachResourceUpdated(installedVersions: number[]): Promise<
 		Math.floor((newestInstalled + 1) / VERSION_FILE_BATCH_SIZE) + batchOffset, // +1 because we don't need this version file if the installed version is the last one in it
 		Math.floor(VERSION / VERSION_FILE_BATCH_SIZE) + batchOffset
 	];
-	if (rangeToDownload[0] < 0) return null; // The current installed version is too old, do a clean install
+	if (rangeToDownload[0] < 0) return cleanInstallReturnValue; // The current installed version is too old, do a clean install
 
 	const idInBatchOfOneAfterInstalled = (newestInstalled + 1) % VERSION_FILE_BATCH_SIZE;
 	const installedInDownloadRange = idInBatchOfOneAfterInstalled !== 0; // If it's the last version in the batch, it won't be
@@ -479,10 +500,11 @@ async function getWhenEachResourceUpdated(installedVersions: number[]): Promise<
 		})
 	);
 
-	if (versionFiles.some(versionFile => versionFile.formatVersion === -1)) return null; // Unknown format version or not ok status, so do a clean install
+	if (versionFiles.some(versionFile => versionFile.formatVersion === -1)) return cleanInstallReturnValue; // Unknown format version or not ok status, so do a clean install
 
 	let whenResourcesUpdated = new Map<string, [number, number]>();
 	let currentVersion = newestInstalled + 1;
+	let updatePriority: UpdatePriority = 1;
 	for (let i = 0; i < versionFiles.length; i++) {
 		const versionFile = versionFiles[i];
 
@@ -491,6 +513,8 @@ async function getWhenEachResourceUpdated(installedVersions: number[]): Promise<
 		// ^ Ignore the files changed in versions before the installed
 
 		for (let versionInFile = startIndex; versionInFile < versionFile.updated.length; versionInFile++) {
+			// TODO: set updatePriority if update has greater priority
+
 			for (const href of versionFile.updated[versionInFile]) {
 				const existing = whenResourcesUpdated.get(href);
 
@@ -504,7 +528,7 @@ async function getWhenEachResourceUpdated(installedVersions: number[]): Promise<
 			currentVersion++;
 		}
 	}
-	return whenResourcesUpdated;
+	return [whenResourcesUpdated, updatePriority];
 }
 
 const vwRequestModes = new Set<VWRequestMode>([
@@ -634,4 +658,39 @@ function fixTrailingSlash(urlOrPath: string): string {
 		(urlOrPath + "/")
 		: urlOrPath.slice(0, -1)
 	;
+}
+
+/**
+ * Creates a `WorkerInfo` and saves it to `infoHref`.
+ */
+async function createInfoResource(updatePriority: UpdatePriority = 0): Promise<WorkerV1Info> {
+	const workerInfo = {
+		majorFormatVersion: 1,
+		minorFormatVersion: 1,
+
+		version: VERSION,
+		templateVersion: 1,
+		timeInstalled: Date.now(),
+		blockedInstallCount: 0,
+		updatePriority
+	} satisfies WorkerV1Info;
+
+	const cache = await cachePromise;
+	await cache.put(infoHref, new Response(
+		JSON.stringify(workerInfo),
+		{ headers: { "content-type": "application/json" } }
+	));
+	return workerInfo;
+}
+
+/**
+ * @note If the info resource doesn't exist, it will be created.
+ */
+async function getWorkerInfo(): Promise<WorkerV1Info> {
+	const cache = await cachePromise;
+
+	let res = await cache.match(infoHref);
+	if (! res) return await createInfoResource();
+
+	return await res.json();
 }

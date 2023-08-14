@@ -117,6 +117,14 @@ export interface VWRequest {
  */
 export type VWRequestMode = "default" | "no-network" | "handle-only" | "force-passthrough";
 
+/**
+ * TODO
+ */
+export type UpdatePriority = 0 | 1 | 2 | 3 | 4;
+
+/**
+ * TODO
+ */
 export interface VersionFile {
 	formatVersion: number,
 	updated: string[][]
@@ -125,7 +133,7 @@ export interface VersionFile {
 /**
  * TODO
  */
-export type InputMessageVoidType = "skipWaiting" | "finish" | "resume";
+export type InputMessageVoidType = "skipWaiting" | "finish" | "resume" | "getInfo";
 /**
  * TODO
  */
@@ -163,7 +171,7 @@ export type OutputMessageVoidType = "vw-reload" | "vw-updateWithResumable";
 /**
  * TODO
  */
-export type OutputMessageType = OutputMessageVoidType | ResumeMessageData["type"];
+export type OutputMessageType = OutputMessageVoidType | ResumeMessageData["type"] | WorkerInfoMessageData["type"];
 /**
  * TODO
  */
@@ -180,7 +188,14 @@ export interface ResumeMessageData {
 /**
  * TODO
  */
-export type OutputMessageData = OutputMessageVoidData | ResumeMessageData;
+export interface WorkerInfoMessageData {
+	type: "vw-info",
+	info: WorkerInfo
+}
+/**
+ * TODO
+ */
+export type OutputMessageData = OutputMessageVoidData | ResumeMessageData | WorkerInfoMessageData;
 /**
  * TODO
  */
@@ -199,6 +214,52 @@ export interface ResumableState {
  * TODO
  */
 export type ResumableStateCallback = () => Promise<ResumableState> | ResumableState;
+
+/**
+ * TODO
+ */
+export interface UnknownWorkerInfo {
+	majorFormatVersion: Exclude<KnownMajorVersionWorkerInfo["majorFormatVersion"], number>
+}
+/**
+ * TODO
+*/
+export interface WorkerMajorV1UnknownMinorInfo extends WorkerMajorV1InfoBase {
+	minorFormatVersion: Exclude<WorkerMajorV1KnownMinorInfo["minorFormatVersion"], number>
+}
+/**
+ * TODO
+*/
+export interface WorkerV1Info extends WorkerMajorV1InfoBase {
+	minorFormatVersion: 1,
+	templateVersion: 1
+}
+/**
+ * TODO
+ */
+interface WorkerMajorV1InfoBase {
+	majorFormatVersion: 1,
+	minorFormatVersion: number,
+	
+	version: number,
+	templateVersion: number,
+	timeInstalled: number,
+	blockedInstallCount: number,
+	updatePriority: UpdatePriority
+}
+
+/**
+ * TODO
+ */
+export type WorkerInfo = KnownMajorVersionWorkerInfo | UnknownWorkerInfo;
+/**
+ * TODO
+ */
+export type KnownMajorVersionWorkerInfo = WorkerMajorV1KnownMinorInfo | WorkerMajorV1UnknownMinorInfo;
+/**
+ * TODO
+ */
+export type WorkerMajorV1KnownMinorInfo = WorkerV1Info;
 
 /* Worker types */
 // Adapted from https://gist.github.com/ithinkihaveacat/227bfe8aa81328c5d64ec48f4e4df8e5 by Tiernan Cridland under ISC license:

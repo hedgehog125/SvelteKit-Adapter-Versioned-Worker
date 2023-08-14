@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { InputMessageData, OutputMessageData } from "internal-adapter/worker";
+	import type { InputMessageData, OutputMessageData, UpdatePriority } from "internal-adapter/worker";
 	import type { WorkerRegistrationFailedReason } from "$lib";
 
 	import { createEventDispatcher, onMount } from "svelte";
@@ -65,14 +65,18 @@
 		if (checkIfResumableState()) {
 			registration.active?.postMessage({ type: "resume" } satisfies InputMessageData);
 		}
+		registration.active?.postMessage({ type: "getInfo" } satisfies InputMessageData);
 
 		while (true) {
 			await waitForWorkerStateChangeIfNotNull(registration.installing);
 
+			registration.waiting?.postMessage({ type: "getInfo" } satisfies InputMessageData);
 			if (registration.waiting && registration.active) { // If there's no active worker, the waiting will become the active on its own
+				await internalState.waitingWorkerInfoPromise;
 				handleWaitingWorker(registration.waiting);
 			}
 			await waitForEvent(registration, "updatefound" satisfies keyof ServiceWorkerRegistrationEventMap);
+			internalState.waitingWorkerInfo = null;
 		}
 	});
 
@@ -89,8 +93,9 @@
 			activateEventSent = true;
 		}
 	}
-	function onSWMessage(e: MessageEvent) {
-		const data = e.data as OutputMessageData;
+	function onSWMessage(messageEvent: MessageEvent) {
+		const data = messageEvent.data as OutputMessageData;
+		const isFromActiveWorker = (messageEvent.source as ServiceWorker).state === "activated";
 
 		if (data.type === "vw-reload") {
 			reloadOnce();
@@ -101,6 +106,17 @@
 			internalState.resumableStatePromise.resolve(innerData);
 			internalState.resumableStatePromise = new ExposedPromise();
 			sessionStorage.removeItem(RESUMABLE_STATE_NAME);
+		}
+		else if (data.type === "vw-info") {
+			if (isFromActiveWorker) {
+				internalState.activeWorkerInfo = data.info;
+			}
+			else {
+				internalState.waitingWorkerInfo = data.info;
+			}
+
+			internalState.waitingWorkerInfoPromise.resolve();
+			internalState.waitingWorkerInfoPromise = new ExposedPromise();
 		}
 	}
 	let reloading = false;
@@ -125,19 +141,56 @@
 		dontAllowReloadForNextNavigation();
 	});
 
-	async function waitForWorkerStateChangeIfNotNull(worker: ServiceWorker | null): Promise<void> {
+	async function waitForWorkerStateChangeIfNotNull(worker: ServiceWorker | null) {
 		if (worker == null) return;
 
-		await waitForEvent(worker, "statechange" satisfies keyof ServiceWorkerEventMap);
+		await waitForEvent(worker, "statechange" satisfies keyof ServiceWorkerEventMap); // Installing to installed
 		return;
 	}
 
+	let displayedUpdatePriority: UpdatePriority = 0;
 	function handleWaitingWorker(waitingWorker: ServiceWorker) {
 		if (Date.now() - pageLoadTimestamp < 300) {
 			skipWaiting(waitingWorker, null);
 		}
 		else {
-			// TODO: prompt to reload
+			displayedUpdatePriority = getUpdatePriority();
 		}
 	}
+
+	function getUpdatePriority(): UpdatePriority {
+		const info = internalState.waitingWorkerInfo;
+		if (info == null || info.majorFormatVersion !== 1) return 2;
+
+		if (info.updatePriority === 1) {
+			const daysAgo = Math.floor((Date.now() - info.timeInstalled) / 86400000);
+			if (
+				daysAgo > 2
+				|| (daysAgo > 0 && info.blockedInstallCount > 1)
+			) {
+				return 2; // Increase the priority so the user is prompted
+			}
+		}
+		return info.updatePriority;
+	}
 </script>
+
+<main>
+	{#if displayedUpdatePriority === 1}
+		<slot name="updatePrompt_Patch">
+			TODO: 1
+		</slot>
+	{:else if displayedUpdatePriority === 2}
+		<slot name="updatePrompt_ElevatedPatch">
+			TODO: 2
+		</slot>
+	{:else if displayedUpdatePriority === 3}
+		<slot name="updatePrompt_Major">
+			TODO: 3
+		</slot>
+	{:else if displayedUpdatePriority === 4}
+		<slot name="updatePrompt_Critical">
+			TODO: 4
+		</slot>
+	{/if}
+</main>

@@ -1,7 +1,8 @@
 import { ExposedPromise } from "$util";
 import type {
 	InputMessageData,
-	ResumableState
+	ResumableState,
+	WorkerInfo
 } from "internal-adapter/worker";
 
 type Nullable<T> = T | null;
@@ -13,13 +14,19 @@ export interface InternalState {
 	/**
 	 * When the `resumableState` promise resolves, it will be set to another promise. This variable stores what it resolved to until the state is read as part of the function `resumeState` and set back to `null`.
 	 */
-	waitingResumableState: Nullable<ResumableState>
+	waitingResumableState: Nullable<ResumableState>,
+	activeWorkerInfo: Nullable<WorkerInfo>,
+	waitingWorkerInfo: Nullable<WorkerInfo>,
+	waitingWorkerInfoPromise: ExposedPromise<void>
 }
 
 export const internalState: InternalState = {
 	navigatingTo: null,
 	resumableStatePromise: new ExposedPromise(),
-	waitingResumableState: null
+	waitingResumableState: null,
+	activeWorkerInfo: null,
+	waitingWorkerInfo: null,
+	waitingWorkerInfoPromise: new ExposedPromise()
 };
 
 

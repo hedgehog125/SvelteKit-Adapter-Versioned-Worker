@@ -2,7 +2,8 @@ import type {
 	OutputMessageData,
 	ResumableState,
 	ResumableStateCallback,
-	VWRequestMode
+	VWRequestMode,
+	WorkerInfo
 } from "internal-adapter/worker";
 import type { BeforeNavigate } from "@sveltejs/kit";
 
@@ -100,6 +101,19 @@ export async function virtualFetch(
  */
 export function isWorkerActivated(): boolean {
 	return !!navigator.serviceWorker?.controller;
+}
+
+/**
+ * TODO
+ */
+export function getActiveWorkerInfo(): Nullable<WorkerInfo> {
+	return internalState.activeWorkerInfo;
+}
+/**
+ * TODO
+ */
+export function getWaitingWorkerInfo(): Nullable<WorkerInfo> {
+	return internalState.waitingWorkerInfo;
 }
 
 /**

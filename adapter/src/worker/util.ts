@@ -4,6 +4,12 @@ type Nullable<T> = T | null;
  * TODO
  */
 export const VIRTUAL_FETCH_PREFIX = "__vw_virtual__/";
+/**
+ * TODO
+ * 
+ * @note To read the corresponding cache item, this should be prefixed with `VIRTUAL_FETCH_PREFIX`.
+ */
+export const INFO_STORAGE_PATH = "info";
 
 const VARY_HEADER = "vary";
 /**
