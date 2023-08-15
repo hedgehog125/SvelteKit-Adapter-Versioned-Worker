@@ -1,5 +1,5 @@
 import type { Nullable, VersionedWorkerLogger } from "./types.js";
-import type { UnprocessedInfoFile } from "./internalTypes.js";
+import type { UnprocessedV3InfoFile } from "./internalTypes.js";
 
 import * as fs from "fs/promises";
 import * as path from "path";
@@ -92,12 +92,14 @@ export function randomItemOfArray<T>(arr: T[]): T {
 
 export const adapterFilesPath = path.join(dirname(fileURLToPath(import.meta.url)), "../../");
 
-export function createInitialInfo(): UnprocessedInfoFile {
+export function createInitialInfo(): UnprocessedV3InfoFile {
 	return {
-		formatVersion: 2,
+		formatVersion: 3,
 		version: -1,
 		versions: [],
-		hashes: {}
+		hashes: {},
+		majorUpdateValue: 0,
+		criticalUpdateValue: 0
 	};
 }
 

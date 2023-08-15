@@ -424,23 +424,30 @@ function parseUpdatedList(contents: string): VersionFile {
 
 	const splitPoint = contents.indexOf("\n");
 	const version = contents.slice(0, splitPoint);
-	const formatSupported = version === "2";
+	const formatSupported = version === "3";
 	
 	let updated: string[][] = [];
+	let updatePriorities: UpdatePriority[] = [];
 	if (formatSupported) {
-		updated = contents.slice(splitPoint + 1)
-			.split("\n\n")
-			.map(updatedList => {
-				let parsed = updatedList.split("\n");
-				if (parsed[0] === "") return [];
-				else return parsed;
-			})
-		;
+		const splitContents = contents.slice(splitPoint + 1).split("\n\n");
+		updated = splitContents.map((versionInfoBody) => {
+			let parsed = versionInfoBody.slice(1).split("\n");
+			if (parsed[0] === "") return [];
+			else return parsed;
+		});
+		updatePriorities = splitContents.map((versionInfoBody) => {
+			const updatePriority = parseInt(versionInfoBody[0]) as UpdatePriority;
+
+			let parsed = versionInfoBody.slice(1).split("\n");
+			if (parsed[0] === "") return updatePriority;
+			else return updatePriority;
+		});
 	}
 
 	return {
-		formatVersion: formatSupported? 2 : -1,
-		updated: updated
+		formatVersion: formatSupported? 3 : -1,
+		updated,
+		updatePriorities
 	};
 }
 async function getInstalled(): Promise<number[]> {
@@ -513,8 +520,9 @@ async function getWhenEachResourceUpdated(installedVersions: number[]): Promise<
 		// ^ Ignore the files changed in versions before the installed
 
 		for (let versionInFile = startIndex; versionInFile < versionFile.updated.length; versionInFile++) {
-			// TODO: set updatePriority if update has greater priority
-
+			const currentPriority = versionFile.updatePriorities[versionInFile];
+			if (currentPriority > updatePriority) updatePriority = currentPriority;
+			
 			for (const href of versionFile.updated[versionInFile]) {
 				const existing = whenResourcesUpdated.get(href);
 

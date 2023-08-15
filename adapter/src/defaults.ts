@@ -20,10 +20,14 @@ export function applyAdapterConfigDefaults(config: AdapterConfig): ResolvedAdapt
 		useWorkerScriptImport: config.outputWorkerSourceMap !== "inline",
 		cacheStorageName: null,
 		warnOnViteConfigUnresolved: true,
+
 		redirectTrailingSlash: true,
 		enablePassthrough: false,
 		autoPassthroughCrossOriginRequests: true,
-		enableQuickFetch: true
+		enableQuickFetch: true,
+		
+		isMajorUpdate: 0,
+		isCriticalUpdate: 0
 	}) as ResolvedAdapterConfig;
 }
 export function applyManifestPluginConfigDefaults(config: ManifestPluginConfig): ResolvedManifestPluginConfig {

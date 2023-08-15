@@ -21,10 +21,10 @@ import type {
 } from "./src/types.js";
 import type { WebAppManifest } from "web-app-manifest";
 import type {
-	InfoFile,
 	InputFiles,
 	CategorizedBuildFiles,
-	ProcessedBuild
+	ProcessedBuild,
+	InfoFileV3
 } from "./src/internalTypes.js";
 import type { Plugin } from "vite"; 
 import type { OutputOptions, OutputBundle } from "rollup";
@@ -64,7 +64,8 @@ import {
 	writeWorkerImporter,
 	getFileSizes,
 	listStaticFolderFiles,
-	createPlaceholderRuntimeConstantsModule
+	createPlaceholderRuntimeConstantsModule,
+	getUpdatePriority
 } from "./src/subFunctions.js";
 import {
 	applyAdapterConfigDefaults,
@@ -77,6 +78,7 @@ import * as path from "path";
 import * as fs from "fs/promises";
 
 import { installPolyfills } from "@sveltejs/kit/node/polyfills";
+import { UpdatePriority } from "./src/worker/staticVirtual.js";
 installPolyfills();
 
 export {
@@ -106,7 +108,7 @@ let minimalViteConfig: MinimalViteConfig;
 let adapterConfig: Nullable<ResolvedAdapterConfig> = null;
 let manifestPluginConfig: Nullable<ResolvedManifestPluginConfig> = null;
 
-let lastInfo: InfoFile;
+let lastInfo: InfoFileV3;
 let inputFiles: InputFiles;
 let isSSR: boolean;
 let isDev: boolean;
@@ -156,11 +158,11 @@ export function adapter(inputConfig: AdapterConfig): Adapter {
 			// I know the different write methods return arrays of files, but I don't feel like maintaining a fork of adapter-static just to do that. So listing the files in the directory it is
 
 			log.message("Processing build...");
-			const [categorizedFiles, routeFiles, staticFileHashes, fileSizes] = await processBuild(configs, builder);
+			const [categorizedFiles, routeFiles, staticFileHashes, fileSizes, updatePriority] = await processBuild(configs, builder);
 			log.message("Building worker...");
 			await buildWorker(categorizedFiles, builder, configs);
 			log.message("Creating new version...");
-			await createNewVersion(staticFileHashes, configs);
+			await createNewVersion(staticFileHashes, updatePriority, configs);
 			log.message("Finishing up...");
 			await finishUp(configs);
 			// TODO: build finish hook
@@ -286,7 +288,7 @@ async function init(config: ResolvedAdapterConfig) { // Not run in dev mode
 				adapterConfig: config,
 				manifestPluginConfig
 			});
-			updateInfoFileIfNeeded(unprocessed);
+			unprocessed = updateInfoFileIfNeeded(unprocessed);
 			lastInfo = processInfoFile(unprocessed);
 		})(),
 		(async () => {
@@ -309,8 +311,9 @@ async function processBuild(configs: AllConfigs, builder: Builder): Promise<Proc
 	const fileSizes = await getFileSizes(fullFileList, viteBundle, configs);
 	const categorizedFiles = await categorizeFilesIntoModes(fullFileList, staticFolderFileList, routeFiles, fileSizes, viteBundle, configs);
 	const staticFileHashes = await hashFiles(categorizedFiles.completeList, routeFiles, viteBundle, configs);
+	const updatePriority = getUpdatePriority(lastInfo, configs);
 
-	return [categorizedFiles, routeFiles, staticFileHashes, fileSizes];
+	return [categorizedFiles, routeFiles, staticFileHashes, fileSizes, updatePriority];
 }
 async function buildWorker(categorizedFiles: CategorizedBuildFiles, builder: Builder, configs: AllConfigs) {
 	const entryFilePath = await writeWorkerEntry(inputFiles, configs);
@@ -327,8 +330,8 @@ async function buildWorker(categorizedFiles: CategorizedBuildFiles, builder: Bui
 	}
 	await writeWorkerImporter(lastInfo.version + 1, configs);
 }
-async function createNewVersion(staticFileHashes: Map<string, string>, configs: AllConfigs) {
-	addNewVersionToInfoFile(lastInfo, staticFileHashes);
+async function createNewVersion(staticFileHashes: Map<string, string>, updatePriority: UpdatePriority, configs: AllConfigs) {
+	addNewVersionToInfoFile(lastInfo, staticFileHashes, updatePriority, configs);
 	await writeVersionFiles(lastInfo, configs);
 }
 async function finishUp(configs: AllConfigs) {

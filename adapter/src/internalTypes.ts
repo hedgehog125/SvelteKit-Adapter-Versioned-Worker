@@ -1,22 +1,53 @@
 import type { Nullable } from "./types.js";
+import type { UpdatePriority } from "./worker/staticVirtual.js";
 
-interface InfoFileBase {
-	formatVersion: number,
-	version: number,
-	versions: InfoFileVersionBatch[],
-	hashes: Record<string, string> | Map<string, string>
+export interface UnknownInfoFile {
+	/**
+	 * This is the latest version + 1.
+	 */
+	formatVersion: 1 | 4
 }
-export interface UnprocessedInfoFile extends InfoFileBase {
+
+interface InfoFileV2Base {
+	formatVersion: 2,
+	version: number,
+	versions: InfoFileV2VersionBatch[]
+}
+export interface UnprocessedV2InfoFile extends InfoFileV2Base {
 	hashes: Record<string, string>
 }
-export interface InfoFile extends InfoFileBase {
+export interface InfoFileV2 extends InfoFileV2Base {
 	hashes: Map<string, string>
 }
-
-export interface InfoFileVersionBatch {
-	formatVersion: number,
+export interface InfoFileV2VersionBatch {
+	formatVersion: 2,
 	updated: string[][]
 }
+
+interface InfoFileV3Base {
+	formatVersion: 3,
+	version: number,
+	versions: InfoFileV3VersionBatch[],
+	majorUpdateValue: number,
+	criticalUpdateValue: number
+}
+export interface UnprocessedV3InfoFile extends InfoFileV3Base {
+	hashes: Record<string, string>
+}
+export interface InfoFileV3 extends InfoFileV3Base {
+	hashes: Map<string, string>
+}
+export interface InfoFileV3VersionBatch {
+	formatVersion: 3,
+	updated: string[][],
+	updatePriorities: UpdatePriority[]
+}
+
+export type KnownVersionFile = InfoFileV2 | InfoFileV3;
+export type UnprocessedKnownVersionFile = UnprocessedV2InfoFile | UnprocessedV3InfoFile;
+export type InfoFile = KnownVersionFile | UnknownInfoFile;
+export type UnprocessedInfoFile = UnprocessedKnownVersionFile | UnknownInfoFile;
+
 
 /**
  * The first tuple is if each extension exists or not (ts followed by js).
@@ -43,7 +74,13 @@ export interface CategorizedBuildFiles {
 	completeList: string[]
 	// never-cache just isn't included
 }
-export type ProcessedBuild = [categorizedBuildFiles: CategorizedBuildFiles, routeFiles: Set<string>, staticFileHashes: Map<string, string>, fileSizes: Map<string, number>];
+export type ProcessedBuild = [
+	categorizedBuildFiles: CategorizedBuildFiles,
+	routeFiles: Set<string>,
+	staticFileHashes: Map<string, string>,
+	fileSizes: Map<string, number>,
+	updatePriority: UpdatePriority
+];
 
 export interface WorkerConstants {
 	ROUTES: string[],

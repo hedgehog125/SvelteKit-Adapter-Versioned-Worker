@@ -85,6 +85,15 @@ export interface AdapterConfig {
 	 * TODO
 	 */
 	enableQuickFetch?: boolean,
+
+	/**
+	 * TODO
+	 */
+	isMajorUpdate?: number | boolean,
+	/**
+	 * TODO
+	 */
+	isCriticalUpdate?: number | boolean
 }
 export interface ManifestPluginConfig {
 	/**

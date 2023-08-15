@@ -31,6 +31,9 @@ const config = {
 		},
 
 		adapter: adapter({
+			isMajorUpdate: 3,
+			isCriticalUpdate: 0,
+
 			lastInfo: standardGetLast("https://hedgehog125.github.io/SvelteKit-Plugin-Versioned-Worker/versionedWorker.json", disableBaseURL),
 			sortFile({ href, size, viteInfo, isStatic }) {
 				if (href === "ping.txt") return "never-cache";

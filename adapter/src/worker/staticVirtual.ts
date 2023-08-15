@@ -127,7 +127,8 @@ export type UpdatePriority = 0 | 1 | 2 | 3 | 4;
  */
 export interface VersionFile {
 	formatVersion: number,
-	updated: string[][]
+	updated: string[][],
+	updatePriorities: UpdatePriority[]
 }
 
 /**
@@ -219,13 +220,19 @@ export type ResumableStateCallback = () => Promise<ResumableState> | ResumableSt
  * TODO
  */
 export interface UnknownWorkerInfo {
-	majorFormatVersion: Exclude<KnownMajorVersionWorkerInfo["majorFormatVersion"], number>
+	/**
+	 * TODO: this is the latest major version + 1
+	 */
+	majorFormatVersion: 2
 }
 /**
  * TODO
 */
 export interface WorkerMajorV1UnknownMinorInfo extends WorkerMajorV1InfoBase {
-	minorFormatVersion: Exclude<WorkerMajorV1KnownMinorInfo["minorFormatVersion"], number>
+	/**
+	 * TODO: this is the latest minor version + 1
+	 */
+	minorFormatVersion: 2
 }
 /**
  * TODO

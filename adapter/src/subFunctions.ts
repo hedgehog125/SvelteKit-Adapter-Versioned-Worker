@@ -15,8 +15,12 @@ import type {
 } from "./types.js";
 import type { WebAppManifest } from "./manifestTypes.js";
 import type {
+	UnprocessedV2InfoFile,
 	UnprocessedInfoFile,
-	InfoFile,
+	UnprocessedV3InfoFile,
+	InfoFileV2,
+	InfoFileV3VersionBatch,
+	InfoFileV2VersionBatch,
 
 	InputFilesContents,
 	InputFiles,
@@ -24,11 +28,13 @@ import type {
 	CategorizedBuildFiles,
 
 	VirtualModuleSources,
-	WorkerConstants
+	WorkerConstants,
+	InfoFileV3
 } from "./internalTypes.js";
+import { UpdatePriority } from "./worker/staticVirtual.js";
+
 import type { LoggingFunction, OutputBundle, RollupLog } from "rollup";
 import type { Builder } from "@sveltejs/kit";
-import pluginVirtualPromises from "./pluginVirtualPromises.js";
 import type { RollupTypescriptOptions } from "@rollup/plugin-typescript";
 
 import {
@@ -62,6 +68,7 @@ import nodeResolve from "@rollup/plugin-node-resolve";
 import esbuild from "rollup-plugin-esbuild";
 import typescriptPlugin from "@rollup/plugin-typescript";
 import pluginAlias from "@rollup/plugin-alias";
+import pluginVirtualPromises from "./pluginVirtualPromises.js";
 
 
 export async function getLastInfo(configs: LastInfoProviderConfigs): Promise<UnprocessedInfoFile> {
@@ -77,39 +84,65 @@ export async function getLastInfo(configs: LastInfoProviderConfigs): Promise<Unp
 	}
 	return parsed;
 }
-export function updateInfoFileIfNeeded(infoFile: UnprocessedInfoFile) {
-	let formatVersion = infoFile.formatVersion;
-	if (formatVersion !== 3) {
-		if (formatVersion === 1) {
+/**
+ * @note This may modify `infoFile` in a way that means that it shouldn't be used.
+ */
+export function updateInfoFileIfNeeded(infoFile: UnprocessedInfoFile): UnprocessedV3InfoFile {
+	if (infoFile.formatVersion !== 3) {
+		if (infoFile.formatVersion === 1) {
 			throw new VersionedWorkerError("Please release an update using the previous SvelteKit-Plugin-Versioned-Worker before using this adapter, as only that supports upgrading info files from version 1 to 2.");
 		}
-		else if (formatVersion === 2) {
+		else if (infoFile.formatVersion === 2) {
+			let newVersions: (InfoFileV2VersionBatch | InfoFileV3VersionBatch)[] = infoFile.versions;
 			// Trim the versions over 100, removing the oldest first
-			if (infoFile.versions.length > MAX_VERSION_FILES) { // The version files are stored in batches, so this isn't multiplied by VERSION_FILE_BATCH_SIZE
-				infoFile.versions.splice(0, infoFile.versions.length - MAX_VERSION_FILES);
+			if (newVersions.length > MAX_VERSION_FILES) {
+				// ^ The version files are stored in batches, so this isn't multiplied by VERSION_FILE_BATCH_SIZE
+				newVersions.splice(0, newVersions.length - MAX_VERSION_FILES);
 			}
 
-			formatVersion = 3;
-			infoFile.formatVersion = formatVersion;
+			newVersions = newVersions.map(batch => {
+				const updatePriorities: UpdatePriority[] = Array.from(new Array(batch.updated.length), () => 2);
+
+				return {
+					formatVersion: 3,
+					updated: batch.updated,
+					updatePriorities
+				} satisfies InfoFileV3VersionBatch;
+			});
+
+			return {
+				formatVersion: 3,
+				version: infoFile.version,
+				versions: newVersions as InfoFileV3VersionBatch[],
+				hashes: infoFile.hashes,
+				majorUpdateValue: 0,
+				criticalUpdateValue: 0
+			};
 		}
 		else {
-			throw new VersionedWorkerError(`Unsupported version ${formatVersion} in the info file from the last build.`);
+			throw new VersionedWorkerError(`Unsupported version ${infoFile.formatVersion} in the info file from the last build.`);
 		}
 	}
+
+	return infoFile;
 }
-export function processInfoFile(infoFile: UnprocessedInfoFile): InfoFile {
+export function processInfoFile(infoFile: UnprocessedV3InfoFile): InfoFileV3 {
 	const {
 		formatVersion,
 		version,
 		versions,
-		hashes
+		hashes,
+		majorUpdateValue,
+		criticalUpdateValue
 	} = infoFile;
 	
 	return {
 		formatVersion,
 		version,
 		versions,
-		hashes: new Map(Object.entries(hashes))
+		hashes: new Map(Object.entries(hashes)),
+		majorUpdateValue,
+		criticalUpdateValue
 	};
 }
 
@@ -336,6 +369,17 @@ export async function getFileSizes(
 		return size;
 	}))).map((size, fileIndex) => [filteredFileList[fileIndex], size]));
 }
+export function getUpdatePriority(lastInfo: InfoFileV3, { adapterConfig }: AllConfigs): UpdatePriority {
+	const { isCriticalUpdate, isMajorUpdate } = adapterConfig;
+	if (isCriticalUpdate === true) return 4;
+	if (isMajorUpdate === true) return 3;
+
+	// Neither of these will return if the value is false or 0
+	if (isCriticalUpdate && isCriticalUpdate !== lastInfo.criticalUpdateValue) return 4;
+	if (isMajorUpdate && isMajorUpdate !== lastInfo.majorUpdateValue) return 3;
+
+	return 1;
+}
 
 export async function createWorkerFolder({ minimalViteConfig, adapterConfig }: AllConfigs) {
 	const versionPath = path.join(minimalViteConfig.root, adapterConfig.outputDir, adapterConfig.outputVersionDir);
@@ -358,7 +402,7 @@ export async function writeWorkerEntry(inputFiles: InputFiles, configs: AllConfi
 }
 export function createWorkerConstants(
 	categorizedBuildFiles: CategorizedBuildFiles, builder: Builder,
-	lastInfo: InfoFile, configs: AllConfigs
+	lastInfo: InfoFileV3, configs: AllConfigs
 ): WorkerConstants {
 	const { adapterConfig, svelteConfig } = configs;
 
@@ -524,8 +568,14 @@ export async function writeWorkerImporter(currentVersion: number, { adapterConfi
 	await fs.writeFile(entryPath, contents, { encoding: "utf-8" });
 }
 
-export function addNewVersionToInfoFile(infoFile: InfoFile, staticFileHashes: Map<string, string>) {
+export function addNewVersionToInfoFile(
+	infoFile: InfoFileV3, staticFileHashes: Map<string, string>,
+	updatePriority: UpdatePriority, { adapterConfig }: AllConfigs
+) {
 	infoFile.version++;
+	infoFile.majorUpdateValue = typeof adapterConfig.isMajorUpdate === "boolean"? 0 : adapterConfig.isMajorUpdate;
+	infoFile.criticalUpdateValue = typeof adapterConfig.isCriticalUpdate === "boolean"? 0 : adapterConfig.isCriticalUpdate;
+
 
 	const isNewBatch = infoFile.version % VERSION_FILE_BATCH_SIZE === 0;
 	const lastVersion = isNewBatch?
@@ -546,10 +596,15 @@ export function addNewVersionToInfoFile(infoFile: InfoFile, staticFileHashes: Ma
 		: infoFile.versions.length - 1
 	;
 	infoFile.versions[index] = {
-		formatVersion: 2,
-		updated: [ // The second isn't spread because this is a nested array
+		formatVersion: 3,
+		updated: [
+			// The second isn't spread because this is a nested array
 			...(lastVersion == null? [] : lastVersion.updated),
 			Array.from(updated)
+		],
+		updatePriorities: [
+			...(lastVersion == null? [] : lastVersion.updatePriorities),
+			updatePriority
 		]
 	};
 	if (infoFile.versions.length > MAX_VERSION_FILES) {
@@ -558,13 +613,13 @@ export function addNewVersionToInfoFile(infoFile: InfoFile, staticFileHashes: Ma
 
 	infoFile.hashes = staticFileHashes;
 }
-export async function writeVersionFiles(infoFile: InfoFile, { adapterConfig, minimalViteConfig }: AllConfigs) {
+export async function writeVersionFiles(infoFile: InfoFileV3, { adapterConfig, minimalViteConfig }: AllConfigs) {
 	const versionPath = path.join(minimalViteConfig.root, adapterConfig.outputDir, adapterConfig.outputVersionDir);
 
 	await Promise.all([
 		Promise.all(infoFile.versions.map(async (versionBatch, batchID) => {
 			const fileBody = versionBatch.updated
-				.map(updatedInVersion => updatedInVersion.join("\n"))
+				.map((updatedInVersion, index) => versionBatch.updatePriorities[index] + updatedInVersion.join("\n"))
 				.join("\n\n")
 			;
 			const contents = `${versionBatch.formatVersion}\n${fileBody}`;
@@ -575,7 +630,7 @@ export async function writeVersionFiles(infoFile: InfoFile, { adapterConfig, min
 	]);
 }
 
-export async function writeInfoFile(infoFile: InfoFile, { minimalViteConfig, adapterConfig }: AllConfigs) {
+export async function writeInfoFile(infoFile: InfoFileV3, { minimalViteConfig, adapterConfig }: AllConfigs) {
 	const infoFilePath = path.join(minimalViteConfig.root, adapterConfig.outputDir, INFO_FILENAME);
 	const contents = JSON.stringify(infoFile, (_, value) => {
 		if (value instanceof Map) return Object.fromEntries(value);
@@ -587,7 +642,7 @@ export async function writeInfoFile(infoFile: InfoFile, { minimalViteConfig, ada
 
 
 export function createRuntimeConstantsModule(
-	adapterConfig: ResolvedAdapterConfig, lastInfo: InfoFile
+	adapterConfig: ResolvedAdapterConfig, lastInfo: InfoFileV3
 ): string {
 	return createConstantsModule({
 		VERSION: lastInfo.version + 1,

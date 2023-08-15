@@ -1,4 +1,3 @@
-Update prompts and different behaviour depending on how long the app's been stuck on an old version
 Periodically check for updates
 Implement blocked update count
 Warn that unresolved Vite config could cause some issues and the plugin to not work as well, but remove mention of function to provide it
