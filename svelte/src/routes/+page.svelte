@@ -1,4 +1,6 @@
 <script lang="ts">
+    import type { UpdatePriority } from "internal-adapter/worker";
+
 	import {
 		VERSION,
 		REDIRECT_TRAILING_SLASH,
@@ -6,7 +8,9 @@
 		AUTO_PASSTHROUGH_CROSS_ORIGIN_REQUESTS,
 		ENABLE_QUICK_FETCH
 	} from "internal-adapter/runtime-constants";
-    import { link } from "$lib/util.js";
+	import { UPDATE_PRIORITY_NAMES, displayedUpdatePriority } from "$lib/index_internal.js";
+    import { link, range } from "$lib/util.js";
+
     import { onMount } from "svelte";
 
 	const requestCount = 15; // 10000;
@@ -23,12 +27,24 @@
 		}
 	}
 	onMount(fetchTest);
+
+	/**
+	 * `priority` is a number rather than a `UpdatePriority` so it works with the range.
+	 */
+	function simulateUpdate(priority: number) {
+		$displayedUpdatePriority = priority as UpdatePriority;
+	}
 </script>
 
 <main>
-	<h1>Welcome to your library project</h1>
-	<p>Create your package using @sveltejs/package and preview/showcase your work with SvelteKit</p>
-	<p>Visit <a href="https://kit.svelte.dev">kit.svelte.dev</a> to read the documentation</p>
+	<h2>
+		Test update prompts
+	</h2>
+	{#each range(5, 1) as index} <!-- 0 is for when there isn't an update -->
+		<button type="button" on:click={() => simulateUpdate(index)}>
+			Simulate {UPDATE_PRIORITY_NAMES[index]}
+		</button>
+	{/each}
 
 	<p>
 		Current version: {VERSION} <br>

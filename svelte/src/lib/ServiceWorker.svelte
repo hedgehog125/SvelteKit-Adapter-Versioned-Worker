@@ -1,26 +1,28 @@
 <script lang="ts">
 	import type { InputMessageData, OutputMessageData, UpdatePriority } from "internal-adapter/worker";
-	import type { WorkerRegistrationFailedReason } from "$lib";
+	import type { WorkerRegistrationFailedReason } from "$lib/index_internal.js";
 
-	import { createEventDispatcher, onMount } from "svelte";
-	import { dev, browser } from "$app/environment";
+	import {
+		RESUMABLE_STATE_NAME,
+		checkIfResumableState,
+		dontAllowReloadForNextNavigation,
+		isReloadOnNavigateAllowed,
+
+        isWorkerActivated,
+		displayedUpdatePriority
+	} from "$lib/index_internal.js";
     import {
 		ExposedPromise,
 		getNavigationDestURL,
 		link,
 		waitForEvent
 	} from "$lib/util.js";
-    import { beforeNavigate } from "$app/navigation";
-    import {
-		RESUMABLE_STATE_NAME,
-		checkIfResumableState,
-		dontAllowReloadForNextNavigation,
-		isReloadOnNavigateAllowed,
-
-        isWorkerActivated
-
-	} from "$lib/index.js";
 	import { internalState, skipWaiting, skipIfWaiting } from "$lib/internal.js";
+    import DefaultUpdatePrompt from "./DefaultUpdatePrompt.svelte";
+
+	import { createEventDispatcher, onMount } from "svelte";
+	import { dev, browser } from "$app/environment";
+    import { beforeNavigate } from "$app/navigation";
 
 	const dispatch = createEventDispatcher<{
 		/**
@@ -148,13 +150,12 @@
 		return;
 	}
 
-	let displayedUpdatePriority: UpdatePriority = 0;
 	function handleWaitingWorker(waitingWorker: ServiceWorker) {
 		if (Date.now() - pageLoadTimestamp < 300) {
 			skipWaiting(waitingWorker, null);
 		}
 		else {
-			displayedUpdatePriority = getUpdatePriority();
+			$displayedUpdatePriority = getUpdatePriority();
 		}
 	}
 
@@ -176,21 +177,9 @@
 </script>
 
 <main>
-	{#if displayedUpdatePriority === 1}
-		<slot name="updatePrompt_Patch">
-			TODO: 1
-		</slot>
-	{:else if displayedUpdatePriority === 2}
-		<slot name="updatePrompt_ElevatedPatch">
-			TODO: 2
-		</slot>
-	{:else if displayedUpdatePriority === 3}
-		<slot name="updatePrompt_Major">
-			TODO: 3
-		</slot>
-	{:else if displayedUpdatePriority === 4}
-		<slot name="updatePrompt_Critical">
-			TODO: 4
+	{#if $displayedUpdatePriority !== 0}
+		<slot name="updatePrompt" priority={$displayedUpdatePriority}>
+			<DefaultUpdatePrompt priority={$displayedUpdatePriority}></DefaultUpdatePrompt>
 		</slot>
 	{/if}
 </main>

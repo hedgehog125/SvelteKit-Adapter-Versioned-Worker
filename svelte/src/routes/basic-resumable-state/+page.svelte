@@ -2,7 +2,7 @@
 	import type { V1ResumableState } from "../../demo";
 
     import { beforeNavigate } from "$app/navigation";
-    import { reloadOpportunity, resumeState } from "$lib";
+    import { reloadOpportunity, resumeState } from "$lib/index_internal.js";
     import { link } from "$util";
     import { counter } from "../../demo";
     import { onMount } from "svelte";

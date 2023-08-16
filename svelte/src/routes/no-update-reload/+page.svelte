@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { link } from "$lib/util.js";
-    import { dontAllowReloadForNextNavigation } from "$lib";
+    import { dontAllowReloadForNextNavigation } from "$lib/index_internal.js";
 
 	dontAllowReloadForNextNavigation();
 </script>

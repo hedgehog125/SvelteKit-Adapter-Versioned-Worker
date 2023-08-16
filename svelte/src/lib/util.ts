@@ -50,6 +50,13 @@ export function loadOnMount<T>(callback: () => Promise<T> | T): Promise<T> {
 
 /**
  * TODO
+ */
+export function range(maxExclusive: number, minInclusive = 0): number[] {
+	return Array.from(new Array((maxExclusive - minInclusive)), (_, index) => index + minInclusive);
+}
+
+/**
+ * TODO
  * 
  * @param url 
  * @param searchParams 

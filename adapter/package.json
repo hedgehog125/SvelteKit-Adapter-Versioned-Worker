@@ -47,6 +47,8 @@
 		"test": "echo \"Error: no test specified\" && exit 1"
 	},
 	"dependencies": {
+		"@types/web-app-manifest": "^1.0.4",
+		
 		"@rollup/plugin-alias": "^4.0.3",
 		"@rollup/plugin-node-resolve": "^15.0.1",
 		"@rollup/plugin-typescript": "^11.0.0",

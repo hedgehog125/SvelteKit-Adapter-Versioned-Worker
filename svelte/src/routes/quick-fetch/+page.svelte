@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { quickFetch } from "$lib";
+    import { quickFetch } from "$lib/index_internal.js";
     import { createURLWithVWMode, loadOnMount } from "$lib/util.js";
 	import { openSettingsDB } from "../../demo";
 

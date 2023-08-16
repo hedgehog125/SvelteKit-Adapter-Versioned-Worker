@@ -1,6 +1,6 @@
 <script lang="ts">	
 	import { loadOnMount } from "$lib/util.js";
-    import { statResource } from "$lib";
+    import { statResource } from "$lib/index_internal.js";
 	
 	
 	const loadPromise = loadOnMount(async () => {
