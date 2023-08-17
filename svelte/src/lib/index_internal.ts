@@ -15,7 +15,8 @@ import {
 	link,
 	getNavigationDestURL,
 	timeoutPromise,
-	waitForEventWithTimeout
+	waitForEventWithTimeout,
+	ExposedPromise
 } from "$lib/util.js";
 import { ENABLE_QUICK_FETCH } from "internal-adapter/runtime-constants";
 
@@ -186,7 +187,7 @@ export const RESUMABLE_STATE_TIMEOUT: number = 5000;
 /**
  * TODO
  */
-export const REQUEST_RESUMABLE_STATE_TIMEOUT: number = 100;
+export const REQUEST_RESUMABLE_STATE_TIMEOUT: number = 500;
 
 /**
  * Tells Versioned Worker that it's ok to reload the page for an update now.
@@ -199,8 +200,12 @@ export const REQUEST_RESUMABLE_STATE_TIMEOUT: number = 100;
  * @note If you're calling this within a `beforeNavigate`, make sure you pass `navigation.to?.url.toString()` as the first argument.
  */
 export async function reloadOpportunity(navigateTo?: string | BeforeNavigate, resumableState?: ResumableState | ResumableStateCallback): Promise<boolean> {
+	if (internalState.reloading) {
+		internalState.skipReloadCountdownPromise.resolve(true);
+		internalState.skipReloadCountdownPromise = new ExposedPromise();
+		return true;
+	}
 	if (internalState.registration == null) return false;
-	// TODO: keep worker alive using waituntil in activate until the message is posted
 
 	internalState.navigatingTo = navigateTo?
 		(typeof navigateTo === "string"? navigateTo : getNavigationDestURL(navigateTo))
@@ -210,15 +215,20 @@ export async function reloadOpportunity(navigateTo?: string | BeforeNavigate, re
 	if (! isWorkerWaiting) return false;
 
 	while (true) {
-		const event = await waitForEventWithTimeout(
-			navigator.serviceWorker,
-			"message" satisfies keyof ServiceWorkerContainerEventMap,
-			REQUEST_RESUMABLE_STATE_TIMEOUT
-		) as Nullable<MessageEvent>;
+		const event = await Promise.race([
+			waitForEventWithTimeout(
+				navigator.serviceWorker,
+				"message" satisfies keyof ServiceWorkerContainerEventMap,
+				REQUEST_RESUMABLE_STATE_TIMEOUT
+			) as Promise<Nullable<MessageEvent>>,
+			internalState.reloadingPromise
+		]);
 		if (event == null) return false; // The state wasn't requested, so there won't be a reload
+		if (event === true) return true; // The reload has already been triggered
 
 		const { data } = <{ data: OutputMessageData }>(event);
 		if (data.type === "vw-reload") return true;
+		if (data.type === "vw-skipFailed") return false;
 
 		if (data.type === "vw-updateWithResumable") {
 			if (typeof resumableState === "function") resumableState = await resumableState();
@@ -228,6 +238,13 @@ export async function reloadOpportunity(navigateTo?: string | BeforeNavigate, re
 		}
 	}		
 }
+/**
+ * TODO
+ */
+export function dismissUpdateMessage() {
+	displayedUpdatePriority.set(0);
+}
+
 
 /**
  * TODO
@@ -353,7 +370,7 @@ export function dontAllowReloadOnNavigateWhileMounted() {
 export const UPDATE_PROMPT_MESSAGES = [
 	null, // None
 	null, // Patch
-	"Update ready", // Elevated patch
+	"Minor update ready", // Elevated patch
 	"Update ready", // Major
 	"An important update is ready" // Critical
 ] as const;
@@ -367,6 +384,15 @@ export const UPDATE_PRIORITY_NAMES = [
 	"major update",
 	"critical update"
 ] as const;
+/**
+ * TODO
+ */
+export const RELOAD_TIMEOUT = 7500;
+/**
+ * TODO
+ */
+export const RELOAD_RETRY_TIME = 10000;
+
 /**
  * TODO: this should only really be modified for the purpose of debugging
  */

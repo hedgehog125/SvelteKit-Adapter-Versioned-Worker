@@ -31,7 +31,7 @@ const config = {
 		},
 
 		adapter: adapter({
-			isMajorUpdate: 3,
+			isMajorUpdate: true, // TODO
 			isCriticalUpdate: 0,
 
 			lastInfo: standardGetLast("https://hedgehog125.github.io/SvelteKit-Plugin-Versioned-Worker/versionedWorker.json", disableBaseURL),

@@ -1,36 +1,115 @@
 <script lang="ts">
     import type { UpdatePriority } from "internal-adapter/worker";
 
-	import { UPDATE_PROMPT_MESSAGES } from "$lib/index_internal.js";
+	import { RELOAD_RETRY_TIME, RELOAD_TIMEOUT, UPDATE_PROMPT_MESSAGES, dismissUpdateMessage, reloadOpportunity } from "$lib/index_internal.js";
 	import closeIcon from "$img/close.svg";
 
 	import { fly, fade } from "svelte/transition";
+    import { timeoutPromise } from "$util";
+    import { onMount } from "svelte";
+
+	let destroyed = false;
+	onMount(() => {
+		return () => {
+			destroyed = true;
+		};
+	});
 
 	export let priority: UpdatePriority;
 
-	$: message = UPDATE_PROMPT_MESSAGES[priority];
+	let displayMultiTabMessage = false;
+	let countdownInSeconds: number | null = null;
+	$: message = determineMessage(displayMultiTabMessage, priority, countdownInSeconds);
+
+	function determineMessage(displayMultiTabMessage: boolean, priority: UpdatePriority, countdownInSeconds: number | null): string | null {
+		if (displayMultiTabMessage) {
+			return "Please close all other windows and tabs of this app";
+		}
+		else {
+			if (countdownInSeconds == null) {
+				return UPDATE_PROMPT_MESSAGES[priority];
+			}
+			else {
+				return `Reloading in ${countdownInSeconds}s`;
+			}
+		}
+	}
+	async function handleReload() {
+		const succeeded = await reloadOpportunity();
+		if (destroyed) return;
+		if (succeeded) {
+			await timeoutPromise(RELOAD_TIMEOUT);
+			if (destroyed) return;
+			// Hasn't reloaded
+
+			timerDuration = RELOAD_RETRY_TIME / 1000;
+			timerStartTime = document.timeline.currentTime as number;
+			timerTick(timerStartTime);
+		}
+		else {
+			displayMultiTabMessage = true;
+			setTimeout(handleReload, 100);
+		}
+	}
+
+	function handleTimedReload() {
+		timerStartTime = document.timeline.currentTime as number;
+		timerTick(timerStartTime);
+	}
+
+	// Credit: adapted from https://gist.github.com/jakearchibald/cb03f15670817001b1157e62a076fe95
+	let timerStartTime: number;
+	let timerDuration = 60;
+	const TIMER_DELAY = 1000;
+	function timerTick(time: number) {
+		if (destroyed) return;
+
+		const elapsed = time - timerStartTime;
+		let elapsedInSeconds = Math.round(elapsed / TIMER_DELAY);
+		const roundedElapsed = elapsedInSeconds * TIMER_DELAY;
+
+		countdownInSeconds = Math.max(timerDuration - elapsedInSeconds, 0);
+		if (countdownInSeconds === 0) {
+			handleReload();
+			return;
+		}
+
+		const targetNext = timerStartTime + roundedElapsed + TIMER_DELAY;
+		const delay = targetNext - performance.now();
+		setTimeout(() => requestAnimationFrame(timerTick), delay);
+	}
 </script>
 
 {#if message != null}
-	{#if priority === 4}
-		<div class="popup" transition:fade|global={{ duration: 250 }}>
-			<p>
-				{message}
-			</p>
+	{#if priority === 4 && countdownInSeconds == null}
+		<div class="popup" transition:fade|global={{ duration: 500 }}>
+			<div>
+				<p>
+					{message}
+				</p>
+				<div>
+					<div>
+						<button type="button" on:click={handleReload}>Reload</button>
+						<button type="button" on:click={handleTimedReload}>Reload in 60 seconds</button>
+					</div>
+				</div>
+			</div>
 		</div>
 	{:else}
 		<div class="side" transition:fly|global={{
 			y: 75,
 			duration: 750
 		}}>
-			<span>
+			<p>
 				{message}
-			</span>
+			</p>
 			<div>
-				<button type="button">Reload</button>
-				<button type="button">
-					<img src={closeIcon} alt="Close popup" width=16 height=16>
-				</button>
+				<button type="button" on:click={handleReload}>Reload</button>
+				{#if countdownInSeconds == null}
+					<button type="button" on:click={() => dismissUpdateMessage()}>
+						<img src={closeIcon} alt="Close popup" width=16 height=16>
+					</button>
+				{/if}
 			</div>
 		</div>
 	{/if}
@@ -42,6 +121,12 @@
 	}
 	button {
 		cursor: pointer;
+
+		background: none;
+		border: none;
+
+		font-weight: bold;
+		font-size: 17px;
 	}
 
 	.side {
@@ -49,6 +134,7 @@
 		left: 50%;
 		bottom: 25px;
 		transform: translateX(-50%);
+		max-width: 90%;
 
 		display: flex;
 		justify-content: space-between;
@@ -61,9 +147,9 @@
 
 		border: 1px solid #2c2c30;
 		border-radius: 5px;
-		box-shadow: 2px 2px 4px #000000A0
+		box-shadow: 2px 2px 4px #000000A0;
 	}
-	@media only screen and (max-width: 450px) {
+	@media only screen and (max-width: 550px) {
 		.side {
 			left: 0;
 			right: 0;
@@ -74,27 +160,23 @@
 			box-shadow: none;
 		}
 	}
-	span {
-		display: inline-block;
+	.side > p {
 		margin: 10px;
 		margin-right: 50px;
 
 		font-size: 17px;
+		text-align: center;
 		color: #ddd;
+		white-space: normal;
+		inline-size: max-content;
 	}
 	.side > div {
 		display: flex;
 		align-items: center;
 	}
 	.side > div > button {
-		background: none;
-		border: none;
-
-		font-weight: bold;
-		font-size: 17px;
-		color: rgb(204, 195, 245);
-
 		margin-left: 12.5px;
+		color: rgb(204, 195, 245);
 	}
 	button > img {
 		display: block;
@@ -102,31 +184,42 @@
 		width: auto;
 	}
 
-	.popup {
-		--border-radius: min(12.5vw, 12.5vh);
 
+	.popup {
 		position: fixed;
-		top: 0;
 		left: 0;
 		right: 0;
+		top: 0;
 		bottom: 0;
+
 		z-index: 99;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		background-color: #2c2c30CC;
+	}
+	.popup > div {
+		--border-radius: min(5vw, 5vh);
+		--size: max(min(50vw, 50vh), min(550px, 95vw, 95vh));
 
-		--base-margin: min(2.5vw, 22.5vh);
-		margin: var(--base-margin);
-		margin-top: calc(var(--base-margin) + 50px);
+		position: relative;
 
-		background-color: rgb(200, 200, 200);
+		min-width: var(--size);
+		min-height: var(--size);
+
+		background-color: rgb(221, 227, 230);
 		border-radius: var(--border-radius);
 		border-style: none;
+		box-shadow: 2px 2px 4px #000000A0;
 
 		font-weight: bold;
 
 		display: flex;
 		justify-content: center;
 		align-items: center;
+		overflow: hidden;
 	}
-	p {
+	.popup > div > p {
 		font-size: 25px;
 		font-weight: bold;
 		text-align: center;
@@ -134,5 +227,31 @@
 		padding-left: 10px;
 		padding-right: 10px;
 		max-width: 500px;
+	}
+	.popup > div > div {
+		position: absolute;
+		left: 0;
+		right: 0;
+		bottom: 0;
+
+		display: flex;
+		justify-content: center;
+		align-items: center;
+
+		background-color: #ffffffe5;
+	}
+	.popup > div > div > div {
+		display: flex;
+		justify-content: center;
+		gap: 10%;
+		align-items: center;
+	}
+	.popup > div > div > div > button {
+		margin-top: 25px;
+		margin-bottom: 25px;
+		
+		white-space: nowrap;
+
+		color: rgb(37, 95, 172);
 	}
 </style>

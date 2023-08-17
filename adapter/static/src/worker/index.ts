@@ -296,12 +296,9 @@ addEventListener("fetch", e => {
 			if (isPage && (registration.waiting || finished)) { // Based on https://redfin.engineering/how-to-fix-the-refresh-button-when-using-service-workers-a8e27af6df68
 				const activeClients = await clients.matchAll();
 				if (activeClients.length < 2) {
-					if (! finished) { // Don't tell the waiting worker, it started this sequence
-						// Because of the await, registration.waiting might now be null
-						registration.waiting?.postMessage({ type: "skipWaiting" } satisfies InputMessageData);
-					}
 					finished = false; // Prevent an endless refresh loop if something goes wrong changing workers
 					return new Response(INLINED_RELOAD_PAGE, { headers: { "content-type": "text/html" } });
+					// ^ The conditional skip is sent as part of this page rather than here. This is because newly opened tabs aren't included in activeClients, which can result in unsafe reloads
 				}
 			}
 
@@ -388,6 +385,9 @@ type AddMessageListener = (type: "message", listener: ((this: typeof globalThis,
 
 					if (resumableState) await resumableStateUsedPromise; // resumableState is used rather than data.resumableState so if it's somehow already consumed, it doesn't await indefinitely
 				}
+			}
+			else {
+				broadcast(activeClients, { type: "vw-skipFailed" });
 			}
 		})());
 	}

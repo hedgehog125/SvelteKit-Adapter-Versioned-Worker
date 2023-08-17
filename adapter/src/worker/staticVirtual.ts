@@ -168,7 +168,7 @@ export interface InputMessageEvent extends MessageEvent {
  * 
  * @note `"vw-updateWithResumable"` is a response to a `"conditionalSkipWaiting"` input. 
  */
-export type OutputMessageVoidType = "vw-reload" | "vw-updateWithResumable";
+export type OutputMessageVoidType = "vw-reload" | "vw-updateWithResumable" | "vw-skipFailed";
 /**
  * TODO
  */

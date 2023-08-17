@@ -1,6 +1,7 @@
 Periodically check for updates
 Implement blocked update count
 Option to disable HTTP cache when downloading assets
+Option to disable the extra elevation for updates installed 3 days ago. Would be used when there are plenty of reload oppertunities
 Warn that unresolved Vite config could cause some issues and the plugin to not work as well, but remove mention of function to provide it
 Log based on what files are new? e.g only list newly added lazy files?
 Warnings for large media files since they won't stream

@@ -9,12 +9,19 @@
 		isReloadOnNavigateAllowed,
 
         isWorkerActivated,
-		displayedUpdatePriority
+		displayedUpdatePriority,
+
+        RELOAD_TIMEOUT,
+
+        RELOAD_RETRY_TIME
+
+
 	} from "$lib/index_internal.js";
     import {
 		ExposedPromise,
 		getNavigationDestURL,
 		link,
+		timeoutPromise,
 		waitForEvent
 	} from "$lib/util.js";
 	import { internalState, skipWaiting, skipIfWaiting } from "$lib/internal.js";
@@ -28,11 +35,15 @@
 		/**
 		 * Called when the service worker is first activated. Or on mount if it is already.
 		 */
-		activate: null,
+		activate: void,
 		/**
 		 * Called on mount if service workers are unsupported by the browser or if you're using the development server. Otherwise, called if and when a service worker errors while being registered.
 		 */
-		fail: WorkerRegistrationFailedReason
+		fail: WorkerRegistrationFailedReason,
+		/**
+		 * TODO: only runs when beforeunload prevents default
+		*/
+		reloadfailed: void
 	}>();
 
 	let activateEventSent = false;
@@ -121,16 +132,34 @@
 			internalState.waitingWorkerInfoPromise = new ExposedPromise();
 		}
 	}
-	let reloading = false;
-	function reloadOnce() {
-		if (reloading) return;
-		reloading = true;
 
-		if (internalState.navigatingTo) {
-			location.href = internalState.navigatingTo;
-		}
-		else {
-			location.reload();
+	async function reloadOnce() {
+		if (internalState.reloading) return;
+		internalState.reloading = true;
+
+		internalState.reloadingPromise.resolve(true);
+		internalState.reloadingPromise = new ExposedPromise();
+		await timeoutPromise(0);
+
+		while (true) {
+			if (internalState.navigatingTo) {
+				location.href = internalState.navigatingTo;
+			}
+			else {
+				location.reload();
+			}
+	
+			const skippedCountdown = await Promise.race([
+				timeoutPromise(RELOAD_TIMEOUT),
+				internalState.skipReloadCountdownPromise
+			]);
+			dispatch("reloadfailed");
+			if (! skippedCountdown) {
+				await Promise.race([
+					timeoutPromise(RELOAD_RETRY_TIME),
+					internalState.skipReloadCountdownPromise
+				]);
+			}
 		}
 	}
 

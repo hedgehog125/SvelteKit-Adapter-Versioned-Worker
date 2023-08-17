@@ -2,21 +2,37 @@
 
 (() => {
 	addEventListener("DOMContentLoaded", () => {
-		navigator.serviceWorker.getRegistration().then(registration => {
-			if (! (registration && registration.waiting)) {
+		navigator.serviceWorker.getRegistration().then(async registration => {
+			if (! registration?.waiting) {
 				return reloadOnce();
 			}
 
+			sendConditionalSkip();
 			let tries = 0;
-			skipWaitingTick();
-			setInterval(skipWaitingTick, 100);
+			while (true) {
+				const start = performance.now();
+				const event = await new Promise(resolve => {
+					navigator.serviceWorker.addEventListener("message", resolve, {
+						once: true
+					});
+					setTimeout(() => resolve(false), 500);
+				});
 
-			function skipWaitingTick() {
-				registration.waiting?.postMessage({ type: "skipWaiting" });
-				if (tries === 100) { // 10 seconds
-					reloadOnce();
-				}
 				tries++;
+				if (event.data?.type === "vw-skipFailed" || tries === 100) {
+					return reloadOnce();
+				}
+
+				sendConditionalSkip();
+
+				const now = performance.now();
+				await new Promise(resolve => {
+					setTimeout(() => resolve(), 100 - (now - start));
+				});
+			}
+
+			function sendConditionalSkip() {
+				registration.waiting?.postMessage({ type: "conditionalSkipWaiting" });
 			}
 		});
 		navigator.serviceWorker.addEventListener("controllerchange", reloadOnce);

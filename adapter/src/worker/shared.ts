@@ -5,7 +5,7 @@ export const workerState = {
 
 // Internal functions that are shared between the entry and the worker virtual module
 
-export const INLINED_RELOAD_PAGE = `<script>addEventListener("DOMContentLoaded",()=>{navigator.serviceWorker.getRegistration().then(t=>{if(!(t&&t.waiting))return e();let i=0;r(),setInterval(r,100);function r(){t.waiting?.postMessage({type:"skipWaiting"}),i===100&&e(),i++}}),navigator.serviceWorker.addEventListener("controllerchange",e);let n=!1;function e(){n||(n=!0,location.reload())}})</script>`;
+export const INLINED_RELOAD_PAGE = `<script>addEventListener("DOMContentLoaded",()=>{navigator.serviceWorker.getRegistration().then(async i=>{if(!i?.waiting)return t();r();let a=0;for(;;){const o=performance.now(),s=await new Promise(e=>{navigator.serviceWorker.addEventListener("message",e,{once:!0}),setTimeout(()=>e(!1),500)});if(a++,s.data?.type==="vw-skipFailed"||a===100)return t();r();const c=performance.now();await new Promise(e=>{setTimeout(()=>e(),100-(c-o))})}function r(){i.waiting?.postMessage({type:"conditionalSkipWaiting"})}}),navigator.serviceWorker.addEventListener("controllerchange",t);let n=!1;function t(){n||(n=!0,location.reload())}})</script>`;
 
 /**
  * Returns an error response rather than throwing if there's a network error.

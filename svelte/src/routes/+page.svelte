@@ -44,7 +44,10 @@
 		<button type="button" on:click={() => simulateUpdate(index)}>
 			Simulate {UPDATE_PRIORITY_NAMES[index]}
 		</button>
-	{/each}
+	{/each} <br>
+	<button type="button" on:click={() => simulateUpdate(0)}>
+		Clear update
+	</button>
 
 	<p>
 		Current version: {VERSION} <br>
