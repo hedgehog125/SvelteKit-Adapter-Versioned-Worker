@@ -24,11 +24,41 @@ import { writable } from "svelte/store";
 
 type Nullable<T> = T | null;
 
-
 /**
  * TODO
  */
-export type WorkerRegistrationFailedReason = "unsupported" | "error" | "dev";
+export interface WorkerRegistrationFailEvent {
+	reason: WorkerRegistrationFailReason
+}
+/**
+ * TODO
+ */
+export type WorkerRegistrationFailReason = "unsupported" | "error" | "dev";
+/**
+ * TODO
+ */
+export interface WorkerUpdateCheckEvent {
+	/**
+	 * If the update check succeeded or not.
+	 */
+	succeeded: boolean,
+	/**
+	 * If an update is available or not.
+	 * 
+	 * @note The update is likely still installing at this point.
+	 * @note It could be the same update that set this to `true` in the last event.
+	 * @see `isNew` to check if the update is different to the one from the previous event.
+	 * @see `ServiceWorker` (the component)'s `updateready` event for waiting until the update is installed.
+	 */
+	updateAvailable: boolean,
+	/**
+	 * If the update is new compared to the one from the previous event.
+	 * 
+	 * @note This will be `false` if the update was found before or during the page load.
+	 */
+	isNew: boolean
+}
+
 
 /**
  * TODO
@@ -189,7 +219,6 @@ export const RESUMABLE_STATE_TIMEOUT: number = 5000;
  */
 export const REQUEST_RESUMABLE_STATE_TIMEOUT: number = 500;
 
-let lastReloadOpportunity = -Infinity;
 /**
  * Tells Versioned Worker that it's ok to reload the page for an update now.
  * 
@@ -247,6 +276,13 @@ export async function reloadOpportunity(navigateTo?: string | BeforeNavigate, re
  */
 export function dismissUpdateMessage() {
 	displayedUpdatePriority.set(0);
+}
+/**
+ * TODO
+ */
+export function checkForUpdates() {
+	internalState.commandForComponentPromise.resolve({ type: "updateCheck" });
+	internalState.commandForComponentPromise = new ExposedPromise();
 }
 
 

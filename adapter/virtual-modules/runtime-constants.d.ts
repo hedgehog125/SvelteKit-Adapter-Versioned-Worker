@@ -49,3 +49,7 @@ export const ENABLE_SECOND_UPDATE_PRIORITY_ELEVATION: boolean | null;
  * TODO
  */
 export const USE_HTTP_CACHE: boolean | null;
+/**
+ * TODO
+ */
+export const CHECK_FOR_UPDATES_INTERVAL: number | null | false;

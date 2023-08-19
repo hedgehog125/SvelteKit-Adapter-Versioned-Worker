@@ -8,9 +8,10 @@
 		AUTO_PASSTHROUGH_CROSS_ORIGIN_REQUESTS,
 		ENABLE_QUICK_FETCH,
 		ENABLE_SECOND_UPDATE_PRIORITY_ELEVATION,
-		USE_HTTP_CACHE
+		USE_HTTP_CACHE,
+		CHECK_FOR_UPDATES_INTERVAL
 	} from "internal-adapter/runtime-constants";
-	import { UPDATE_PRIORITY_NAMES, displayedUpdatePriority } from "$lib/index_internal.js";
+	import { UPDATE_PRIORITY_NAMES, checkForUpdates, displayedUpdatePriority } from "$lib/index_internal.js";
     import { link, range } from "$lib/util.js";
 
     import { onMount } from "svelte";
@@ -50,6 +51,9 @@
 	<button type="button" on:click={() => simulateUpdate(0)}>
 		Clear update
 	</button>
+	<button type="button" on:click={checkForUpdates}>
+		Check for updates
+	</button>
 
 	<p>
 		Current version: {VERSION} <br>
@@ -59,6 +63,7 @@
 		Enable quick fetch: {ENABLE_QUICK_FETCH} <br>
 		Enable second update priority elevation: {ENABLE_SECOND_UPDATE_PRIORITY_ELEVATION} <br>
 		Use HTTP cache: {USE_HTTP_CACHE} <br>
+		Check for update interval: {CHECK_FOR_UPDATES_INTERVAL}ms <br>
 	</p>
 
 	<br>

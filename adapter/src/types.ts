@@ -95,6 +95,10 @@ export interface AdapterConfig {
 	 * TODO
 	 */
 	useHTTPCache?: boolean,
+	/**
+	 * TODO
+	 */
+	checkForUpdatesInterval?: number | false,
 
 	/**
 	 * TODO

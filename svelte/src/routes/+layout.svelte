@@ -1,8 +1,8 @@
 <script lang="ts">
 	import ServiceWorker from "$lib/ServiceWorker.svelte";
-    //import { allowReloadOnNavigateWhileMounted } from "$lib/index_internal.js";
+    import { allowReloadOnNavigateWhileMounted } from "$lib/index_internal.js";
 
-	//allowReloadOnNavigateWhileMounted();
+	allowReloadOnNavigateWhileMounted();
 </script>
 
 <ServiceWorker></ServiceWorker>

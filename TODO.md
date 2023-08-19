@@ -1,4 +1,3 @@
-Periodically check for updates
 Warn that unresolved Vite config could cause some issues and the plugin to not work as well, but remove mention of function to provide it
 Log based on what files are new? e.g only list newly added lazy files?
 Warnings for large media files since they won't stream

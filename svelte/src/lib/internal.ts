@@ -5,10 +5,19 @@ import type {
 } from "internal-adapter/worker";
 
 import { ExposedPromise } from "$util";
-export { ENABLE_SECOND_UPDATE_PRIORITY_ELEVATION } from "internal-adapter/runtime-constants";
+export {
+	ENABLE_SECOND_UPDATE_PRIORITY_ELEVATION,
+	CHECK_FOR_UPDATES_INTERVAL
+} from "internal-adapter/runtime-constants";
 
 type Nullable<T> = T | null;
 
+/**
+ * The type for a command for the ServiceWorker component
+ */
+export interface CommandForComponent {
+	type: "updateCheck"
+}
 export interface InternalState {
 	registration?: ServiceWorkerRegistration,
 	navigatingTo: Nullable<string>,
@@ -25,7 +34,9 @@ export interface InternalState {
 
 	reloading: boolean,
 	reloadingPromise: ExposedPromise<true>,
-	skipReloadCountdownPromise: ExposedPromise<true>
+	skipReloadCountdownPromise: ExposedPromise<true>,
+
+	commandForComponentPromise: ExposedPromise<CommandForComponent>
 }
 
 export const internalState: InternalState = {
@@ -40,7 +51,9 @@ export const internalState: InternalState = {
 
 	reloading: false,
 	reloadingPromise: new ExposedPromise(),
-	skipReloadCountdownPromise: new ExposedPromise()
+	skipReloadCountdownPromise: new ExposedPromise(),
+
+	commandForComponentPromise: new ExposedPromise()
 };
 
 

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { InputMessageData, OutputMessageData, UpdatePriority } from "internal-adapter/worker";
-	import type { WorkerRegistrationFailedReason } from "$lib/index_internal.js";
+	import type { WorkerRegistrationFailEvent, WorkerUpdateCheckEvent } from "$lib/index_internal.js";
 
 	import {
 		RESUMABLE_STATE_NAME,
@@ -27,7 +27,9 @@
 		skipWaiting,
 		skipIfWaiting,
 
-		ENABLE_SECOND_UPDATE_PRIORITY_ELEVATION
+		ENABLE_SECOND_UPDATE_PRIORITY_ELEVATION,
+
+        CHECK_FOR_UPDATES_INTERVAL
 	} from "$lib/internal.js";
     import DefaultUpdatePrompt from "./DefaultUpdatePrompt.svelte";
 
@@ -43,22 +45,34 @@
 		/**
 		 * Called on mount if service workers are unsupported by the browser or if you're using the development server. Otherwise, called if and when a service worker errors while being registered.
 		 */
-		fail: WorkerRegistrationFailedReason,
+		fail: WorkerRegistrationFailEvent,
 		/**
 		 * TODO: only runs when beforeunload prevents default
 		*/
-		reloadfailed: void
+		reloadfail: void,
+		/**
+		 * TODO
+		*/
+		updatecheck: WorkerUpdateCheckEvent,
+		/**
+		 * TODO
+		 */
+		updateready: void
 	}>();
 
 	let activateEventSent = false;
 	let pageLoadTimestamp: number;
 	onMount(async () => {
 		if (dev) {
-			dispatch("fail", "dev");
+			dispatch("fail", {
+				reason: "dev"
+			});
 			return;
 		}
 		if (! ("serviceWorker" in navigator)) {
-			dispatch("fail", "unsupported");
+			dispatch("fail", {
+				reason: "unsupported"
+			});
 			return;
 		}
 		pageLoadTimestamp = Date.now();
@@ -74,16 +88,31 @@
 			registration = await navigator.serviceWorker.register(link("sw.js"));
 		}
 		catch {
-			dispatch("fail", "error");
+			dispatch("fail", {
+				reason: "error"
+			});
 		}
 		if (registration == null) return;
 
 		internalState.registration = registration;
+		let workerThatTriggeredLastEvent = registration.installing || registration.waiting;
+		if (CHECK_FOR_UPDATES_INTERVAL !== false) {
+			setInterval(checkForUpdatesInternal, CHECK_FOR_UPDATES_INTERVAL?? 86400_000);
+		}
+
 		if (checkIfResumableState()) {
 			registration.active?.postMessage({ type: "resume" } satisfies InputMessageData);
 		}
 		registration.active?.postMessage({ type: "getInfo" } satisfies InputMessageData);
 
+
+		(async () => {
+			while (true) {
+				const command = await internalState.commandForComponentPromise;
+
+				if (command.type === "updateCheck") checkForUpdatesInternal();
+			}
+		})();
 		while (true) {
 			await waitForWorkerStateChangeIfNotNull(registration.installing);
 
@@ -94,6 +123,26 @@
 			}
 			await waitForEvent(registration, "updatefound" satisfies keyof ServiceWorkerRegistrationEventMap);
 			internalState.waitingWorkerInfo = null;
+		}
+
+		async function checkForUpdatesInternal() {
+			let succeeded = true;
+			try {
+				await registration!.update();
+			}
+			catch {
+				succeeded = false;
+			}
+
+			const currentWaitingOrInstalled = registration!.installing || registration!.waiting;
+			const isNew = workerThatTriggeredLastEvent !== currentWaitingOrInstalled;
+			workerThatTriggeredLastEvent = currentWaitingOrInstalled;
+
+			dispatch("updatecheck", {
+				succeeded,
+				updateAvailable: currentWaitingOrInstalled != null,
+				isNew
+			});
 		}
 	});
 
@@ -144,6 +193,7 @@
 
 			// If a skip is attempted when the page loads but it fails, the update message should be displayed
 			$displayedUpdatePriority = getUpdatePriority();
+			dispatch("updateready");
 		}
 	}
 
@@ -167,7 +217,7 @@
 				timeoutPromise(RELOAD_TIMEOUT),
 				internalState.skipReloadCountdownPromise
 			]);
-			dispatch("reloadfailed");
+			dispatch("reloadfail");
 			if (! skippedCountdown) {
 				await Promise.race([
 					timeoutPromise(RELOAD_RETRY_TIME),
@@ -201,6 +251,7 @@
 		}
 		else {
 			$displayedUpdatePriority = getUpdatePriority();
+			dispatch("updateready");
 		}
 	}
 

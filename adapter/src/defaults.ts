@@ -27,6 +27,7 @@ export function applyAdapterConfigDefaults(config: AdapterConfig): ResolvedAdapt
 		enableQuickFetch: true,
 		enableSecondUpdatePriorityElevation: true,
 		useHTTPCache: true,
+		checkForUpdatesInterval: 86400_000, // Once every 24h
 		
 		isMajorUpdate: 0,
 		isCriticalUpdate: 0

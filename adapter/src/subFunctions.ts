@@ -652,7 +652,8 @@ export function createRuntimeConstantsModule(
 		AUTO_PASSTHROUGH_CROSS_ORIGIN_REQUESTS: adapterConfig.autoPassthroughCrossOriginRequests,
 		ENABLE_QUICK_FETCH: adapterConfig.enableQuickFetch,
 		ENABLE_SECOND_UPDATE_PRIORITY_ELEVATION: adapterConfig.enableSecondUpdatePriorityElevation,
-		USE_HTTP_CACHE: adapterConfig.useHTTPCache
+		USE_HTTP_CACHE: adapterConfig.useHTTPCache,
+		CHECK_FOR_UPDATES_INTERVAL: adapterConfig.checkForUpdatesInterval
 	});
 }
 export function createPlaceholderRuntimeConstantsModule(): string {
@@ -664,7 +665,8 @@ export function createPlaceholderRuntimeConstantsModule(): string {
 			"AUTO_PASSTHROUGH_CROSS_ORIGIN_REQUESTS",
 			"ENABLE_QUICK_FETCH",
 			"ENABLE_SECOND_UPDATE_PRIORITY_ELEVATION",
-			"USE_HTTP_CACHE"
+			"USE_HTTP_CACHE",
+			"CHECK_FOR_UPDATES_INTERVAL"
 		].map(key => [key, null]))
 	);
 }
