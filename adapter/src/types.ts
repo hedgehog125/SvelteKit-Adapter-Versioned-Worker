@@ -85,6 +85,16 @@ export interface AdapterConfig {
 	 * TODO
 	 */
 	enableQuickFetch?: boolean,
+	/**
+	 * TODO
+	 * 
+	 * @note This option requires the use of the manifest plugin.
+	 */
+	enableSecondUpdatePriorityElevation?: boolean,
+	/**
+	 * TODO
+	 */
+	useHTTPCache?: boolean,
 
 	/**
 	 * TODO

@@ -135,6 +135,15 @@ export function adapter(inputConfig: AdapterConfig): Adapter {
 	return {
 		name: "adapter-versioned-worker",
 		async adapt(builder: Builder) {
+			// If readLast is being used, the read can stop the build directory from being cleared, causing adapterInstance.adapt to throw
+			if (! initTaskDone) {
+				const initRanLate = initTask == null;
+				if (initRanLate) initTask = init(config);
+
+				log.message("Waiting for background tasks..." + (initRanLate? " (they were started late due to the manifest plugin not being used)" : ""));
+				await initTask;
+			}
+
 			const configs = {
 				viteConfig,
 				svelteConfig: builder.config,
@@ -143,17 +152,9 @@ export function adapter(inputConfig: AdapterConfig): Adapter {
 				manifestPluginConfig
 			} satisfies AllConfigs;
 
-			const initRanLate = initTask == null;
-			if (initRanLate) initTask = init(config);
-
 			log.message("Running the static adapter...");
 			await adapterInstance.adapt(builder);
 			log.blankLine();
-
-			if (! initTaskDone) {
-				log.message("Waiting for background tasks..." + (initRanLate? " (they were started late due to the manifest plugin not being used)" : ""));
-				await initTask;
-			}
 			
 			// I know the different write methods return arrays of files, but I don't feel like maintaining a fork of adapter-static just to do that. So listing the files in the directory it is
 
@@ -177,7 +178,7 @@ export function adapter(inputConfig: AdapterConfig): Adapter {
  * You should still use this plugin even if you don't want to use its main feature, as it improves a few things about the adapter. To do this, set the `enable` property in the `inputConfig` to `false`.
  * 
  * @param inputConfig An optional configuration object for this Vite plugin
- * @returns A Vite manifest generator plugin
+ * @returns An array of Vite plugins which generate manifests and improves the adapter
  */
 export function manifestGenerator(inputConfig: ManifestPluginConfig = {}): Plugin[] {
 	manifestPluginConfig = applyManifestPluginConfigDefaults(inputConfig);

@@ -20,6 +20,8 @@ export const REDIRECT_TRAILING_SLASH: boolean;
 export const ENABLE_PASSTHROUGH: boolean;
 export const AUTO_PASSTHROUGH_CROSS_ORIGIN_REQUESTS: boolean;
 export const ENABLE_QUICK_FETCH: boolean;
+// No ENABLE_SECOND_UPDATE_PRIORITY_ELEVATION
+export const USE_HTTP_CACHE: boolean;
 
 /* End of build constants */
 

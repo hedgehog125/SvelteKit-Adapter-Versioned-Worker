@@ -33,7 +33,8 @@ import {
 	REDIRECT_TRAILING_SLASH,
 	ENABLE_PASSTHROUGH,
 	AUTO_PASSTHROUGH_CROSS_ORIGIN_REQUESTS,
-	ENABLE_QUICK_FETCH
+	ENABLE_QUICK_FETCH,
+	USE_HTTP_CACHE
 } from "sveltekit-adapter-versioned-worker/worker";
 
 import {
@@ -56,6 +57,7 @@ import * as hooks from "sveltekit-adapter-versioned-worker/internal/hooks";
 type Nullable<T> = T | null;
 type MaybePromise<T> = Promise<T> | T;
 
+const httpCacheMode: RequestCache = USE_HTTP_CACHE? "no-cache" : "reload";
 const currentStorageName = STORAGE_PREFIX + VERSION;
 const COMPLETE_CACHE_LIST = new Set<string>([
 	...ROUTES,
@@ -79,6 +81,7 @@ const cachePromise = caches.open(currentStorageName);
 let finished = false; // When the message "finish" is received, this worker will only send the blank reload page. Used for updates
 let resumableState: Nullable<ResumableState> = null;
 let resumableStateUsedPromise = new ExposedPromise(); // Awaited in a waituntil so the worker doesn't stop while it has ResumableState
+let lastBlockedReloadCountIncrement = -Infinity;
 
 /* Optional functions */
 // The code referencing them might be unreachable depending on the config, so some of these might not be in the build
@@ -127,11 +130,13 @@ addEventListener("install", e => {
 					const pathsInCache = (await cache.keys()).map(req => new URL(req.url).pathname.slice(BASE_URL.length));
 					const cacheVersion = parseInt(cacheName.slice(STORAGE_PREFIX.length));
 					for (const path of pathsInCache) {
-						const firstUpdatedInVersion = ROUTES.includes(path)?
+						const isRoute = ROUTES.includes(path);
+						const firstUpdatedInVersion = isRoute?
 							undefined
 							: whenResourcesUpdated.get(path)
 						;
-						const changed = firstUpdatedInVersion != null;
+						const changed = ! (isRoute || firstUpdatedInVersion == null);
+						
 						if (PRECACHE.includes(path)) {
 							if (toDownload.has(path) && (! changed)) {
 								toDownload.delete(path);
@@ -174,7 +179,7 @@ addEventListener("install", e => {
 			await Promise.all([
 				...[...toDownload].map(async path => {
 					if (path === "") path = BASE_URL; // Otherwise it'll point to sw.js
-					const res = addVWHeaders(await fetch(path, { cache: "no-cache" }));
+					const res = addVWHeaders(await fetch(path, { cache: httpCacheMode }));
 					if (! isResponseUsable(res)) throw "";
 
 					await cache.put(path, res);
@@ -388,6 +393,15 @@ type AddMessageListener = (type: "message", listener: ((this: typeof globalThis,
 			}
 			else {
 				broadcast(activeClients, { type: "vw-skipFailed" });
+
+				const now = performance.now();
+				const elapsed = now - lastBlockedReloadCountIncrement;
+				lastBlockedReloadCountIncrement = now;
+				if (elapsed > 5000) { // If it's called back to back a bunch of times, only count the first
+					const workerInfo = await getWorkerInfo();
+					workerInfo.blockedInstallCount++;
+					await putWorkerInfo(workerInfo);
+				}
 			}
 		})());
 	}
@@ -500,7 +514,7 @@ async function getWhenEachResourceUpdated(installedVersions: number[]): Promise<
 	let versionFiles = await Promise.all(
 		Array.from(new Array(numberToDownload), async (_, offset): Promise<VersionFile> => {
 			let fileID = offset + rangeToDownload[0];
-			const res = await fetch(`${VERSION_FOLDER}/${fileID}.txt`, { cache: "no-cache" });
+			const res = await fetch(`${VERSION_FOLDER}/${fileID}.txt`, { cache: httpCacheMode });
 			if (! isResponseUsable(res)) throw ""; // Fail the install
 
 			return parseUpdatedList(await res.text());
@@ -570,7 +584,7 @@ function addVWHeaders(response: Response, version?: number, age = 0): Response {
 	});
 }
 /**
- * Removes the `Range` and `VW-Mode` headers, sets the method to `"GET"` and the cache mode to `"no-cache"`.
+ * Removes the `Range` and `VW-Mode` headers, sets the method to `"GET"` and the cache mode to `httpCacheMode`.
  */
 function modifyRequestForCaching(request: Request, enforceGetRequest: boolean = true) {
 	return modifyRequestHeaders(request, {
@@ -578,7 +592,7 @@ function modifyRequestForCaching(request: Request, enforceGetRequest: boolean = 
 		"vw-mode": null
 	}, {
 		method: enforceGetRequest? "GET" : request.method,
-		cache: "no-cache"
+		cache: httpCacheMode
 	});
 }
 
@@ -683,11 +697,7 @@ async function createInfoResource(updatePriority: UpdatePriority = 0): Promise<W
 		updatePriority
 	} satisfies WorkerV1Info;
 
-	const cache = await cachePromise;
-	await cache.put(infoHref, new Response(
-		JSON.stringify(workerInfo),
-		{ headers: { "content-type": "application/json" } }
-	));
+	await putWorkerInfo(workerInfo);
 	return workerInfo;
 }
 
@@ -701,4 +711,12 @@ async function getWorkerInfo(): Promise<WorkerV1Info> {
 	if (! res) return await createInfoResource();
 
 	return await res.json();
+}
+
+async function putWorkerInfo(workerInfo: WorkerV1Info) {
+	const cache = await cachePromise;
+	await cache.put(infoHref, new Response(
+		JSON.stringify(workerInfo),
+		{ headers: { "content-type": "application/json" } }
+	));
 }

@@ -12,7 +12,8 @@ const replacements = {
 	"internal-adapter": "build/index.js",
 	"internal-adapter/worker": "virtual-modules/worker.js",
 	"internal-adapter/worker/util": "build/src/worker/util.js",
-	"internal-adapter/internal/exported-by-svelte-module": "build/src/exportedBySvelteModule.js"
+	"internal-adapter/internal/exported-by-svelte-module": "build/src/exportedBySvelteModule.js",
+	"internal-adapter/runtime-constants": "sveltekit-adapter-versioned-worker/runtime-constants"
 };
 
 async function main() {
@@ -62,7 +63,10 @@ async function main() {
 
 				const normalizedImporterDirPath = path.dirname(path.relative(SVELTE_OUTPUT_DIR, filePath)).replaceAll(path.sep, "/");
 				const importerDepth = normalizedImporterDirPath.split("/").length - 1;
-				const newPath = `../${"../".repeat(importerDepth)}${newRawPath}`;
+				const newPath = newRawPath.startsWith("sveltekit-adapter-versioned-worker")?
+					newRawPath
+					: `../${"../".repeat(importerDepth)}${newRawPath}`
+				;
 				const replacement = JSON.stringify(newPath); // Put it in quotes
 				contents = `${contents.slice(0, node.source.start)}${replacement}${contents.slice(node.source.end)}`;
 				parsed = null; // I know it's inefficient to have to re-parse every time but the efficiency of this script doesn't matter too much

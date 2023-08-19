@@ -14,8 +14,6 @@
         RELOAD_TIMEOUT,
 
         RELOAD_RETRY_TIME
-
-
 	} from "$lib/index_internal.js";
     import {
 		ExposedPromise,
@@ -24,7 +22,13 @@
 		timeoutPromise,
 		waitForEvent
 	} from "$lib/util.js";
-	import { internalState, skipWaiting, skipIfWaiting } from "$lib/internal.js";
+	import {
+		internalState,
+		skipWaiting,
+		skipIfWaiting,
+
+		ENABLE_SECOND_UPDATE_PRIORITY_ELEVATION
+	} from "$lib/internal.js";
     import DefaultUpdatePrompt from "./DefaultUpdatePrompt.svelte";
 
 	import { createEventDispatcher, onMount } from "svelte";
@@ -106,7 +110,7 @@
 			activateEventSent = true;
 		}
 	}
-	function onSWMessage(messageEvent: MessageEvent) {
+	async function onSWMessage(messageEvent: MessageEvent) {
 		const data = messageEvent.data as OutputMessageData;
 		const isFromActiveWorker = (messageEvent.source as ServiceWorker).state === "activated";
 
@@ -130,6 +134,16 @@
 
 			internalState.waitingWorkerInfoPromise.resolve();
 			internalState.waitingWorkerInfoPromise = new ExposedPromise();
+		}
+		else if (data.type === "vw-skipFailed") {
+			const waitingWorker = internalState.registration!.waiting;
+			if (waitingWorker) {
+				waitingWorker.postMessage({ type: "getInfo" } satisfies InputMessageData);
+				await internalState.waitingWorkerInfoPromise;
+			}
+
+			// If a skip is attempted when the page loads but it fails, the update message should be displayed
+			$displayedUpdatePriority = getUpdatePriority();
 		}
 	}
 
@@ -166,8 +180,10 @@
 	beforeNavigate(navigation => {
 		internalState.navigatingTo = null;
 		if (! isReloadOnNavigateAllowed) return;
-		skipIfWaiting(null);
-		internalState.navigatingTo = getNavigationDestURL(navigation);
+		if (! navigation.willUnload) { // Can cause issues with multiple tabs as the client count often has reduced by the time the worker checks
+			skipIfWaiting(null);
+			internalState.navigatingTo = getNavigationDestURL(navigation);
+		}
 
 		dontAllowReloadForNextNavigation();
 	});
@@ -195,7 +211,7 @@
 		if (info.updatePriority === 1) {
 			const daysAgo = Math.floor((Date.now() - info.timeInstalled) / 86400000);
 			if (
-				daysAgo > 2
+				(ENABLE_SECOND_UPDATE_PRIORITY_ELEVATION !== false && daysAgo > 2)
 				|| (daysAgo > 0 && info.blockedInstallCount > 1)
 			) {
 				return 2; // Increase the priority so the user is prompted

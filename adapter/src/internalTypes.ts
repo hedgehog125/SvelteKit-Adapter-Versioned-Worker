@@ -101,7 +101,8 @@ export interface WorkerConstants {
 	REDIRECT_TRAILING_SLASH: boolean,
 	ENABLE_PASSTHROUGH: boolean,
 	AUTO_PASSTHROUGH_CROSS_ORIGIN_REQUESTS: boolean,
-	ENABLE_QUICK_FETCH: boolean
+	ENABLE_QUICK_FETCH: boolean,
+	USE_HTTP_CACHE: boolean
 }
 
 /**

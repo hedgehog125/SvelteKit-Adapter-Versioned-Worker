@@ -25,6 +25,8 @@ export function applyAdapterConfigDefaults(config: AdapterConfig): ResolvedAdapt
 		enablePassthrough: false,
 		autoPassthroughCrossOriginRequests: true,
 		enableQuickFetch: true,
+		enableSecondUpdatePriorityElevation: true,
+		useHTTPCache: true,
 		
 		isMajorUpdate: 0,
 		isCriticalUpdate: 0

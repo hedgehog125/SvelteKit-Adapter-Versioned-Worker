@@ -435,7 +435,8 @@ export function createWorkerConstants(
 		REDIRECT_TRAILING_SLASH: adapterConfig.redirectTrailingSlash,
 		ENABLE_PASSTHROUGH: adapterConfig.enablePassthrough,
 		AUTO_PASSTHROUGH_CROSS_ORIGIN_REQUESTS: adapterConfig.autoPassthroughCrossOriginRequests,
-		ENABLE_QUICK_FETCH: adapterConfig.enableQuickFetch
+		ENABLE_QUICK_FETCH: adapterConfig.enableQuickFetch,
+		USE_HTTP_CACHE: adapterConfig.useHTTPCache
 	};
 }
 export function generateVirtualModules(workerConstants: WorkerConstants): VirtualModuleSources {
@@ -649,7 +650,9 @@ export function createRuntimeConstantsModule(
 		REDIRECT_TRAILING_SLASH: adapterConfig.redirectTrailingSlash,
 		ENABLE_PASSTHROUGH: adapterConfig.enablePassthrough,
 		AUTO_PASSTHROUGH_CROSS_ORIGIN_REQUESTS: adapterConfig.autoPassthroughCrossOriginRequests,
-		ENABLE_QUICK_FETCH: adapterConfig.enableQuickFetch
+		ENABLE_QUICK_FETCH: adapterConfig.enableQuickFetch,
+		ENABLE_SECOND_UPDATE_PRIORITY_ELEVATION: adapterConfig.enableSecondUpdatePriorityElevation,
+		USE_HTTP_CACHE: adapterConfig.useHTTPCache
 	});
 }
 export function createPlaceholderRuntimeConstantsModule(): string {
@@ -659,7 +662,9 @@ export function createPlaceholderRuntimeConstantsModule(): string {
 			"REDIRECT_TRAILING_SLASH",
 			"ENABLE_PASSTHROUGH",
 			"AUTO_PASSTHROUGH_CROSS_ORIGIN_REQUESTS",
-			"ENABLE_QUICK_FETCH"
+			"ENABLE_QUICK_FETCH",
+			"ENABLE_SECOND_UPDATE_PRIORITY_ELEVATION",
+			"USE_HTTP_CACHE"
 		].map(key => [key, null]))
 	);
 }

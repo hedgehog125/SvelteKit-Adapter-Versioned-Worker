@@ -6,7 +6,9 @@
 		REDIRECT_TRAILING_SLASH,
 		ENABLE_PASSTHROUGH,
 		AUTO_PASSTHROUGH_CROSS_ORIGIN_REQUESTS,
-		ENABLE_QUICK_FETCH
+		ENABLE_QUICK_FETCH,
+		ENABLE_SECOND_UPDATE_PRIORITY_ELEVATION,
+		USE_HTTP_CACHE
 	} from "internal-adapter/runtime-constants";
 	import { UPDATE_PRIORITY_NAMES, displayedUpdatePriority } from "$lib/index_internal.js";
     import { link, range } from "$lib/util.js";
@@ -55,6 +57,8 @@
 		Enable passthrough: {ENABLE_PASSTHROUGH} <br>
 		Auto passthrough cross origin requests: {AUTO_PASSTHROUGH_CROSS_ORIGIN_REQUESTS} <br>
 		Enable quick fetch: {ENABLE_QUICK_FETCH} <br>
+		Enable second update priority elevation: {ENABLE_SECOND_UPDATE_PRIORITY_ELEVATION} <br>
+		Use HTTP cache: {USE_HTTP_CACHE} <br>
 	</p>
 
 	<br>

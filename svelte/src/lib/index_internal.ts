@@ -189,6 +189,7 @@ export const RESUMABLE_STATE_TIMEOUT: number = 5000;
  */
 export const REQUEST_RESUMABLE_STATE_TIMEOUT: number = 500;
 
+let lastReloadOpportunity = -Infinity;
 /**
  * Tells Versioned Worker that it's ok to reload the page for an update now.
  * 
@@ -197,9 +198,12 @@ export const REQUEST_RESUMABLE_STATE_TIMEOUT: number = 500;
  * @returns A promise that resolves to `false` if the page won't be reloaded. If a reload is triggered by this function, the promise will resolve to `true`, though the page will likely reload before that.
  * 
  * @note This works independently to `isReloadOnNavigateAllowed`, as when that's `true` it essentially just calls this function automatically.
- * @note If you're calling this within a `beforeNavigate`, make sure you pass `navigation.to?.url.toString()` as the first argument.
+ * @note If you're calling this within a `beforeNavigate`, make sure you pass the `BeforeNavigate` object as the first argument. If you choose to pass a URL instead as part of a navigation, make sure `navigation.willUnload` is `false` before you call this function.
  */
 export async function reloadOpportunity(navigateTo?: string | BeforeNavigate, resumableState?: ResumableState | ResumableStateCallback): Promise<boolean> {
+	if (navigateTo && typeof navigateTo !== "string") {
+		if (navigateTo.willUnload) return false;
+	}
 	if (internalState.reloading) {
 		internalState.skipReloadCountdownPromise.resolve(true);
 		internalState.skipReloadCountdownPromise = new ExposedPromise();
@@ -387,11 +391,11 @@ export const UPDATE_PRIORITY_NAMES = [
 /**
  * TODO
  */
-export const RELOAD_TIMEOUT = 7500;
+export const RELOAD_TIMEOUT: number = 7500;
 /**
  * TODO
  */
-export const RELOAD_RETRY_TIME = 10000;
+export const RELOAD_RETRY_TIME: number = 10000;
 
 /**
  * TODO: this should only really be modified for the purpose of debugging

@@ -31,7 +31,7 @@ const config = {
 		},
 
 		adapter: adapter({
-			isMajorUpdate: true, // TODO
+			isMajorUpdate: 0,
 			isCriticalUpdate: 0,
 
 			lastInfo: standardGetLast("https://hedgehog125.github.io/SvelteKit-Plugin-Versioned-Worker/versionedWorker.json", disableBaseURL),
@@ -50,7 +50,8 @@ const config = {
 
 				return "pre-cache";
 			},
-			outputWorkerSourceMap: disableBaseURL? "inline" : false
+			outputWorkerSourceMap: disableBaseURL? "inline" : false,
+			useHTTPCache: disableBaseURL? false : true // http-server seems to send incorrect cache headers
 		})
 	}
 };

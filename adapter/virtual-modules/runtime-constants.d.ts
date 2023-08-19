@@ -41,3 +41,11 @@ export const AUTO_PASSTHROUGH_CROSS_ORIGIN_REQUESTS: boolean | null;
  * @see `quickFetch` in the module `"sveltekit-adapter-versioned-worker/svelte"`.
  */
 export const ENABLE_QUICK_FETCH: boolean | null;
+/**
+ * TODO
+ */
+export const ENABLE_SECOND_UPDATE_PRIORITY_ELEVATION: boolean | null;
+/**
+ * TODO
+ */
+export const USE_HTTP_CACHE: boolean | null;

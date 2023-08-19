@@ -1,9 +1,11 @@
-import { ExposedPromise } from "$util";
 import type {
 	InputMessageData,
 	ResumableState,
 	WorkerInfo
 } from "internal-adapter/worker";
+
+import { ExposedPromise } from "$util";
+export { ENABLE_SECOND_UPDATE_PRIORITY_ELEVATION } from "internal-adapter/runtime-constants";
 
 type Nullable<T> = T | null;
 
@@ -49,7 +51,10 @@ export function skipIfWaiting(resumableState: Nullable<ResumableState> | true): 
 	}
 	return false;
 }
-export function skipWaiting(waitingWorker: ServiceWorker, resumableState: Nullable<ResumableState> | true) {
+export function skipWaiting(
+	waitingWorker: ServiceWorker,
+	resumableState: Nullable<ResumableState> | true
+) {
 	waitingWorker.postMessage({
 		type: "conditionalSkipWaiting",
 		resumableState

@@ -4,6 +4,8 @@
 	"main": "index.js",
 	"scripts": {
 		"package": "node index.js",
+		"packageAndInstallDeps": "npm run package && npm run install",
+		"install": "cd dist && npm i --omit peer",
 		"fixImports": "node fixImports.js",
 		"test": "echo \"Error: no test specified\" && exit 1"
 	},
