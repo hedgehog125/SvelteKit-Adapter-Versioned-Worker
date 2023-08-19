@@ -2,30 +2,24 @@ import type {
 	ResolvedAdapterConfig,
 	ResolvedManifestPluginConfig,
 	MinimalViteConfig,
-	
+	ManifestProcessorConfigs,
 	LastInfoProviderConfigs,
-
-	FileSortMode,
+	AllConfigs,
 
 	Nullable,
-	AllConfigs,
-	ViteConfig,
-	AdapterConfig,
-	ManifestProcessorConfigs
+	FileSortMode,
+	CategorizedBuildFiles,
+	ProcessedBuild
 } from "./types.js";
 import type { WebAppManifest } from "./manifestTypes.js";
 import type {
-	UnprocessedV2InfoFile,
 	UnprocessedInfoFile,
 	UnprocessedV3InfoFile,
-	InfoFileV2,
 	InfoFileV3VersionBatch,
 	InfoFileV2VersionBatch,
 
 	InputFilesContents,
 	InputFiles,
-
-	CategorizedBuildFiles,
 
 	VirtualModuleSources,
 	WorkerConstants,
@@ -639,6 +633,9 @@ export async function writeInfoFile(infoFile: InfoFileV3, { minimalViteConfig, a
 		return value;
 	});
 	await fs.writeFile(infoFilePath, contents, { encoding: "utf-8" });
+}
+export async function callFinishHook(processedBuild: ProcessedBuild, configs: AllConfigs) {
+	await configs.adapterConfig.onFinish?.(processedBuild, configs);
 }
 
 

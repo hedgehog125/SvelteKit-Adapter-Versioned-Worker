@@ -33,7 +33,7 @@ const config = {
 		adapter: adapter({
 			isMajorUpdate: 0,
 			isCriticalUpdate: 0,
-
+			
 			lastInfo: standardGetLast("https://hedgehog125.github.io/SvelteKit-Plugin-Versioned-Worker/versionedWorker.json", disableBaseURL),
 			sortFile: valuesFromViteConfig.sortFile,
 			outputWorkerSourceMap: disableBaseURL? "inline" : false,

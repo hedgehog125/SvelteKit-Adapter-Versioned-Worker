@@ -64,24 +64,6 @@ export interface InputFiles {
 	manifestSource: Nullable<string>
 }
 
-export interface CategorizedBuildFiles {
-	precache: string[],
-	laxLazy: string[],
-	staleLazy: string[],
-	strictLazy: string[],
-	semiLazy: string[],
-
-	completeList: string[]
-	// never-cache just isn't included
-}
-export type ProcessedBuild = [
-	categorizedBuildFiles: CategorizedBuildFiles,
-	routeFiles: Set<string>,
-	staticFileHashes: Map<string, string>,
-	fileSizes: Map<string, number>,
-	updatePriority: UpdatePriority
-];
-
 export interface WorkerConstants {
 	ROUTES: string[],
 	

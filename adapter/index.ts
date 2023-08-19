@@ -13,18 +13,20 @@ import type {
 	VWBuildFile,
 	ManifestProcessor,
 	LastInfoProviderConfigs,
+	ManifestProcessorConfigs,
+
+	ProcessedBuild,
+	CategorizedBuildFiles,
 
 	AllConfigs,
 	ViteConfig,
 
 	Nullable,
-	ManifestProcessorConfigs
+	BuildFinishHook
 } from "./src/types.js";
 import type { WebAppManifest } from "web-app-manifest";
 import type {
 	InputFiles,
-	CategorizedBuildFiles,
-	ProcessedBuild,
 	InfoFileV3
 } from "./src/internalTypes.js";
 import type { Plugin } from "vite"; 
@@ -66,7 +68,8 @@ import {
 	getFileSizes,
 	listStaticFolderFiles,
 	createPlaceholderRuntimeConstantsModule,
-	getUpdatePriority
+	getUpdatePriority,
+	callFinishHook
 } from "./src/subFunctions.js";
 import {
 	applyAdapterConfigDefaults,
@@ -161,14 +164,13 @@ export function adapter(inputConfig: AdapterConfig): Adapter {
 			// I know the different write methods return arrays of files, but I don't feel like maintaining a fork of adapter-static just to do that. So listing the files in the directory it is
 
 			log.message("Processing build...");
-			const [categorizedFiles, routeFiles, staticFileHashes, fileSizes, updatePriority] = await processBuild(configs, builder);
+			const processedBuild = await processBuild(configs, builder);
 			log.message("Building worker...");
-			await buildWorker(categorizedFiles, builder, configs);
+			await buildWorker(processedBuild.categorizedFiles, builder, configs);
 			log.message("Creating new version...");
-			await createNewVersion(staticFileHashes, updatePriority, configs);
+			await createNewVersion(processedBuild.staticFileHashes, processedBuild.updatePriority, configs);
 			log.message("Finishing up...");
-			await finishUp(configs);
-			// TODO: build finish hook
+			await finishUp(processedBuild, configs);
 		}
 	};
 }
@@ -315,7 +317,13 @@ async function processBuild(configs: AllConfigs, builder: Builder): Promise<Proc
 	const staticFileHashes = await hashFiles(categorizedFiles.completeList, routeFiles, viteBundle, configs);
 	const updatePriority = getUpdatePriority(lastInfo, configs);
 
-	return [categorizedFiles, routeFiles, staticFileHashes, fileSizes, updatePriority];
+	return {
+		categorizedFiles,
+		routeFiles,
+		staticFileHashes,
+		fileSizes,
+		updatePriority
+	};
 }
 async function buildWorker(categorizedFiles: CategorizedBuildFiles, builder: Builder, configs: AllConfigs) {
 	const entryFilePath = await writeWorkerEntry(inputFiles, configs);
@@ -336,8 +344,9 @@ async function createNewVersion(staticFileHashes: Map<string, string>, updatePri
 	addNewVersionToInfoFile(lastInfo, staticFileHashes, updatePriority, configs);
 	await writeVersionFiles(lastInfo, configs);
 }
-async function finishUp(configs: AllConfigs) {
+async function finishUp(processedBuild: ProcessedBuild, configs: AllConfigs) {
 	await writeInfoFile(lastInfo, configs);
+	await callFinishHook(processedBuild, configs);
 }
 
 /* Manifest Generation */
@@ -494,8 +503,33 @@ export function standardGetLast(url: string, isDev: boolean, filePath?: string):
 	;
 }
 
+/**
+ * TODO
+ */
 export const valuesFromViteConfig: ValuesFromViteConfig = {};
+/**
+ * TODO
+ * 
+ * @param key 
+ * @param value 
+ * @param isCustom 
+ */
 export function shareValueWithSvelteConfig(key: "sortFile", value: FileSorter | FileSorter[], isCustom?: false): void;
+/**
+ * TODO
+ * 
+ * @param key 
+ * @param value 
+ * @param isCustom 
+ */
+export function shareValueWithSvelteConfig(key: "onFinish", value: BuildFinishHook, isCustom?: false): void;
+/**
+ * TODO
+ * 
+ * @param key 
+ * @param value 
+ * @param isCustom 
+ */
 export function shareValueWithSvelteConfig(key: string, value: unknown, isCustom: true): void;
 /**
  * TODO

@@ -1,5 +1,3 @@
-import type { FileSorter } from "internal-adapter";
-
 import { sveltekit } from "@sveltejs/kit/vite";
 import { manifestGenerator, shareValueWithSvelteConfig } from "internal-adapter";
 import virtualPlugin from "@rollup/plugin-virtual";

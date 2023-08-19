@@ -1,6 +1,7 @@
 import type { Builder } from "@sveltejs/kit";
 import type { ResolvedConfig } from "vite";
 import type { OutputAsset, OutputBundle, OutputChunk, OutputOptions } from "rollup";
+import type { UpdatePriority } from "./worker/staticVirtual.js";
 
 // To make things a bit less confusing
 export type SvelteConfig = Builder["config"];
@@ -32,6 +33,10 @@ export interface AdapterConfig {
 	/**
 	 * TODO
 	 */
+	onFinish?: Nullable<BuildFinishHook>,
+	/**
+	 * TODO
+	 */
 	outputDir?: string,
 	/**
 	 * TODO
@@ -40,7 +45,7 @@ export interface AdapterConfig {
 	/**
 	 * TODO
 	 * 
-	 * @note setting this to `"inline"` will set `useWorkerScriptImport` to `false` if unspecified.
+	 * @note setting this to `"inline"` will set `useWorkerScriptImport` to `false` if it's unspecified.
 	 */
 	outputWorkerSourceMap?: OutputOptions["sourcemap"],
 	/**
@@ -150,6 +155,7 @@ export type ResolvedManifestPluginConfig = Required<ManifestPluginConfig>;
 
 export interface ValuesFromViteConfig {
 	sortFile?: FileSorter | FileSorter[],
+	onFinish?: BuildFinishHook,
 	[otherItemKey: string]: unknown
 }
 
@@ -172,6 +178,7 @@ export interface LastInfoProviderConfigs {
 	adapterConfig: ResolvedAdapterConfig,
 	manifestPluginConfig: Nullable<ResolvedManifestPluginConfig>
 }
+
 export type FileSorter = (fileInfo: VWBuildFile, overallInfo: BuildInfo, configs: AllConfigs) => FileSortMode | Promise<FileSortMode>;
 export interface VWBuildFile {
 	/**
@@ -260,6 +267,35 @@ export interface BuildInfo {
 	 */
 	fileSizes: Map<string, number>
 }
+
+/**
+ * TODO
+ */
+export type BuildFinishHook = (processedBuild: ProcessedBuild, configs: AllConfigs) => void | Promise<void>;
+/**
+ * TODO
+ */
+export interface ProcessedBuild {
+	categorizedFiles: CategorizedBuildFiles,
+	routeFiles: Set<string>,
+	staticFileHashes: Map<string, string>,
+	fileSizes: Map<string, number>,
+	updatePriority: UpdatePriority
+}
+/**
+ * TODO
+ */
+export interface CategorizedBuildFiles {
+	precache: string[],
+	laxLazy: string[],
+	staleLazy: string[],
+	strictLazy: string[],
+	semiLazy: string[],
+
+	completeList: string[]
+	// never-cache just isn't included
+}
+
 
 export type ManifestProcessor = (parsed: object, configs: ManifestProcessorConfigs) => Promise<string | object> | string | object;
 export interface ManifestProcessorConfigs {

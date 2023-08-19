@@ -12,6 +12,7 @@ export function applyAdapterConfigDefaults(config: AdapterConfig): ResolvedAdapt
 		lastInfo: requiredProperty(),
 
 		sortFile: null,
+		onFinish: null,
 		hooksFile: "hooks.worker.ts",
 		outputDir: "build",
 		outputVersionDir: "sw",
