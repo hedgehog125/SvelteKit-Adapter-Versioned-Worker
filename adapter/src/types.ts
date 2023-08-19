@@ -148,6 +148,11 @@ export interface ManifestPluginConfig {
 export type ResolvedAdapterConfig = Required<AdapterConfig>;
 export type ResolvedManifestPluginConfig = Required<ManifestPluginConfig>;
 
+export interface ValuesFromViteConfig {
+	sortFile?: FileSorter | FileSorter[],
+	[otherItemKey: string]: unknown
+}
+
 export interface VersionedWorkerLogger {
 	message(msg: string): void,
 	success(msg: string): void,

@@ -1,12 +1,34 @@
+import type { FileSorter } from "internal-adapter";
+
 import { sveltekit } from "@sveltejs/kit/vite";
-import { manifestGenerator } from "internal-adapter";
+import { manifestGenerator, shareValueWithSvelteConfig } from "internal-adapter";
 import virtualPlugin from "@rollup/plugin-virtual";
 
 import { defineConfig } from "vite";
 
+shareValueWithSvelteConfig("sortFile", ({ href, size, viteInfo, isStatic }) => {
+	if (href === "ping.txt") return "never-cache";
+	if (isStatic) {
+		if (size > 100_000) return "lax-lazy";
+	}
+	if (viteInfo) {
+		if (viteInfo.type === "chunk") {
+			if (viteInfo.isDynamicEntry && (! viteInfo.isEntry) && size > 5000) {
+				return "strict-lazy";
+			}
+		}
+	}
+
+	return "pre-cache";
+});
+
 export default defineConfig({
 	plugins: [
+		// TODO: fix the dependency issue with the development setup
+
+		// @ts-ignore
 		sveltekit(),
+		// @ts-ignore
 		manifestGenerator(),
 		virtualPlugin({
 			"virtual-is-even": (() => {

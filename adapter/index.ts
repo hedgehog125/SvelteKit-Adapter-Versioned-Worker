@@ -5,6 +5,7 @@ import type {
 	ManifestPluginConfig,
 	ResolvedManifestPluginConfig,
 	MinimalViteConfig,
+	ValuesFromViteConfig,
 	
 	VersionedWorkerLogger,
 	LastInfoProvider,
@@ -87,6 +88,7 @@ export {
 	ManifestPluginConfig,
 	ResolvedManifestPluginConfig,
 	MinimalViteConfig,
+	ValuesFromViteConfig,
 	
 	VersionedWorkerLogger,
 	LastInfoProvider,
@@ -260,7 +262,6 @@ export function manifestGenerator(inputConfig: ManifestPluginConfig = {}): Plugi
 		manifestPlugin
 	];
 }
-
 
 /* Adapter */
 
@@ -491,4 +492,14 @@ export function standardGetLast(url: string, isDev: boolean, filePath?: string):
 		readLast(filePath)
 		: fetchLast(url)
 	;
+}
+
+export const valuesFromViteConfig: ValuesFromViteConfig = {};
+export function shareValueWithSvelteConfig(key: "sortFile", value: FileSorter | FileSorter[], isCustom?: false): void;
+export function shareValueWithSvelteConfig(key: string, value: unknown, isCustom: true): void;
+/**
+ * TODO
+ */
+export function shareValueWithSvelteConfig(key: string, value: unknown) {
+	valuesFromViteConfig[key] = value;
 }

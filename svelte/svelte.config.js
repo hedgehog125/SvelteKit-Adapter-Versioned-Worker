@@ -1,6 +1,6 @@
 const URL_PREFIX = "SvelteKit-Adapter-Versioned-Worker"; // <-- Set this to the repository name if you're hosting on GitHub Pages (unless it's your homepage site), as all the URLs will need to be prefixed with it. If you don't want a prefix, set it to an empty string
 
-import { adapter, standardGetLast } from "internal-adapter";
+import { adapter, standardGetLast, valuesFromViteConfig } from "internal-adapter";
 import { vitePreprocess } from "@sveltejs/kit/vite";
  
 const isDev = process.env.NODE_ENV !== "production";
@@ -35,21 +35,7 @@ const config = {
 			isCriticalUpdate: 0,
 
 			lastInfo: standardGetLast("https://hedgehog125.github.io/SvelteKit-Plugin-Versioned-Worker/versionedWorker.json", disableBaseURL),
-			sortFile({ href, size, viteInfo, isStatic }) {
-				if (href === "ping.txt") return "never-cache";
-				if (isStatic) {
-					if (size > 100_000) return "lax-lazy";
-				}
-				if (viteInfo) {
-					if (viteInfo.type === "chunk") {
-						if (viteInfo.isDynamicEntry && (! viteInfo.isEntry) && size > 5000) {
-							return "strict-lazy";
-						}
-					}
-				}
-
-				return "pre-cache";
-			},
+			sortFile: valuesFromViteConfig.sortFile,
 			outputWorkerSourceMap: disableBaseURL? "inline" : false,
 			useHTTPCache: disableBaseURL? false : true // http-server seems to send incorrect cache headers
 		})
