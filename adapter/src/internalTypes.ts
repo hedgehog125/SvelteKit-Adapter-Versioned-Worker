@@ -1,4 +1,5 @@
-import { Nullable } from "./types.js";
+import { RollupError } from "rollup";
+import type { Nullable } from "./types.js";
 import type { UpdatePriority } from "./worker/staticVirtual.js";
 
 export interface UnknownInfoFile {
@@ -91,3 +92,13 @@ export interface WorkerConstants {
  * First item is the constants.
  */
 export type VirtualModuleSources = [string];
+
+/**
+ * So the key properties of both Rollup errors and warnings can be passed around more easily.
+ */
+export interface WrappedRollupError {
+	loc: RollupError["loc"],
+	frame: RollupError["frame"],
+	message: string,
+	stack: RollupError["stack"]
+}

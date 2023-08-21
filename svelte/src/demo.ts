@@ -17,7 +17,7 @@ export async function openSettingsDB(): Promise<IDBPDatabase<SettingsDB>> {
 	});
 }
 
-export const counter = writable(0);
+export const counter = writable(0); // TODO: this might cause issues with the worker
 export interface V1ResumableState {
 	counter: number
 }

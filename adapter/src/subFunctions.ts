@@ -24,11 +24,12 @@ import type {
 
 	VirtualModuleSources,
 	WorkerConstants,
-	InfoFileV3
+	InfoFileV3,
+	WrappedRollupError
 } from "./internalTypes.js";
 import type { UpdatePriority } from "./worker/staticVirtual.js";
 
-import type { LoggingFunction, OutputBundle, RollupBuild, RollupError, RollupLog } from "rollup";
+import type { LoggingFunction, OutputBundle, RollupBuild, RollupError, RollupLog, RollupWarning } from "rollup";
 import type { Builder } from "@sveltejs/kit";
 
 
@@ -62,7 +63,7 @@ import { rollup } from "rollup";
 import nodeResolve from "@rollup/plugin-node-resolve";
 import esbuild from "rollup-plugin-esbuild";
 import pluginAlias from "@rollup/plugin-alias";
-import pluginTypescript from "rollup-plugin-ts";
+import pluginTypescript from "@rollup/plugin-typescript";
 import pluginVirtualPromises from "./pluginVirtualPromises.js";
 import ts from "typescript";
 
@@ -382,6 +383,9 @@ export async function createWorkerFolder({ minimalViteConfig, adapterConfig }: A
 	await makeDir(versionPath);
 }
 
+/**
+ * @note The returned path is absolute.
+ */
 export async function writeWorkerEntry(inputFiles: InputFiles, configs: AllConfigs): Promise<string> {
 	const { minimalViteConfig, adapterConfig } = configs;
 
@@ -441,13 +445,22 @@ export function generateVirtualModules(workerConstants: WorkerConstants): Virtua
 		`${createConstantsModule(workerConstants)}\nexport * from ${JSON.stringify(staticVirtualModulePath)};`
 	];
 }
-export async function configureTypescript(inputFiles: InputFiles, configs: AllConfigs): Promise<TypescriptConfig> {
+export async function configureTypescript(entryFilePath: string, inputFiles: InputFiles, configs: AllConfigs): Promise<TypescriptConfig> {
 	let tsConfig: TypescriptConfig = {
 		include: [
-			path.join(adapterFilesPath, "static/src/worker/modules/virtualModules.d.ts")
+			path.join(configs.minimalViteConfig.root, "src", "hooks.worker.ts"), // TODO
+			entryFilePath
 		],
+		paths: Object.fromEntries([
+			["sveltekit-adapter-versioned-worker/worker", "../virtual-modules/worker"],
+			["sveltekit-adapter-versioned-worker/internal/worker-util-alias", "../build/src/worker/util"],
+			["sveltekit-adapter-versioned-worker/internal/worker-shared", "../build/src/worker/shared"],
+			["sveltekit-adapter-versioned-worker/internal/exported-by-svelte-module", "../build/src/exportedBySvelteModule"]
+		].map(([moduleName, relativePath]) => [
+			moduleName,
+			[path.join(path.join(adapterFilesPath, "static", relativePath))]
+		])),
 		allowJs: ! inputFiles.hooksIsTS,
-		noEmitOnError: true,
 		rootDir: path.join(configs.minimalViteConfig.root, "src"),
 		target: ts.ScriptTarget.ES2020,
 		forceConsistentCasingInFileNames: true,
@@ -468,7 +481,7 @@ export async function configureTypescript(inputFiles: InputFiles, configs: AllCo
 export async function rollupBuild(
 	entryFilePath: string, typescriptConfig: TypescriptConfig,
 	virtualModulesSources: VirtualModuleSources, inputFiles: InputFiles, configs: AllConfigs
-): Promise<Nullable<RollupError>> {
+): Promise<WrappedRollupError[]> {
 	const { adapterConfig, minimalViteConfig } = configs;
 
 	let virtualModules: Record<string, string> = {
@@ -506,12 +519,15 @@ export async function rollupBuild(
 		...(adapterConfig.useWorkerScriptImport? [adapterConfig.outputVersionDir] : []), adapterConfig.outputWorkerFileName
 	);
 	let bundle: RollupBuild;
+	let errors: WrappedRollupError[] = [];
 	try {
 		bundle = await rollup({
 			input: entryFilePath,
 			plugins: [
 				pluginTypescript({
-					tsconfig: typescriptConfig
+					...typescriptConfig,
+					tsconfig: false,
+					noEmitOnError: false // Setting this to true creates issues, so instead the warnings are collected and displayed as errors
 				}),
 				pluginVirtualPromises(virtualModules),
 				pluginAlias({
@@ -528,7 +544,7 @@ export async function rollupBuild(
 				// })
 			],
 	
-			onwarn(warning: RollupLog, warn: LoggingFunction) {
+			onwarn(warning, warn) {
 				if (warning.code === "MISSING_EXPORT") {
 					const isHooksModule = (
 						warning.exporter === "virtual:sveltekit-adapter-versioned-worker/internal/hooks"
@@ -537,13 +553,29 @@ export async function rollupBuild(
 	
 					if (isHooksModule) return; // There's a null check so missing exports are fine
 				}
+				if (warning.plugin === "typescript") {
+					const { loc, frame, message, stack } = warning;
+					errors.push({
+						loc,
+						frame,
+						message,
+						stack
+					});
+					return;
+				}
 	
 				warn(warning);
 			}
 		});
 	}
 	catch (error: unknown) {
-		return error as RollupError; // TODO: is this correct?
+		const { loc, frame, message, stack } = error as RollupError;
+		return [{
+			loc,
+			frame,
+			message,
+			stack
+		}];
 	}
 	
 	await bundle.write({
@@ -553,7 +585,7 @@ export async function rollupBuild(
 	});
 	await bundle.close();
 
-	return null;
+	return errors;
 }
 /**
  * Writes a small file to the build that just runs the main script. Doing so reduces network usage.
@@ -649,15 +681,19 @@ export async function writeInfoFile(infoFile: InfoFileV3, { minimalViteConfig, a
 export async function callFinishHook(workerBuildSucceeded: boolean, processedBuild: ProcessedBuild, configs: AllConfigs) {
 	await configs.adapterConfig.onFinish?.(workerBuildSucceeded, processedBuild, configs);
 }
-export function logInfoAndErrors(workerBuildError: Nullable<RollupError>, { minimalViteConfig }: AllConfigs) {
-	if (workerBuildError) {
+export function logInfoAndErrors(workerBuildErrors: WrappedRollupError[], { minimalViteConfig }: AllConfigs) {
+	if (workerBuildErrors.length !== 0) {
 		log.blankLine();
 		log.blankLine();
-		const { loc, frame, message } = workerBuildError;
-		const errorPositionInFile = loc? `On line ${loc.line}, column ${loc.column}` : "In an unknown position";
-		const errorPosition = `${errorPositionInFile} in ${loc?.file? `the file "${normalizePath(path.relative(minimalViteConfig.root, loc.file))}"` : "an unknown file"}.`;
-
-		log.error(`Service worker failed to build. Reason:\n${message}\n${errorPosition}\n\n${frame?? ""}`);
+		log.error(`Service worker failed to build. Reason${workerBuildErrors.length === 1? "" : "s"}:`);
+		for (const workerBuildError of workerBuildErrors) {
+			const { loc, frame, message, stack } = workerBuildError;
+			const errorPositionInFile = loc? `On line ${loc.line}, column ${loc.column}` : "In an unknown position";
+			const callStack = stack? `\nCall stack:\n${stack}\n` : "";
+			const errorPosition = `${errorPositionInFile} in ${loc?.file? `the file "${normalizePath(path.relative(minimalViteConfig.root, loc.file))}"` : "an unknown file"}.`;
+	
+			log.error(`\n${message}\n${errorPosition}\n\n${frame?? ""}${callStack}`, false);
+		}
 	}
 }
 

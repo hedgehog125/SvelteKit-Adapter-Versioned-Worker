@@ -16,7 +16,6 @@ Strict lazy should error if it fetches a resource from a later version
 JavaScript support
 How does this plugin work when deploying to Vercel? Since that changes how the static adapter works
 Configuring the static adapter
-Configuring TypeScript for the hooks file, along with other build plugins
 Add message handle (postMessage). Called "handleCustomMessage"
 Add an easy way to modify headers before the response is sent. New hook? Maybe only for requests using the default mechanism (not handled)?
 Allow FileSorters to return null and create a utility function that runs through an array of them until one returns something other than null

@@ -23,9 +23,9 @@ export function createLogger(verbose: boolean): VersionedWorkerLogger { // Credi
 				indentAndPrefix(`✔ ${msg}`)
 			));
 		},
-		error(msg: string) {
+		error(msg: string, includePrefix = true) {
 			console.error(colors.bold().red(
-				indentAndPrefix(msg)
+				indentAndPrefix(msg, includePrefix)
 			));
 		},
 		warn(msg: string) {
@@ -48,8 +48,8 @@ export function createLogger(verbose: boolean): VersionedWorkerLogger { // Credi
 		verbose
 	};
 
-	function indentAndPrefix(msg: string): string {
-		return `${colors.bold().cyan("Versioned-Worker")}: ${msg}`.replace(/^/gm, "  "); // Indents each line
+	function indentAndPrefix(msg: string, prefix = true): string {
+		return `${prefix? `${colors.bold().cyan("Versioned-Worker")}: `: ""}${msg}`.replace(/^/gm, "  "); // Indents each line
 	}
 }
 

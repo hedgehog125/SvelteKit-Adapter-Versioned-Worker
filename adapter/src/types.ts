@@ -2,7 +2,7 @@ import type { Builder } from "@sveltejs/kit";
 import type { ResolvedConfig } from "vite";
 import type { OutputAsset, OutputBundle, OutputChunk, OutputOptions } from "rollup";
 import type { UpdatePriority } from "./worker/staticVirtual.js";
-import type { CompilerOptions } from "typescript";
+import type { RollupTypescriptOptions } from "@rollup/plugin-typescript";
 
 export type Nullable<T> = T | null;
 export type MaybePromise<T> = T | Promise<T>;
@@ -10,7 +10,7 @@ export type MaybePromise<T> = T | Promise<T>;
 // To make things a bit less confusing
 export type SvelteConfig = Builder["config"];
 export type ViteConfig = ResolvedConfig;
-export type TypescriptConfig = CompilerOptions;
+export type TypescriptConfig = RollupTypescriptOptions;
 
 export interface AdapterConfig {
 	/* Required */
@@ -170,7 +170,7 @@ export interface ValuesFromViteConfig {
 export interface VersionedWorkerLogger {
 	message(msg: string): void,
 	success(msg: string): void,
-	error(msg: string): void,
+	error(msg: string, includePrefix?: boolean): void,
 	warn(msg: string): void,
 
 	minor(msg: string): void,

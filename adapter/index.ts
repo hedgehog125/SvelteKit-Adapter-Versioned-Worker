@@ -31,10 +31,11 @@ import type {
 import { WebAppManifest } from "./src/manifestTypes.js";
 import type {
 	InputFiles,
-	InfoFileV3
+	InfoFileV3,
+	WrappedRollupError
 } from "./src/internalTypes.js";
 import type { Plugin } from "vite"; 
-import type { OutputOptions, OutputBundle, RollupError } from "rollup";
+import type { OutputOptions, OutputBundle } from "rollup";
 
 import { INFO_FILENAME } from "./src/constants.js";
 import { log } from "./src/globals.js";
@@ -181,15 +182,15 @@ export function adapter(inputConfig: AdapterConfig): Adapter {
 			log.message("Processing build...");
 			const processedBuild = await processBuild(configs, builder);
 			log.message("Building worker...");
-			const buildError = await buildWorker(processedBuild.categorizedFiles, builder, configs);
-			if (buildError) {
+			const buildErrors = await buildWorker(processedBuild.categorizedFiles, builder, configs);
+			if (buildErrors.length !== 0) {
 				log.error("Build failed, details will be logged after the other steps finish.");
 			}
 
 			log.message("Creating new version...");
 			await createNewVersion(processedBuild.staticFileHashes, processedBuild.updatePriority, configs);
 			log.message("Finishing up...");
-			await finishUp(buildError, processedBuild, configs);
+			await finishUp(buildErrors, processedBuild, configs);
 		}
 	};
 }
@@ -344,29 +345,29 @@ async function processBuild(configs: AllConfigs, builder: Builder): Promise<Proc
 		updatePriority
 	};
 }
-async function buildWorker(categorizedFiles: CategorizedBuildFiles, builder: Builder, configs: AllConfigs): Promise<Nullable<RollupError>> {
+async function buildWorker(categorizedFiles: CategorizedBuildFiles, builder: Builder, configs: AllConfigs): Promise<WrappedRollupError[]> {
 	const entryFilePath = await writeWorkerEntry(inputFiles, configs);
 
 	const workerConstants = createWorkerConstants(categorizedFiles, builder, lastInfo, configs);
 	const virtualModules = generateVirtualModules(workerConstants);
-	const typescriptConfig = await configureTypescript(inputFiles, configs);
+	const typescriptConfig = await configureTypescript(entryFilePath, inputFiles, configs);
 
 	await createWorkerFolder(configs);
-	const error = await rollupBuild(entryFilePath, typescriptConfig, virtualModules, inputFiles, configs);
+	const errors = await rollupBuild(entryFilePath, typescriptConfig, virtualModules, inputFiles, configs);
 	await fs.rm(entryFilePath);
-	if (error) return error;
+	if (errors.length !== 0) return errors;
 
 	await writeWorkerImporter(lastInfo.version + 1, configs);
-	return null;
+	return [];
 }
 async function createNewVersion(staticFileHashes: Map<string, string>, updatePriority: UpdatePriority, configs: AllConfigs) {
 	addNewVersionToInfoFile(lastInfo, staticFileHashes, updatePriority, configs);
 	await writeVersionFiles(lastInfo, configs);
 }
-async function finishUp(workerBuildError: Nullable<RollupError>, processedBuild: ProcessedBuild, configs: AllConfigs) {
+async function finishUp(workerBuildErrors: WrappedRollupError[], processedBuild: ProcessedBuild, configs: AllConfigs) {
 	await writeInfoFile(lastInfo, configs);
-	await callFinishHook(workerBuildError == null, processedBuild, configs);
-	logInfoAndErrors(workerBuildError, configs);
+	await callFinishHook(workerBuildErrors == null, processedBuild, configs);
+	logInfoAndErrors(workerBuildErrors, configs);
 }
 
 /* Manifest Generation */

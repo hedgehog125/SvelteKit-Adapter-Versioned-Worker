@@ -2,6 +2,9 @@ import type {
 	InstallEvent,
 	ActivateEvent,
 	FetchEvent,
+	Clients,
+	Registration,
+	SkipWaiting,
 
 	VersionFile,
 	VWRequestMode,
@@ -14,6 +17,9 @@ import type {
 	WorkerV1Info,
 	UpdatePriority
 } from "sveltekit-adapter-versioned-worker/worker";
+declare var clients: Clients;
+declare var registration: Registration;
+declare var skipWaiting: SkipWaiting;
 
 import {
 	ROUTES,
