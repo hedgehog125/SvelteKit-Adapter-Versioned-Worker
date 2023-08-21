@@ -1,13 +1,14 @@
 // Credit: Heavilly based off of rollup-plugin-virtual: https://github.com/rollup/plugins/blob/master/packages/virtual/src/index.ts
 
-import * as path from "path";
-
 import type { Plugin } from "rollup";
+import type { MaybePromise } from "./types.js";
+
+import * as path from "path";
 
 const PREFIX = "\0virtual:";
 
 export default function virtual(modules: RollupVirtualOptions): Plugin {
-	const resolvedIds = new Map<string, string | Promise<string>>();
+	const resolvedIds = new Map<string, MaybePromise<string>>();
 
 	Object.keys(modules).forEach(id => {
 		resolvedIds.set(path.resolve(id), modules[id]);
@@ -43,5 +44,5 @@ export default function virtual(modules: RollupVirtualOptions): Plugin {
 }
 
 export interface RollupVirtualOptions {
-	[id: string]: string | Promise<string>;
+	[id: string]: MaybePromise<string>;
 }

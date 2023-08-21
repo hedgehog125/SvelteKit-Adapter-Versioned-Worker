@@ -1,3 +1,4 @@
+import type { MaybePromise } from "$lib/index_internal.js";
 import type { VWRequestMode } from "internal-adapter/worker";
 import type { BeforeNavigate } from "@sveltejs/kit";
 
@@ -35,7 +36,7 @@ export function getNavigationDestURL(navigation: BeforeNavigate): Nullable<strin
  * @param callback 
  * @returns 
  */
-export function loadOnMount<T>(callback: () => Promise<T> | T): Promise<T> {
+export function loadOnMount<T>(callback: () => MaybePromise<T>): Promise<T> {
 	return new Promise<T>((resolve, reject) => {
 		onMount(async () => {
 			try {

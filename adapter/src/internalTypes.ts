@@ -1,4 +1,4 @@
-import type { Nullable } from "./types.js";
+import { Nullable } from "./types.js";
 import type { UpdatePriority } from "./worker/staticVirtual.js";
 
 export interface UnknownInfoFile {

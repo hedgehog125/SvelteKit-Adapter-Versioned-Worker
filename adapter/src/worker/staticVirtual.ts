@@ -214,7 +214,7 @@ export interface ResumableState {
 /**
  * TODO
  */
-export type ResumableStateCallback = () => Promise<ResumableState> | ResumableState;
+export type ResumableStateCallback = () => MaybePromise<ResumableState>;
 
 /**
  * TODO
@@ -282,7 +282,7 @@ export interface FetchEvent extends ExtendableEvent {
 	replacesClientId: string,
 	resultingClientId: string,
 	request: Request,
-	respondWith(response: Promise<Response> | Response): void
+	respondWith(response: MaybePromise<Response>): void
 }
 export interface InstallEvent extends ExtendableEvent {
 	activeWorker: ServiceWorker

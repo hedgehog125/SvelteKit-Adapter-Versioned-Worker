@@ -9,7 +9,8 @@ import type {
 	Nullable,
 	FileSortMode,
 	CategorizedBuildFiles,
-	ProcessedBuild
+	ProcessedBuild,
+	TypescriptConfig
 } from "./types.js";
 import type { WebAppManifest } from "./manifestTypes.js";
 import type {
@@ -25,11 +26,11 @@ import type {
 	WorkerConstants,
 	InfoFileV3
 } from "./internalTypes.js";
-import { UpdatePriority } from "./worker/staticVirtual.js";
+import type { UpdatePriority } from "./worker/staticVirtual.js";
 
-import type { LoggingFunction, OutputBundle, RollupLog } from "rollup";
+import type { LoggingFunction, OutputBundle, RollupBuild, RollupError, RollupLog } from "rollup";
 import type { Builder } from "@sveltejs/kit";
-import type { RollupTypescriptOptions } from "@rollup/plugin-typescript";
+
 
 import {
 	VersionedWorkerError,
@@ -60,9 +61,10 @@ import makeDir from "make-dir";
 import { rollup } from "rollup";
 import nodeResolve from "@rollup/plugin-node-resolve";
 import esbuild from "rollup-plugin-esbuild";
-import typescriptPlugin from "@rollup/plugin-typescript";
 import pluginAlias from "@rollup/plugin-alias";
+import pluginTypescript from "rollup-plugin-ts";
 import pluginVirtualPromises from "./pluginVirtualPromises.js";
+import ts from "typescript";
 
 
 export async function getLastInfo(configs: LastInfoProviderConfigs): Promise<UnprocessedInfoFile> {
@@ -439,35 +441,36 @@ export function generateVirtualModules(workerConstants: WorkerConstants): Virtua
 		`${createConstantsModule(workerConstants)}\nexport * from ${JSON.stringify(staticVirtualModulePath)};`
 	];
 }
-export async function configureTypescript(configs: AllConfigs): Promise<Nullable<RollupTypescriptOptions>> {
-	// TODO: allow asynchronously configuring TypeScript
-	return {
+export async function configureTypescript(inputFiles: InputFiles, configs: AllConfigs): Promise<TypescriptConfig> {
+	let tsConfig: TypescriptConfig = {
 		include: [
 			path.join(adapterFilesPath, "static/src/worker/modules/virtualModules.d.ts")
 		],
-		compilerOptions: {
-			target: "es2020",
-			module: "ESNext",
-			moduleResolution: "node",
-			forceConsistentCasingInFileNames: true,
-			strict: true,
-			skipLibCheck: true,
-	
-			declaration: false,
-			declarationMap: false
-		},
-		tsconfig: false
-	};
+		allowJs: ! inputFiles.hooksIsTS,
+		noEmitOnError: true,
+		rootDir: path.join(configs.minimalViteConfig.root, "src"),
+		target: ts.ScriptTarget.ES2020,
+		forceConsistentCasingInFileNames: true,
+		strict: true,
+		skipLibCheck: true,
+		declaration: false,
+		declarationMap: false
+	} satisfies TypescriptConfig;
+
+	if (inputFiles.hooksIsTS) {
+		const output = await configs.adapterConfig.configureWorkerTypescript?.(tsConfig, configs);
+
+		if (output) tsConfig = output;
+	}
+
+	return tsConfig;
 }
 export async function rollupBuild(
-	entryFilePath: string, typescriptConfig: Nullable<RollupTypescriptOptions>,
+	entryFilePath: string, typescriptConfig: TypescriptConfig,
 	virtualModulesSources: VirtualModuleSources, inputFiles: InputFiles, configs: AllConfigs
-): Promise<Nullable<string>> {
-	// TODO: error handling. Return false if one occurs
-
+): Promise<Nullable<RollupError>> {
 	const { adapterConfig, minimalViteConfig } = configs;
 
-	const tsPluginInstance = typescriptConfig? typescriptPlugin(typescriptConfig) : null;
 	let virtualModules: Record<string, string> = {
 		"sveltekit-adapter-versioned-worker/worker": virtualModulesSources[0]
 	};
@@ -488,7 +491,7 @@ export async function rollupBuild(
 
 	let hooksPath: Nullable<string>;
 	if (inputFiles.hooksFileName == null) { // Replace it with an empty module if it doesn't exist
-		virtualModules["sveltekit-adapter-versioned-worker/internal/hooks"] = "export {};";
+		virtualModules["sveltekit-adapter-versioned-worker/internal/hooks"] = "export {}";
 	}
 	else {
 		hooksPath = path.join(minimalViteConfig.root, "src", inputFiles.hooksFileName);
@@ -502,38 +505,47 @@ export async function rollupBuild(
 		minimalViteConfig.root, adapterConfig.outputDir,
 		...(adapterConfig.useWorkerScriptImport? [adapterConfig.outputVersionDir] : []), adapterConfig.outputWorkerFileName
 	);
-	const bundle = await rollup({
-		input: entryFilePath,
-		plugins: [
-			pluginVirtualPromises(virtualModules),
-			pluginAlias({
-				entries: aliases
-			}),
-			nodeResolve({
-				browser: true
-			}),
-			esbuild({
-				minify: true,
-				sourceMap: false,
-				target: "es2020",
-				tsconfig: false
-			}),
-			tsPluginInstance
-		],
-
-		onwarn(warning: RollupLog, warn: LoggingFunction) {
-			if (warning.code === "MISSING_EXPORT") {
-				const isHooksModule = (
-					warning.exporter === "virtual:sveltekit-adapter-versioned-worker/internal/hooks"
-					|| (inputFiles.hooksFileName && warning.exporter === hooksPath)
-				);
-
-				if (isHooksModule) return; // There's a null check so missing exports are fine
+	let bundle: RollupBuild;
+	try {
+		bundle = await rollup({
+			input: entryFilePath,
+			plugins: [
+				pluginTypescript({
+					tsconfig: typescriptConfig
+				}),
+				pluginVirtualPromises(virtualModules),
+				pluginAlias({
+					entries: aliases
+				}),
+				nodeResolve({
+					browser: true
+				}),
+				// esbuild({ // TODO
+				// 	minify: true,
+				// 	sourceMap: false,
+				// 	target: "es2020",
+				// 	tsconfig: false
+				// })
+			],
+	
+			onwarn(warning: RollupLog, warn: LoggingFunction) {
+				if (warning.code === "MISSING_EXPORT") {
+					const isHooksModule = (
+						warning.exporter === "virtual:sveltekit-adapter-versioned-worker/internal/hooks"
+						|| (inputFiles.hooksFileName && warning.exporter === hooksPath)
+					);
+	
+					if (isHooksModule) return; // There's a null check so missing exports are fine
+				}
+	
+				warn(warning);
 			}
-
-			warn(warning);
-		}
-	});
+		});
+	}
+	catch (error: unknown) {
+		return error as RollupError; // TODO: is this correct?
+	}
+	
 	await bundle.write({
 		file: outputPath,
 		sourcemap: adapterConfig.outputWorkerSourceMap,
@@ -634,8 +646,19 @@ export async function writeInfoFile(infoFile: InfoFileV3, { minimalViteConfig, a
 	});
 	await fs.writeFile(infoFilePath, contents, { encoding: "utf-8" });
 }
-export async function callFinishHook(processedBuild: ProcessedBuild, configs: AllConfigs) {
-	await configs.adapterConfig.onFinish?.(processedBuild, configs);
+export async function callFinishHook(workerBuildSucceeded: boolean, processedBuild: ProcessedBuild, configs: AllConfigs) {
+	await configs.adapterConfig.onFinish?.(workerBuildSucceeded, processedBuild, configs);
+}
+export function logInfoAndErrors(workerBuildError: Nullable<RollupError>, { minimalViteConfig }: AllConfigs) {
+	if (workerBuildError) {
+		log.blankLine();
+		log.blankLine();
+		const { loc, frame, message } = workerBuildError;
+		const errorPositionInFile = loc? `On line ${loc.line}, column ${loc.column}` : "In an unknown position";
+		const errorPosition = `${errorPositionInFile} in ${loc?.file? `the file "${normalizePath(path.relative(minimalViteConfig.root, loc.file))}"` : "an unknown file"}.`;
+
+		log.error(`Service worker failed to build. Reason:\n${message}\n${errorPosition}\n\n${frame?? ""}`);
+	}
 }
 
 

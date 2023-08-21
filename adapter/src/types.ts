@@ -2,12 +2,16 @@ import type { Builder } from "@sveltejs/kit";
 import type { ResolvedConfig } from "vite";
 import type { OutputAsset, OutputBundle, OutputChunk, OutputOptions } from "rollup";
 import type { UpdatePriority } from "./worker/staticVirtual.js";
+import type { CompilerOptions } from "typescript";
+
+export type Nullable<T> = T | null;
+export type MaybePromise<T> = T | Promise<T>;
 
 // To make things a bit less confusing
 export type SvelteConfig = Builder["config"];
 export type ViteConfig = ResolvedConfig;
+export type TypescriptConfig = CompilerOptions;
 
-export type Nullable<T> = T | null;
 export interface AdapterConfig {
 	/* Required */
 	/**
@@ -30,6 +34,10 @@ export interface AdapterConfig {
 	 * @note Some other files are always set to `"never-cache"`, again without calling this function
 	 */
 	sortFile?: Nullable<FileSorter>,
+	/**
+	 * TODO
+	 */
+	configureWorkerTypescript?: Nullable<WorkerTypeScriptConfigHook>,
 	/**
 	 * TODO
 	 */
@@ -171,7 +179,7 @@ export interface VersionedWorkerLogger {
 	verbose: boolean
 }
 
-export type LastInfoProvider = (log: VersionedWorkerLogger, configs: LastInfoProviderConfigs) => Promise<Nullable<string>> | Nullable<string>;
+export type LastInfoProvider = (log: VersionedWorkerLogger, configs: LastInfoProviderConfigs) => MaybePromise<Nullable<string>>;
 export interface LastInfoProviderConfigs {
 	viteConfig: Nullable<ViteConfig>,
 	minimalViteConfig: MinimalViteConfig,
@@ -179,7 +187,7 @@ export interface LastInfoProviderConfigs {
 	manifestPluginConfig: Nullable<ResolvedManifestPluginConfig>
 }
 
-export type FileSorter = (fileInfo: VWBuildFile, overallInfo: BuildInfo, configs: AllConfigs) => FileSortMode | Promise<FileSortMode>;
+export type FileSorter = (fileInfo: VWBuildFile, overallInfo: BuildInfo, configs: AllConfigs) => MaybePromise<FileSortMode>;
 export interface VWBuildFile {
 	/**
 	 * The href of the file.
@@ -271,7 +279,11 @@ export interface BuildInfo {
 /**
  * TODO
  */
-export type BuildFinishHook = (processedBuild: ProcessedBuild, configs: AllConfigs) => void | Promise<void>;
+export type WorkerTypeScriptConfigHook = (typescriptConfig: TypescriptConfig, configs: AllConfigs) => MaybePromise<TypescriptConfig | void | undefined>;
+/**
+ * TODO
+ */
+export type BuildFinishHook = (workerBuildSucceeded: boolean, processedBuild: ProcessedBuild, configs: AllConfigs) => void | Promise<void>;
 /**
  * TODO
  */
@@ -297,7 +309,7 @@ export interface CategorizedBuildFiles {
 }
 
 
-export type ManifestProcessor = (parsed: object, configs: ManifestProcessorConfigs) => Promise<string | object> | string | object;
+export type ManifestProcessor = (parsed: object, configs: ManifestProcessorConfigs) => MaybePromise<string | object>;
 export interface ManifestProcessorConfigs {
 	viteConfig: ViteConfig,
 	minimalViteConfig: MinimalViteConfig,

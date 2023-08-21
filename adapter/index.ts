@@ -10,7 +10,10 @@ import type {
 	VersionedWorkerLogger,
 	LastInfoProvider,
 	FileSorter,
+	FileSortMode,
 	VWBuildFile,
+	BuildInfo,
+	BuildFinishHook,
 	ManifestProcessor,
 	LastInfoProviderConfigs,
 	ManifestProcessorConfigs,
@@ -21,16 +24,17 @@ import type {
 	AllConfigs,
 	ViteConfig,
 
+	TypescriptConfig,
 	Nullable,
-	BuildFinishHook
+	MaybePromise
 } from "./src/types.js";
-import type { WebAppManifest } from "web-app-manifest";
+import { WebAppManifest } from "./src/manifestTypes.js";
 import type {
 	InputFiles,
 	InfoFileV3
 } from "./src/internalTypes.js";
 import type { Plugin } from "vite"; 
-import type { OutputOptions, OutputBundle } from "rollup";
+import type { OutputOptions, OutputBundle, RollupError } from "rollup";
 
 import { INFO_FILENAME } from "./src/constants.js";
 import { log } from "./src/globals.js";
@@ -69,7 +73,8 @@ import {
 	listStaticFolderFiles,
 	createPlaceholderRuntimeConstantsModule,
 	getUpdatePriority,
-	callFinishHook
+	callFinishHook,
+	logInfoAndErrors
 } from "./src/subFunctions.js";
 import {
 	applyAdapterConfigDefaults,
@@ -91,17 +96,27 @@ export {
 	ManifestPluginConfig,
 	ResolvedManifestPluginConfig,
 	MinimalViteConfig,
-	ValuesFromViteConfig,
 	
 	VersionedWorkerLogger,
 	LastInfoProvider,
 	FileSorter,
+	FileSortMode,
 	VWBuildFile,
+	BuildInfo,
+	BuildFinishHook,
+	ProcessedBuild,
+	CategorizedBuildFiles,
 	ManifestProcessor,
+
+	ManifestProcessorConfigs,
 	LastInfoProviderConfigs,
 	AllConfigs,
 
+	ValuesFromViteConfig,
 	WebAppManifest,
+	Nullable,
+	MaybePromise,
+	TypescriptConfig,
 
 	defaultManifestProcessor
 };
@@ -166,11 +181,15 @@ export function adapter(inputConfig: AdapterConfig): Adapter {
 			log.message("Processing build...");
 			const processedBuild = await processBuild(configs, builder);
 			log.message("Building worker...");
-			await buildWorker(processedBuild.categorizedFiles, builder, configs);
+			const buildError = await buildWorker(processedBuild.categorizedFiles, builder, configs);
+			if (buildError) {
+				log.error("Build failed, details will be logged after the other steps finish.");
+			}
+
 			log.message("Creating new version...");
 			await createNewVersion(processedBuild.staticFileHashes, processedBuild.updatePriority, configs);
 			log.message("Finishing up...");
-			await finishUp(processedBuild, configs);
+			await finishUp(buildError, processedBuild, configs);
 		}
 	};
 }
@@ -325,28 +344,29 @@ async function processBuild(configs: AllConfigs, builder: Builder): Promise<Proc
 		updatePriority
 	};
 }
-async function buildWorker(categorizedFiles: CategorizedBuildFiles, builder: Builder, configs: AllConfigs) {
+async function buildWorker(categorizedFiles: CategorizedBuildFiles, builder: Builder, configs: AllConfigs): Promise<Nullable<RollupError>> {
 	const entryFilePath = await writeWorkerEntry(inputFiles, configs);
 
 	const workerConstants = createWorkerConstants(categorizedFiles, builder, lastInfo, configs);
 	const virtualModules = generateVirtualModules(workerConstants);
-	const typescriptConfig = await configureTypescript(configs);
+	const typescriptConfig = await configureTypescript(inputFiles, configs);
 
 	await createWorkerFolder(configs);
 	const error = await rollupBuild(entryFilePath, typescriptConfig, virtualModules, inputFiles, configs);
 	await fs.rm(entryFilePath);
-	if (error) {
-		log.error(`Error while building the service worker:\n${error}`);
-	}
+	if (error) return error;
+
 	await writeWorkerImporter(lastInfo.version + 1, configs);
+	return null;
 }
 async function createNewVersion(staticFileHashes: Map<string, string>, updatePriority: UpdatePriority, configs: AllConfigs) {
 	addNewVersionToInfoFile(lastInfo, staticFileHashes, updatePriority, configs);
 	await writeVersionFiles(lastInfo, configs);
 }
-async function finishUp(processedBuild: ProcessedBuild, configs: AllConfigs) {
+async function finishUp(workerBuildError: Nullable<RollupError>, processedBuild: ProcessedBuild, configs: AllConfigs) {
 	await writeInfoFile(lastInfo, configs);
-	await callFinishHook(processedBuild, configs);
+	await callFinishHook(workerBuildError == null, processedBuild, configs);
+	logInfoAndErrors(workerBuildError, configs);
 }
 
 /* Manifest Generation */
@@ -509,31 +529,7 @@ export function standardGetLast(url: string, isDev: boolean, filePath?: string):
 export const valuesFromViteConfig: ValuesFromViteConfig = {};
 /**
  * TODO
- * 
- * @param key 
- * @param value 
- * @param isCustom 
  */
-export function shareValueWithSvelteConfig(key: "sortFile", value: FileSorter | FileSorter[], isCustom?: false): void;
-/**
- * TODO
- * 
- * @param key 
- * @param value 
- * @param isCustom 
- */
-export function shareValueWithSvelteConfig(key: "onFinish", value: BuildFinishHook, isCustom?: false): void;
-/**
- * TODO
- * 
- * @param key 
- * @param value 
- * @param isCustom 
- */
-export function shareValueWithSvelteConfig(key: string, value: unknown, isCustom: true): void;
-/**
- * TODO
- */
-export function shareValueWithSvelteConfig(key: string, value: unknown) {
+export function shareValueWithSvelteConfig<TKey extends keyof ValuesFromViteConfig>(key: TKey, value: ValuesFromViteConfig[TKey]) {
 	valuesFromViteConfig[key] = value;
 }

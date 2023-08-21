@@ -22,7 +22,8 @@ import { ENABLE_QUICK_FETCH } from "internal-adapter/runtime-constants";
 
 import { writable } from "svelte/store";
 
-type Nullable<T> = T | null;
+export type Nullable<T> = T | null;
+export type MaybePromise<T> = T | Promise<T>;
 
 /**
  * TODO

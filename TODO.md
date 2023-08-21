@@ -1,6 +1,7 @@
 Log based on what files are new? e.g only list newly added lazy files?
 Warnings for large media files since they won't stream
 Warnings for non-static files using lax or stale lazy as they will become unreferenced and removed when updated
+Increase the number of updates per version file but reduce the max number to 5
 Store information about when the update notification was dismissed? Could potentially be used in the future?
 
 # Svelte Utils
