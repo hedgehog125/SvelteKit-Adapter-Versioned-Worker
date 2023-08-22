@@ -14,7 +14,7 @@ Since these don't have exports, d.ts files aren't generated */
 		"skipLibCheck": true,
 
 		"rootDir": "./src",
-		"noEmit": true,
+		"outDir": "./jsBuild",
 		"declaration": false,
 		"declarationMap": false,
 

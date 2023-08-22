@@ -445,7 +445,9 @@ export function generateVirtualModules(workerConstants: WorkerConstants): Virtua
 		`${createConstantsModule(workerConstants)}\nexport * from ${JSON.stringify(staticVirtualModulePath)};`
 	];
 }
-export async function configureTypescript(inputFiles: InputFiles, configs: AllConfigs): Promise<TypescriptConfig> {
+export async function configureTypescript(inputFiles: InputFiles, configs: AllConfigs): Promise<Nullable<TypescriptConfig>> {
+	if (! inputFiles.hooksIsTS) return null;
+
 	let tsConfig: TypescriptConfig = {
 		include: [
 			path.join(configs.minimalViteConfig.root, "src", "**")
@@ -460,7 +462,6 @@ export async function configureTypescript(inputFiles: InputFiles, configs: AllCo
 			moduleName,
 			[path.join(path.join(adapterFilesPath, "static", relativePath))]
 		])),
-		allowJs: ! inputFiles.hooksIsTS,
 		rootDir: path.join(configs.minimalViteConfig.root, "src"),
 		target: ts.ScriptTarget.ES2020,
 		forceConsistentCasingInFileNames: true,
@@ -470,16 +471,13 @@ export async function configureTypescript(inputFiles: InputFiles, configs: AllCo
 		declarationMap: false
 	} satisfies TypescriptConfig;
 
-	if (inputFiles.hooksIsTS) {
-		const output = await configs.adapterConfig.configureWorkerTypescript?.(tsConfig, configs);
-
-		if (output) tsConfig = output;
-	}
+	const output = await configs.adapterConfig.configureWorkerTypescript?.(tsConfig, configs);
+	if (output) return output;
 
 	return tsConfig;
 }
 export async function rollupBuild(
-	entryFilePath: string, typescriptConfig: TypescriptConfig,
+	entryFilePath: string, typescriptConfig: Nullable<TypescriptConfig>,
 	virtualModulesSources: VirtualModuleSources, inputFiles: InputFiles, configs: AllConfigs
 ): Promise<WrappedRollupError[]> {
 	const { adapterConfig, minimalViteConfig } = configs;
@@ -524,7 +522,7 @@ export async function rollupBuild(
 		bundle = await rollup({
 			input: entryFilePath,
 			plugins: [
-				pluginTypescript({
+				typescriptConfig && pluginTypescript({
 					...typescriptConfig,
 					tsconfig: false,
 					noEmitOnError: false // Setting this to true creates issues, so instead the warnings are collected and displayed as errors
@@ -536,12 +534,12 @@ export async function rollupBuild(
 				nodeResolve({
 					browser: true
 				}),
-				// esbuild({ // TODO
-				// 	minify: true,
-				// 	sourceMap: false,
-				// 	target: "es2020",
-				// 	tsconfig: false
-				// })
+				esbuild({
+					minify: true,
+					sourceMap: false,
+					target: "es2020",
+					tsconfig: false
+				})
 			],
 	
 			onwarn(warning, warn) {
