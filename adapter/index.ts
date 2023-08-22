@@ -350,7 +350,7 @@ async function buildWorker(categorizedFiles: CategorizedBuildFiles, builder: Bui
 
 	const workerConstants = createWorkerConstants(categorizedFiles, builder, lastInfo, configs);
 	const virtualModules = generateVirtualModules(workerConstants);
-	const typescriptConfig = await configureTypescript(entryFilePath, inputFiles, configs);
+	const typescriptConfig = await configureTypescript(inputFiles, configs);
 
 	await createWorkerFolder(configs);
 	const errors = await rollupBuild(entryFilePath, typescriptConfig, virtualModules, inputFiles, configs);

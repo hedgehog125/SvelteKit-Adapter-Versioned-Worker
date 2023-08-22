@@ -445,17 +445,17 @@ export function generateVirtualModules(workerConstants: WorkerConstants): Virtua
 		`${createConstantsModule(workerConstants)}\nexport * from ${JSON.stringify(staticVirtualModulePath)};`
 	];
 }
-export async function configureTypescript(entryFilePath: string, inputFiles: InputFiles, configs: AllConfigs): Promise<TypescriptConfig> {
+export async function configureTypescript(inputFiles: InputFiles, configs: AllConfigs): Promise<TypescriptConfig> {
 	let tsConfig: TypescriptConfig = {
 		include: [
-			path.join(configs.minimalViteConfig.root, "src", "hooks.worker.ts"), // TODO
-			entryFilePath
+			path.join(configs.minimalViteConfig.root, "src", "**")
 		],
 		paths: Object.fromEntries([
 			["sveltekit-adapter-versioned-worker/worker", "../virtual-modules/worker"],
+			["sveltekit-adapter-versioned-worker/internal/hooks", "../virtual-modules/hooks"],
 			["sveltekit-adapter-versioned-worker/internal/worker-util-alias", "../build/src/worker/util"],
 			["sveltekit-adapter-versioned-worker/internal/worker-shared", "../build/src/worker/shared"],
-			["sveltekit-adapter-versioned-worker/internal/exported-by-svelte-module", "../build/src/exportedBySvelteModule"]
+			["sveltekit-adapter-versioned-worker/internal/exported-by-svelte-module", "../build/src/exportedBySvelteModule"],
 		].map(([moduleName, relativePath]) => [
 			moduleName,
 			[path.join(path.join(adapterFilesPath, "static", relativePath))]
@@ -577,7 +577,9 @@ export async function rollupBuild(
 			stack
 		}];
 	}
-	
+	const posixWatchFiles = bundle.watchFiles.map(filePath => filePath.replaceAll(path.sep, "/"));
+	errors = errors.filter(({ loc }) => loc?.file? posixWatchFiles.includes(loc.file) : true);
+
 	await bundle.write({
 		file: outputPath,
 		sourcemap: adapterConfig.outputWorkerSourceMap,

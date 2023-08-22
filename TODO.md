@@ -19,8 +19,10 @@ Configuring the static adapter
 Add message handle (postMessage). Called "handleCustomMessage"
 Add an easy way to modify headers before the response is sent. New hook? Maybe only for requests using the default mechanism (not handled)?
 Allow FileSorters to return null and create a utility function that runs through an array of them until one returns something other than null
+
 A way to transfer info from the prerender to the file sorter
 Make more hard-coded values configurable
+Add option for the service worker TypeScript folder. Then only the entry and hooks file would need to be transpiled from the "src" folder
 
 # Tweaks
 Use sets instead of arrays for the constants
