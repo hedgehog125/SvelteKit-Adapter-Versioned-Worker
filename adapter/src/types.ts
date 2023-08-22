@@ -47,7 +47,10 @@ export interface AdapterConfig {
 	 */
 	outputDir?: string,
 	/**
-	 * TODO
+	 * The filename the service worker should be outputted as.
+	 * 
+	 * @note Changing this from the default requires the manifest plugin to be used.
+	 * @default "sw.js"
 	 */
 	outputWorkerFileName?: string,
 	/**

@@ -7,7 +7,8 @@ import type {
 import { ExposedPromise } from "$util";
 export {
 	ENABLE_SECOND_UPDATE_PRIORITY_ELEVATION,
-	CHECK_FOR_UPDATES_INTERVAL
+	CHECK_FOR_UPDATES_INTERVAL,
+	OUTPUT_WORKER_FILE_NAME
 } from "internal-adapter/runtime-constants";
 
 type Nullable<T> = T | null;

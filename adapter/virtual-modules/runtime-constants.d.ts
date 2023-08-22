@@ -70,3 +70,12 @@ export const USE_HTTP_CACHE: boolean | null;
  * @see `AdapterConfig.checkForUpdatesInterval` for more information.
  */
 export const CHECK_FOR_UPDATES_INTERVAL: number | null | false;
+/**
+ * The filename that the service worker was set to be outputted as in the adapter config.
+ * 
+ * @note
+ * This property requires the manifest plugin to be used. It only works during the build (and not in the prerender or worker build). If you try to read the property in other situations, it will always be `null`.
+ * 
+ * @see `AdapterConfig.outputWorkerFileName` for more information.
+ */
+export const OUTPUT_WORKER_FILE_NAME: string | null;

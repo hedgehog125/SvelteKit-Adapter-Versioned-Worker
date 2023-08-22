@@ -7,7 +7,6 @@ Store information about when the update notification was dismissed? Could potent
 # Svelte Utils
 
 # Bugs
-Don't hardcode sw.js in ServiceWorker.svelte. Export from runtime-constants. Add note to config that changing the entry requires using the vite plugin
 
 # Features
 Add message handle (postMessage). Called "handleCustomMessage"

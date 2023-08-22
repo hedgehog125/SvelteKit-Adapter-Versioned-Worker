@@ -27,8 +27,8 @@
 		skipWaiting,
 		skipIfWaiting,
 
+		OUTPUT_WORKER_FILE_NAME,
 		ENABLE_SECOND_UPDATE_PRIORITY_ELEVATION,
-
         CHECK_FOR_UPDATES_INTERVAL
 	} from "$lib/internal.js";
     import DefaultUpdatePrompt from "./DefaultUpdatePrompt.svelte";
@@ -85,7 +85,7 @@
 		navigator.serviceWorker.addEventListener("message", onSWMessage);
 		let registration: ServiceWorkerRegistration | null = null;
 		try {
-			registration = await navigator.serviceWorker.register(link("sw.js"));
+			registration = await navigator.serviceWorker.register(link(OUTPUT_WORKER_FILE_NAME?? "sw.js"));
 		}
 		catch {
 			dispatch("fail", {

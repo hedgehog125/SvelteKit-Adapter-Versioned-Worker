@@ -709,7 +709,8 @@ export function createRuntimeConstantsModule(
 		ENABLE_QUICK_FETCH: adapterConfig.enableQuickFetch,
 		ENABLE_SECOND_UPDATE_PRIORITY_ELEVATION: adapterConfig.enableSecondUpdatePriorityElevation,
 		USE_HTTP_CACHE: adapterConfig.useHTTPCache,
-		CHECK_FOR_UPDATES_INTERVAL: adapterConfig.checkForUpdatesInterval
+		CHECK_FOR_UPDATES_INTERVAL: adapterConfig.checkForUpdatesInterval,
+		OUTPUT_WORKER_FILE_NAME: adapterConfig.outputWorkerFileName
 	});
 }
 export function createPlaceholderRuntimeConstantsModule(): string {
@@ -722,7 +723,8 @@ export function createPlaceholderRuntimeConstantsModule(): string {
 			"ENABLE_QUICK_FETCH",
 			"ENABLE_SECOND_UPDATE_PRIORITY_ELEVATION",
 			"USE_HTTP_CACHE",
-			"CHECK_FOR_UPDATES_INTERVAL"
+			"CHECK_FOR_UPDATES_INTERVAL",
+			"OUTPUT_WORKER_FILE_NAME"
 		].map(key => [key, null]))
 	);
 }
