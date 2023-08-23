@@ -11,11 +11,11 @@ import type {
 	HandleFetchHook,
 	InputMessageData,
 	WindowClient,
-	OutputMessageData,
 	ResumableState,
 	ExtendableMessageEvent,
 	WorkerV1Info,
-	UpdatePriority
+	UpdatePriority,
+	CustomMessageHookData
 } from "sveltekit-adapter-versioned-worker/worker";
 declare var clients: Clients;
 declare var registration: Registration;
@@ -56,6 +56,7 @@ import { ExposedPromise } from "sveltekit-adapter-versioned-worker/internal/expo
 import {
 	workerState,
 	wrappedFetch,
+	broadcastInternal as broadcast,
 	INLINED_RELOAD_PAGE
 } from "sveltekit-adapter-versioned-worker/internal/worker-shared";
 import * as hooks from "sveltekit-adapter-versioned-worker/internal/hooks";
@@ -437,6 +438,14 @@ type AddMessageListener = (type: "message", listener: ((this: typeof globalThis,
 			})
 		})());
 	}
+	else if (data.type === "custom") {
+		const output = hooks.handleCustomMessage?.({
+			isFromDifferentVersion: data.isFromDifferentVersion,
+			data: data.data,
+			event: messageEvent
+		} as CustomMessageHookData); // The cast is because because properly type narrowing this would add unnecessarily complexity
+		if (output) messageEvent.waitUntil(output);
+	}
 });
 
 function parseUpdatedList(contents: string): VersionFile {
@@ -675,10 +684,6 @@ function selectHandleFetchFunction(virtualHref: string | null, isCrossOrigin: bo
 	if (ENABLE_QUICK_FETCH && virtualHref === "quick-fetch") return handleQuickFetch;
 
 	return hooks.handleFetch;
-}
-
-function broadcast(activeClients: WindowClient[], data: OutputMessageData) {
-	activeClients.forEach(client => client.postMessage(data));
 }
 
 function fixTrailingSlash(urlOrPath: string): string {

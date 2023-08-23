@@ -17,6 +17,14 @@ export async function openSettingsDB(): Promise<IDBPDatabase<SettingsDB>> {
 	});
 }
 
+export interface V1ReceivedWorkerMessage {
+	type: "alert" | "unused",
+	message: string
+}
+export interface V1SentWorkerMessage {
+	type: "sayHi" | "unused"
+}
+
 export const counter = writable(0); // TODO: this might cause issues with the worker
 export interface V1ResumableState {
 	counter: number

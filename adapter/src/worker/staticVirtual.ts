@@ -2,7 +2,9 @@
 // Note: This file is transpiled to JavaScript before the build
 // Note: This is then re-exported by the worker.d.ts file
 
-import { workerState, wrappedFetch } from "sveltekit-adapter-versioned-worker/internal/worker-shared"; 
+import type { CustomCurrentWorkerMessageEventLikeData, CustomWaitingWorkerMessageEventLikeData } from "../exportedBySvelteModule.js";
+
+import { broadcastInternal, workerState, wrappedFetch } from "sveltekit-adapter-versioned-worker/internal/worker-shared"; 
 import { summarizeRequest } from "sveltekit-adapter-versioned-worker/internal/worker-util-alias";
 
 
@@ -11,6 +13,13 @@ import { summarizeRequest } from "sveltekit-adapter-versioned-worker/internal/wo
 
 type Nullable<T> = T | null;
 type MaybePromise<T> = Promise<T> | T;
+export interface DataWithFormatVersion {
+	formatVersion: number,
+	data: unknown
+}
+
+/* Hooks /*
+
 /**
  * The type of the optional export `handleFetch` in your `"hooks.worker.ts"` file. The function is called when a network request is made by a client and the `VWRequestMode` isn't `"force-passthrough"`
  * 
@@ -120,6 +129,31 @@ export type VWRequestMode = "default" | "no-network" | "handle-only" | "force-pa
 /**
  * TODO
  */
+export type HandleCustomMessageHook = (messageInfo: CustomMessageHookData) => MaybePromise<void>;
+/**
+ * TODO
+ * 
+ * @see `CustomMessageData` for the type of data that gets directly postmessaged to or from the worker.
+ */
+export type CustomMessageHookData = CustomMessageHookData.CurrentWorker | CustomMessageHookData.WaitingWorker;
+export namespace CustomMessageHookData {
+	/** 
+	 * TODO
+	 * 
+	 * @see `CustomMessageData` for TODO.
+	 */
+	export type CurrentWorker = CustomCurrentWorkerMessageEventLikeData<ExtendableMessageEvent>;
+	/**
+	 * TODO
+	 * 
+	 * @see `CustomMessageData` for TODO.
+	 */
+	export type WaitingWorker = CustomWaitingWorkerMessageEventLikeData<ExtendableMessageEvent>;
+}
+
+/**
+ * TODO
+ */
 export type UpdatePriority = 0 | 1 | 2 | 3 | 4;
 
 /**
@@ -138,7 +172,7 @@ export type InputMessageVoidType = "skipWaiting" | "finish" | "resume" | "getInf
 /**
  * TODO
  */
-export type InputMessageType = InputMessageVoidType | ConditionalSkipMessageData["type"];
+export type InputMessageType = InputMessageVoidType | ConditionalSkipMessageData["type"] | CustomMessageData["type"];
 /**
  * TODO
  */
@@ -155,7 +189,50 @@ export interface ConditionalSkipMessageData {
 	 */
 	resumableState: Nullable<ResumableState> | true
 }
-export type InputMessageData = InputMessageVoidData | ConditionalSkipMessageData;
+/**
+ * TODO
+ * 
+ * @see `CustomMessageHookData` for the type of data received by a `HandleCustomMessageHook`.
+ */
+export type CustomMessageData = CustomMessageData.CurrentWorker | CustomMessageData.WaitingWorker;
+export namespace CustomMessageData {
+	/**
+	 * TODO
+	 * 
+	 * @see `VWCustomMessageHookData` for TODO.
+	 */
+	export interface CurrentWorker extends CustomMessageDataBase {
+		isFromDifferentVersion: false,
+		/**
+		 * TODO
+		 */
+		data: unknown
+	}
+	/**
+	 * TODO
+	 * 
+	 * @see `VWCustomMessageHookData` for TODO.
+	 */
+	export interface WaitingWorker extends CustomMessageDataBase {
+		isFromDifferentVersion: true,
+		/**
+		 * TODO
+		 */
+		data: DataWithFormatVersion
+	}
+	interface CustomMessageDataBase {
+		type: "custom",
+		/**
+		 * TODO
+		 */
+		isFromDifferentVersion: boolean
+	}
+}
+
+/**
+ * TODO
+ */
+export type InputMessageData = InputMessageVoidData | ConditionalSkipMessageData | CustomMessageData;
 /**
  * TODO
  */
@@ -172,7 +249,7 @@ export type OutputMessageVoidType = "vw-reload" | "vw-updateWithResumable" | "vw
 /**
  * TODO
  */
-export type OutputMessageType = OutputMessageVoidType | ResumeMessageData["type"] | WorkerInfoMessageData["type"];
+export type OutputMessageType = OutputMessageVoidType | ResumeMessageData["type"] | WorkerInfoMessageData["type"] | CustomMessageData["type"];
 /**
  * TODO
  */
@@ -196,7 +273,7 @@ export interface WorkerInfoMessageData {
 /**
  * TODO
  */
-export type OutputMessageData = OutputMessageVoidData | ResumeMessageData | WorkerInfoMessageData;
+export type OutputMessageData = OutputMessageVoidData | ResumeMessageData | WorkerInfoMessageData | CustomMessageData;
 /**
  * TODO
  */
@@ -207,10 +284,7 @@ export interface OutputMessageEvent extends MessageEvent {
 /**
  * TODO
  */
-export interface ResumableState {
-	formatVersion: number,
-	data: unknown
-}
+export type ResumableState = DataWithFormatVersion;
 /**
  * TODO
  */
@@ -386,6 +460,9 @@ export type SkipWaiting = () => Promise<void>;
 
 
 /* Code */
+declare var clients: Clients;
+declare var registration: Registration;
+declare var skipWaiting: SkipWaiting;
 
 /**
  * Fetches and preloads a resource so the main thread can more quickly fetch it in a few seconds' time.
@@ -541,4 +618,30 @@ export function virtualRoutes(handlers: { [href: string]: HandleFetchHook }, ign
 			return handler[1](requestInfo);
 		}
 	};
+}
+
+
+/**
+ * TODO
+ * 
+ * @note The returned promise should be ignored as it doesn't indicate when the message is received.
+ */
+export async function broadcast(message: DataWithFormatVersion, includeUncontrolled: true): Promise<void>;
+/**
+ * TODO
+ * 
+ * @note The returned promise should be ignored as it doesn't indicate when the message is received.
+ */
+export async function broadcast(message: unknown, includeUncontrolled: false): Promise<void>;
+/**
+ * TODO
+ * 
+ * @note The returned promise should be ignored as it doesn't indicate when the message is received.
+ */
+export async function broadcast(message: unknown, includeUncontrolled: boolean) {
+	broadcastInternal((await clients.matchAll({ includeUncontrolled })) as WindowClient[], {
+		type: "custom",
+		isFromDifferentVersion: includeUncontrolled,
+		data: message
+	} as CustomMessageData);
 }

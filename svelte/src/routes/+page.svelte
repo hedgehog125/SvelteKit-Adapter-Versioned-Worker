@@ -98,6 +98,7 @@
 	<a href={link("no-update-reload/")}>No Update Reload</a> <br>
 	<a href={link("basic-resumable-state/")}>Basic Resumable State</a> <br>
 	<a href={link("virtual-fetch/")}>Virtual Fetch</a> <br>
+	<a href={link("postmessage/")}>Postmessage</a> <br>
 </main>
 
 <style>

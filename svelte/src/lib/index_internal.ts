@@ -1,4 +1,6 @@
 import type {
+	DataWithFormatVersion,
+	InputMessageData,
 	OutputMessageData,
 	ResumableState,
 	ResumableStateCallback,
@@ -6,6 +8,9 @@ import type {
 	VWRequestMode,
 	WorkerInfo
 } from "internal-adapter/worker";
+import type {
+	CustomCurrentWorkerMessageEventLikeData, CustomWaitingWorkerMessageEventLikeData
+} from "internal-adapter/internal/exported-by-svelte-module";
 import type { BeforeNavigate } from "@sveltejs/kit";
 
 import { beforeNavigate } from "$app/navigation";
@@ -58,6 +63,24 @@ export interface WorkerUpdateCheckEvent {
 	 * @note This will be `false` if the update was found before or during the page load.
 	 */
 	isNew: boolean
+}
+/**
+ * TODO
+ */
+export type VWCustomMessageEvent = VWCustomMessageEvent.CurrentWorker | VWCustomMessageEvent.WaitingWorker;
+export namespace VWCustomMessageEvent {
+	/** 
+	 * TODO
+	 * 
+	 * @see `CustomMessageData` for TODO.
+	 */
+	export type CurrentWorker = CustomCurrentWorkerMessageEventLikeData<MessageEvent>;
+	/**
+	 * TODO
+	 * 
+	 * @see `CustomMessageData` for TODO.
+	 */
+	export type WaitingWorker = CustomWaitingWorkerMessageEventLikeData<MessageEvent>;
 }
 
 
@@ -149,6 +172,32 @@ export function getActiveWorkerInfo(): Nullable<WorkerInfo> {
  */
 export function getWaitingWorkerInfo(): Nullable<WorkerInfo> {
 	return internalState.waitingWorkerInfo;
+}
+
+/**
+ * TODO
+ */
+export function messageActiveWorker(message: unknown): boolean {
+	return customMessageWorkerInternal(message, true);
+}
+/**
+ * TODO
+ */
+export function messageWaitingWorker(message: DataWithFormatVersion): boolean {
+	return customMessageWorkerInternal(message, false);
+}
+function customMessageWorkerInternal(message: unknown, targetIsTheActive: boolean): boolean {
+	const reg = internalState.registration;
+	const worker = targetIsTheActive? reg?.active : reg?.waiting;
+	if (! worker) return false;
+
+	worker.postMessage({
+		type: "custom",
+		isFromDifferentVersion: ! targetIsTheActive,
+		data: message
+	} as InputMessageData);
+
+	return true;
 }
 
 /**

@@ -2,6 +2,8 @@
 Some of the Svelte module exports need to be used by the adapter or worker, those go here. They are then re-exported by svelte/src/lib/index.ts or util.ts.
 */
 
+import type { DataWithFormatVersion } from "./worker/staticVirtual";
+
 /**
  * TODO
  */
@@ -31,4 +33,36 @@ export namespace ExposedPromise {
 
 	export type ResolveCallback<T> = (value: T) => any;
 	export type RejectCallback = (reason?: any) => any;
+}
+
+
+
+/* Internal */
+
+export interface CustomCurrentWorkerMessageEventLikeData<TEvent> extends CustomMessageEventLikeBase<TEvent> {
+	/**
+	 * TODO
+	 */
+	isFromDifferentVersion: false,
+	/**
+	 * TODO
+	 */
+	data: unknown
+}
+export interface CustomWaitingWorkerMessageEventLikeData<TEvent> extends CustomMessageEventLikeBase<TEvent> {
+	/**
+	 * TODO
+	 */
+	isFromDifferentVersion: true,
+	/**
+	 * TODO
+	 */
+	data: DataWithFormatVersion
+}
+interface CustomMessageEventLikeBase<TEvent> {
+	isFromDifferentVersion: boolean,
+	/**
+	 * TODO
+	 */
+	event: TEvent
 }

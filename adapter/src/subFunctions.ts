@@ -442,7 +442,7 @@ export function createWorkerConstants(
 export function generateVirtualModules(workerConstants: WorkerConstants): VirtualModuleSources {
 	const staticVirtualModulePath = path.join(adapterFilesPath, "build/src/worker/staticVirtual.js");
 	return [
-		`${createConstantsModule(workerConstants)}\nexport * from ${JSON.stringify(staticVirtualModulePath)};`
+		`${createConstantsModule(workerConstants)}\nexport * from ${JSON.stringify(staticVirtualModulePath)}`
 	];
 }
 export async function configureTypescript(inputFiles: InputFiles, configs: AllConfigs): Promise<Nullable<TypescriptConfig>> {

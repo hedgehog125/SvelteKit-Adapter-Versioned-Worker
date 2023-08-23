@@ -1,3 +1,5 @@
+import type { OutputMessageData, WindowClient } from "./staticVirtual.js";
+
 // Some data needs to be accessible by the worker module but should be kept private, that data goes here.
 export const workerState = {
 	quickFetchPromises: new Map<string, Promise<Response>>()
@@ -17,4 +19,8 @@ export async function wrappedFetch(request: Request): Promise<Response> {
 	catch {
 		return Response.error();
 	}
+}
+
+export function broadcastInternal(activeClients: WindowClient[], data: OutputMessageData) {
+	activeClients.forEach(client => client.postMessage(data));
 }

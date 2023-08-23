@@ -1,10 +1,11 @@
+import type { V1ReceivedWorkerMessage, V1SentWorkerMessage } from "./demo.js";
 import type { IDBPDatabase } from "idb";
-import type { HandleFetchHook } from "internal-adapter/worker";
-// @ts-ignore - Complicated to fix and doesn't affect the packaged version. Use this instead of internal-adapter/worker
-import { preloadQuickFetch, virtualRoutes } from "sveltekit-adapter-versioned-worker/worker";
+import type { HandleCustomMessageHook } from "internal-adapter/worker";
 
-import { openDB } from "idb";
 import { openSettingsDB } from "./demo.js";
+// @ts-ignore - Complicated to fix and doesn't affect the packaged version. Use this instead of internal-adapter/worker
+import { preloadQuickFetch, virtualRoutes, broadcast } from "sveltekit-adapter-versioned-worker/worker";
+import { openDB } from "idb";
 
 type Nullable<T> = T | null;
 
@@ -48,3 +49,15 @@ async function quickFetchBackgroundTask() {
 		preloadQuickFetch("http://localhost:8081/");
 	}
 }
+
+export const handleCustomMessage = (messageInfo => {
+	if (messageInfo.isFromDifferentVersion) return;
+
+	const data = messageInfo.data as V1SentWorkerMessage;
+	if (data.type === "sayHi") {
+		broadcast({
+			type: "alert",
+			message: "Hi!"
+		} satisfies V1ReceivedWorkerMessage, false);
+	}
+}) satisfies HandleCustomMessageHook;

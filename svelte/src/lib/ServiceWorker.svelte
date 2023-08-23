@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { InputMessageData, OutputMessageData, UpdatePriority } from "internal-adapter/worker";
-	import type { WorkerRegistrationFailEvent, WorkerUpdateCheckEvent } from "$lib/index_internal.js";
+	import type { VWCustomMessageEvent, WorkerRegistrationFailEvent, WorkerUpdateCheckEvent } from "$lib/index_internal.js";
 
 	import {
 		RESUMABLE_STATE_NAME,
@@ -57,7 +57,11 @@
 		/**
 		 * TODO
 		 */
-		updateready: void
+		updateready: void,
+		/**
+		 * TODO
+		 */
+		message: VWCustomMessageEvent
 	}>();
 
 	let activateEventSent = false;
@@ -194,6 +198,13 @@
 			// If a skip is attempted when the page loads but it fails, the update message should be displayed
 			$displayedUpdatePriority = getUpdatePriority();
 			dispatch("updateready");
+		}
+		else if (data.type === "custom") {
+			dispatch("message", {
+				isFromDifferentVersion: data.isFromDifferentVersion,
+				data: data.data,
+				event: messageEvent
+			} as VWCustomMessageEvent);
 		}
 	}
 
