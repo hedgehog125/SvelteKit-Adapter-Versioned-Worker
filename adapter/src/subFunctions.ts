@@ -12,7 +12,9 @@ import type {
 	ProcessedBuild,
 	TypescriptConfig,
 	FileSorterMessages,
-	FileSorterMessage
+	FileSorterMessage,
+	VWBuildFile,
+	BuildInfo
 } from "./types.js";
 import type { WebAppManifest } from "./manifestTypes.js";
 import type {
@@ -257,15 +259,13 @@ export async function categorizeFilesIntoModes(
 	const fullFileListAsSet = new Set(completeFileList);
 	const staticFolderFileListAsSet = new Set(staticFolderFileList);
 
+	const fileSorters = Array.isArray(adapterConfig.sortFile)? adapterConfig.sortFile : [adapterConfig.sortFile];
 	const fileModes = await Promise.all(completeFileList.map(async (filePath, fileID): Promise<FileSortMode> => {
 		const mimeType = lookup(filePath) || null;
 		
 		if (routeFiles.has(filePath)) return "never-cache"; // Routes are stored separately
 		if (filePath === minimalViteConfig.manifest) return "never-cache";
 		if (filePath === "robots.txt") return "never-cache";
-
-		if (adapterConfig.sortFile == null) return "pre-cache";
-
 
 		const viteInfo = viteBundle?.[filePath]?? null;
 		let isStatic: Nullable<boolean> = null;
@@ -282,7 +282,7 @@ export async function categorizeFilesIntoModes(
 		const addBuildWarning = (message: string) => {
 			addBuildMessageOrWarning(message, false);
 		};
-		const output = await adapterConfig.sortFile({
+		const fileInfo = {
 			href: filePath,
 			localFilePath: path.join(buildDirPath, filePath),
 			mimeType,
@@ -293,18 +293,28 @@ export async function categorizeFilesIntoModes(
 
 			addBuildMessage,
 			addBuildWarning
-		}, {
+		} satisfies VWBuildFile;
+		const buildInfo = {
 			viteBundle,
 			fullFileList: fullFileListAsSet,
 			routeFiles,
 			fileSizes
-		}, configs);
+		} satisfies BuildInfo
 
-		if (isStatic === false && MUST_BE_STATIC.has(output)) {
-			addBuildWarning(`This resource mode was set to "${output}" without it being made static. This means it has a hash in its filename and that will cause it be become unreferenced and deleted when it's changed. Consider making it static or changing its mode to "strict-lazy".`);
+		for (const fileSorter of fileSorters) {
+			if (fileSorter == null) continue;
+
+			const output = await fileSorter(fileInfo, buildInfo, configs);
+			if (output == null) continue;
+	
+			if (isStatic === false && MUST_BE_STATIC.has(output)) {
+				addBuildWarning(`This resource mode was set to "${output}" without it being made static. This means it has a hash in its filename and that will cause it be become unreferenced and deleted when it's changed. Consider making it static or changing its mode to "strict-lazy".`);
+			}
+	
+			return output;
 		}
 
-		return output;
+		return "pre-cache";
 
 		function addBuildMessageOrWarning(message: string, isMessage: boolean) {
 			let existing = messages.get(filePath);

@@ -33,7 +33,7 @@ export interface AdapterConfig {
 	 * @note Routes always use the `"pre-cache"` mode without calling this function
 	 * @note Some other files are always set to `"never-cache"`, again without calling this function
 	 */
-	sortFile?: Nullable<FileSorter>,
+	sortFile?: Nullable<FileSorter | FileSorter[]>,
 	/**
 	 * TODO
 	 */
@@ -190,7 +190,7 @@ export interface LastInfoProviderConfigs {
 	manifestPluginConfig: Nullable<ResolvedManifestPluginConfig>
 }
 
-export type FileSorter = (fileInfo: VWBuildFile, overallInfo: BuildInfo, configs: AllConfigs) => MaybePromise<FileSortMode>;
+export type FileSorter = (fileInfo: VWBuildFile, overallInfo: BuildInfo, configs: AllConfigs) => MaybePromise<FileSortMode | undefined | null | void>;
 export interface VWBuildFile {
 	/**
 	 * The href of the file.
