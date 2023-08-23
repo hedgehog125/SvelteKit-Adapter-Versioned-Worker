@@ -15,6 +15,7 @@
     import { link, range } from "$lib/util.js";
 
     import { onMount } from "svelte";
+    import { browser } from "$app/environment";
 
 	const requestCount = 15; // 10000;
 	let totalTime = 0;
@@ -64,6 +65,13 @@
 		Enable second update priority elevation: {ENABLE_SECOND_UPDATE_PRIORITY_ELEVATION} <br>
 		Use HTTP cache: {USE_HTTP_CACHE} <br>
 		Check for update interval: {CHECK_FOR_UPDATES_INTERVAL}ms <br>
+		{#if browser && "crossOriginIsolated" in window}
+			{#if crossOriginIsolated}
+				The site is currently cross origin isolated using the worker to add the headers.
+			{:else}
+				The site currently isn't cross origin isolated. Is the worker active?
+			{/if} <br>
+		{/if}
 	</p>
 
 	<br>

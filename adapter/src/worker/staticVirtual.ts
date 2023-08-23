@@ -5,7 +5,7 @@
 import type { CustomCurrentWorkerMessageEventLikeData, CustomWaitingWorkerMessageEventLikeData } from "../exportedBySvelteModule.js";
 
 import { broadcastInternal, workerState, wrappedFetch } from "sveltekit-adapter-versioned-worker/internal/worker-shared"; 
-import { summarizeRequest } from "sveltekit-adapter-versioned-worker/internal/worker-util-alias";
+import { modifyResponseHeaders, summarizeRequest } from "sveltekit-adapter-versioned-worker/internal/worker-util-alias";
 
 
 /* Types */
@@ -21,7 +21,7 @@ export interface DataWithFormatVersion {
 /* Hooks /*
 
 /**
- * The type of the optional export `handleFetch` in your `"hooks.worker.ts"` file. The function is called when a network request is made by a client and the `VWRequestMode` isn't `"force-passthrough"`
+ * The type of the optional export `handleFetch` in your `"hooks.worker.ts"` file. The function is called when a network request is made by a client and the `VWRequestMode` isn't `"force-passthrough"`.
  * 
  * @note By default, Versioned Worker will set the mode of cross origin requests to `"force-passthrough"`, in which case they won't cause any of your hooks be called. To handle them anyway, you'll need to set the `VWRequestMode` back to `"default"` or another value. Alternatively, you can disable this behaviour by setting `autoPassthroughCrossOriginRequests` in your adapter config to `false`.
  * @note Generally you should only handle requests with the `VIRTUAL_FETCH_PREFIX`.
@@ -150,6 +150,50 @@ export namespace CustomMessageHookData {
 	 */
 	export type WaitingWorker = CustomWaitingWorkerMessageEventLikeData<ExtendableMessageEvent>;
 }
+
+/**
+ * TODO
+ * 
+ * @note This won't be called for requests where any of the following are the case:
+ * * A response was returned by `handleFetch`
+ * * The request's `VWRequestMode` is set to `"force-passthrough"`
+ * * The request was auto passthrough-ed, which is a behaviour that's disabled by default
+ * 
+ * @see `HandleFetchHook` for more information on handling requests
+ * @see `AdapterConfig.enablePassthrough` for more information on enabling auto passthrough
+ */
+export type HandleResponseHook = (requestInfo: VWRequest, responseInfo: VWResponse) => MaybePromise<Response | undefined | void>;
+/**
+ * TODO
+ */
+export interface VWResponse {
+	/**
+	 * TODO
+	 */
+	response: Response,
+	/**
+	 * TODO
+	 */
+	isFromCache: boolean,
+	/**
+	 * TODO
+	 */
+	isStale: boolean,
+	/**
+	 * TODO
+	 * 
+	 * @note This will be `null` if the worker never fetched as part of the request in the first place.
+	 * @note It will also be `null` for resources that have their `FileSortMode` set to `"lazy-cache"` unless they haven't been cached yet. This is because they're normally only updated in the background, so it's not known if it'll succeed at this point.
+	 * 
+	 * @see `FileSortMode` in the module `"sveltekit-adapter-versioned-worker"` for more information on file sort modes.
+	 */
+	didNetworkFail: Nullable<boolean>,
+	/**
+	 * TODO
+	 */
+	event: FetchEvent
+}
+
 
 /**
  * TODO
@@ -620,6 +664,25 @@ export function virtualRoutes(handlers: { [href: string]: HandleFetchHook }, ign
 	};
 }
 
+/**
+ * TODO
+ */
+export function modifyResponseHeadersBeforeSending(newHeaders: Record<string, Nullable<string>>, conditionCallback: (requestInfo: VWRequest, responseInfo: VWResponse) => MaybePromise<boolean>): HandleResponseHook {
+	return async (requestInfo, responseInfo) => {
+		if (! (await conditionCallback(requestInfo, responseInfo))) return;
+
+		return modifyResponseHeaders(responseInfo.response, newHeaders);
+	};
+}
+/**
+ * TODO
+ */
+export function modifyResponsesToCrossOriginIsolateApp(): HandleResponseHook {
+	return modifyResponseHeadersBeforeSending({
+		"Cross-Origin-Opener-Policy": "same-origin",
+		"Cross-Origin-Embedder-Policy": "require-corp"
+	}, ({ isPage }) => isPage);
+}
 
 /**
  * TODO

@@ -15,7 +15,8 @@ import type {
 	ExtendableMessageEvent,
 	WorkerV1Info,
 	UpdatePriority,
-	CustomMessageHookData
+	CustomMessageHookData,
+	VWRequest
 } from "sveltekit-adapter-versioned-worker/worker";
 declare var clients: Clients;
 declare var registration: Registration;
@@ -283,20 +284,21 @@ addEventListener("fetch", e => {
 	const virtualHref = hasVirtualPrefix? pathWithoutBase.slice(VIRTUAL_FETCH_PREFIX.length) : null;
 	const fetchHandler = selectHandleFetchFunction(virtualHref, isCrossOrigin);
 	let handleOutput: MaybePromise<Response | undefined | void>;
+	const requestInfo = {
+		href: pathWithoutBase,
+		fullHref: fullPath,
+		virtualHref,
+		searchParams,
+		urlObj,
+		isPage,
+		isCrossOrigin,
+		vwMode,
+		inCacheList,
+		request: req,
+		event: fetchEvent
+	} satisfies VWRequest;
 	if (fetchHandler) {
-		handleOutput = fetchHandler({
-			href: pathWithoutBase,
-			fullHref: fullPath,
-			virtualHref,
-			searchParams,
-			urlObj,
-			isPage,
-			isCrossOrigin,
-			vwMode,
-			inCacheList,
-			request: req,
-			event: fetchEvent
-		});
+		handleOutput = fetchHandler(requestInfo);
 
 		if (ENABLE_PASSTHROUGH) {
 			if (handleOutput == null && (! inCacheList) && vwMode !== "handle-only") return;
@@ -330,18 +332,18 @@ addEventListener("fetch", e => {
 				let cached = await cache.match(modifiedRequest);
 				if (cached) {
 					const stale = parseInt(cached.headers.get("vw-version") as string) !== VERSION;
-					if (! stale) return handleHeadRequest(cached, isHeadRequest);
+					if (! stale) return await modifyResponseBeforeSending(cached, requestInfo, true, false, null);
 
 					if (vwMode === "no-network" || STALE_LAZY.includes(pathWithoutBase)) {
 						if (vwMode !== "no-network") updateResourceInBackground(modifiedRequest, cache, fetchEvent);
-						return handleHeadRequest(cached, isHeadRequest); // The outdated version
+						return await modifyResponseBeforeSending(cached, requestInfo, true, true, null); // The outdated version
 					}
 					else { // Must be a lax-lazy resource
-						const [resource, isError] = await fetchResource(pathWithoutBase, modifiedRequest, isPage);
-						if (isError) return handleHeadRequest(cached, isHeadRequest);
+						const [resource, isError] = await fetchResource(pathWithoutBase, modifiedRequest, isPage, true);
+						if (isError) return await modifyResponseBeforeSending(cached, requestInfo, true, true, true);
 
 						updateResourceInBackground(modifiedRequest, cache, fetchEvent, resource.clone());
-						return handleHeadRequest(resource, isHeadRequest);
+						return await modifyResponseBeforeSending(resource, requestInfo, false, false, false);
 					}
 				}
 			}
@@ -349,12 +351,12 @@ addEventListener("fetch", e => {
 			/* The response won't already be in the cache if this point is reached (but could be in the cache list) */
 			if (vwMode === "no-network") return Response.error();
 
-			const modifiedRequest = modifyRequestForCaching(req, false); // Could be a HEAD request
-			const [resource, isError] = await fetchResource(pathWithoutBase, modifiedRequest, isPage);
-			if (isError || isHeadRequest) return resource; // Send the error response or send the HEAD response from the server if applicable, as it can't be cached
+			const modifiedRequest = inCacheList? modifyRequestForCaching(req, false) : req; // Could be a HEAD request
+			const [resource, isCachable] = await fetchResource(pathWithoutBase, modifiedRequest, isPage, inCacheList);
+			if ((! isCachable) || isHeadRequest) return resource; // Send the error response or send the HEAD response from the server if applicable, as it can't be cached
 
 			if (inCacheList) updateResourceInBackground(modifiedRequest, cache, fetchEvent, resource.clone());
-			return handleHeadRequest(resource, isHeadRequest);
+			return await modifyResponseBeforeSending(resource, requestInfo, false, false, false);
         })()
     );
 });
@@ -619,25 +621,26 @@ const acceptableResponseTypes = new Set([
  * Also adds the Versioned Worker headers
  */
 async function fetchResource(
-	pathWithoutBase: string, modifiedRequest: Request, isPage: boolean
-): Promise<[response: Response, isError: boolean]> {
+	pathWithoutBase: string, modifiedRequest: Request, isPage: boolean, shouldAddHeaders: boolean
+): Promise<[response: Response, isCachable: boolean]> {
 	let resource: Response;
 	try {
 		resource = await fetch(modifiedRequest);
 	}
 	catch {
-		if (ROUTES.includes(pathWithoutBase) && isPage) {
-			return [new Response("Something went wrong. Please connect to the internet and try again."), true];
+		if (isPage && ROUTES.includes(pathWithoutBase)) {
+			return [new Response("Something went wrong. Please connect to the internet and try again."), false];
 		}
 		else {
-			return [Response.error(), true];
+			return [Response.error(), false];
 		}
 	}
 
-	if (acceptableResponseTypes.has(resource.type)) { // Other types are errors or redirects
-		resource = addVWHeaders(resource);
-	}
-	return [resource, false];
+	if (! acceptableResponseTypes.has(resource.type)) return [resource, false]; // It's an error or redirect
+	return [
+		shouldAddHeaders? addVWHeaders(resource) : resource,
+		true
+	];
 }
 /**
  * @note This consumes `resource`, if provided
@@ -659,7 +662,25 @@ function updateResourceInBackground(
 	);
 }
 
-function handleHeadRequest(response: Response, isHeadRequest: boolean): Response {
+async function modifyResponseBeforeSending(
+	response: Response, request: VWRequest,
+	isFromCache: boolean, isStale: boolean, didNetworkFail: Nullable<boolean>
+): Promise<Response> {
+	response = handleHeadRequest(response, request.request.method === "HEAD");
+	
+	let output: Response | null | undefined | void;
+	if (hooks.handleResponse) output = await hooks.handleResponse(request, {
+		response,
+		isFromCache,
+		isStale,
+		didNetworkFail,
+		event: request.event
+	});
+	
+	if (output) return output;
+	return response;
+}
+function handleHeadRequest(response: Response, isHeadRequest: boolean) {
 	if ((! isHeadRequest) || response.body == null) return response;
 
 	response.body.cancel(); // This doesn't seem to be needed in Chrome or Firefox but it seems like a good idea to explicitly do this

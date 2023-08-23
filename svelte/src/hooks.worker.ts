@@ -3,8 +3,13 @@ import type { IDBPDatabase } from "idb";
 import type { HandleCustomMessageHook } from "internal-adapter/worker";
 
 import { openSettingsDB } from "./demo.js";
+import { 
+	virtualRoutes,
+	modifyResponsesToCrossOriginIsolateApp,
+	preloadQuickFetch,
+	broadcast
 // @ts-ignore - Complicated to fix and doesn't affect the packaged version. Use this instead of internal-adapter/worker
-import { preloadQuickFetch, virtualRoutes, broadcast } from "sveltekit-adapter-versioned-worker/worker";
+} from "sveltekit-adapter-versioned-worker/worker";
 import { openDB } from "idb";
 
 type Nullable<T> = T | null;
@@ -61,3 +66,4 @@ export const handleCustomMessage = (messageInfo => {
 		} satisfies V1ReceivedWorkerMessage, false);
 	}
 }) satisfies HandleCustomMessageHook;
+export const handleResponse = modifyResponsesToCrossOriginIsolateApp();

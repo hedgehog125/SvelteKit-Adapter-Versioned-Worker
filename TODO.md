@@ -8,7 +8,6 @@ Increase the number of updates per version file to 25 but reduce the max number 
 # Bugs
 
 # Features
-Add an easy way to modify headers before the response is sent. New hook? Maybe only for requests using the default mechanism (not handled)?
 Allow FileSorters to return null and create a utility function that runs through an array of them until one returns something other than null
 
 A way to transfer info from the prerender to the file sorter
