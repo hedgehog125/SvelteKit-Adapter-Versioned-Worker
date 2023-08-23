@@ -333,12 +333,13 @@ async function processBuild(configs: AllConfigs, builder: Builder): Promise<Proc
 	const routeFiles = new Set(Array.from(builder.prerendered.pages).map(([, { file }]) => file));
 
 	const fileSizes = await getFileSizes(fullFileList, viteBundle, configs);
-	const categorizedFiles = await categorizeFilesIntoModes(fullFileList, staticFolderFileList, routeFiles, fileSizes, viteBundle, configs);
+	const [categorizedFiles, fileSorterMessages] = await categorizeFilesIntoModes(fullFileList, staticFolderFileList, routeFiles, fileSizes, viteBundle, configs);
 	const staticFileHashes = await hashFiles(categorizedFiles.completeList, routeFiles, viteBundle, configs);
 	const updatePriority = getUpdatePriority(lastInfo, configs);
 
 	return {
 		categorizedFiles,
+		fileSorterMessages,
 		routeFiles,
 		staticFileHashes,
 		fileSizes,
@@ -367,7 +368,7 @@ async function createNewVersion(staticFileHashes: Map<string, string>, updatePri
 async function finishUp(workerBuildErrors: WrappedRollupError[], processedBuild: ProcessedBuild, configs: AllConfigs) {
 	await writeInfoFile(lastInfo, configs);
 	await callFinishHook(workerBuildErrors == null, processedBuild, configs);
-	logInfoAndErrors(workerBuildErrors, configs);
+	logInfoAndErrors(workerBuildErrors, processedBuild, configs);
 }
 
 /* Manifest Generation */

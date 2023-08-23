@@ -1,7 +1,6 @@
 import { sveltekit } from "@sveltejs/kit/vite";
 import { manifestGenerator, shareValueWithSvelteConfig } from "internal-adapter";
 import virtualPlugin from "@rollup/plugin-virtual";
-
 import { defineConfig } from "vite";
 
 shareValueWithSvelteConfig("sortFile", ({ href, size, viteInfo, isStatic }) => {
@@ -15,6 +14,15 @@ shareValueWithSvelteConfig("sortFile", ({ href, size, viteInfo, isStatic }) => {
 				return "strict-lazy";
 			}
 		}
+		/*
+		else {
+			if (viteInfo.name) {
+				if (viteInfo.name === "close.svg") {
+					return "lax-lazy";
+				}
+			}
+		}
+		*/
 	}
 
 	return "pre-cache";
@@ -24,10 +32,8 @@ export default defineConfig({
 	plugins: [
 		// TODO: fix the dependency issue with the development setup
 
-		// @ts-ignore
-		sveltekit(),
-		// @ts-ignore
-		manifestGenerator(),
+		sveltekit() as any,
+		manifestGenerator() as any,
 		virtualPlugin({
 			"virtual-is-even": (() => {
 				const initialIf = "if (number === 0) return true;";

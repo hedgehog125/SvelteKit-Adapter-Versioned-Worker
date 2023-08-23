@@ -10,7 +10,9 @@ import type {
 	FileSortMode,
 	CategorizedBuildFiles,
 	ProcessedBuild,
-	TypescriptConfig
+	TypescriptConfig,
+	FileSorterMessages,
+	FileSorterMessage
 } from "./types.js";
 import type { WebAppManifest } from "./manifestTypes.js";
 import type {
@@ -245,9 +247,12 @@ export async function categorizeFilesIntoModes(
 	completeFileList: string[], staticFolderFileList: string[],
 	routeFiles: Set<string>, fileSizes: Map<string, number>,
 	viteBundle: Nullable<OutputBundle>, configs: AllConfigs
-): Promise<CategorizedBuildFiles> {
+): Promise<[CategorizedBuildFiles, FileSorterMessages]> {
 	const { minimalViteConfig, adapterConfig } = configs;
 	const buildDirPath = path.join(minimalViteConfig.root, adapterConfig.outputDir);
+	const messages = new Map<string, FileSorterMessage[]>();
+	const MUST_BE_STATIC: Set<FileSortMode> = new Set(["lax-lazy", "semi-lazy", "stale-lazy"]) satisfies Set<FileSortMode>;
+
 
 	const fullFileListAsSet = new Set(completeFileList);
 	const staticFolderFileListAsSet = new Set(staticFolderFileList);
@@ -271,7 +276,13 @@ export async function categorizeFilesIntoModes(
 			isStatic = viteInfo?.name == null;
 		}
 
-		return await adapterConfig.sortFile({
+		const addBuildMessage = (message: string) => {
+			addBuildMessageOrWarning(message, true);
+		};
+		const addBuildWarning = (message: string) => {
+			addBuildMessageOrWarning(message, false);
+		};
+		const output = await adapterConfig.sortFile({
 			href: filePath,
 			localFilePath: path.join(buildDirPath, filePath),
 			mimeType,
@@ -280,18 +291,31 @@ export async function categorizeFilesIntoModes(
 			fileID,
 			viteInfo,
 
-			addBuildMessage(message) {
-				// TODO
-			},
-			addBuildWarning(message) {
-				// TODO
-			}
+			addBuildMessage,
+			addBuildWarning
 		}, {
 			viteBundle,
 			fullFileList: fullFileListAsSet,
 			routeFiles,
 			fileSizes
 		}, configs);
+
+		if (isStatic === false && MUST_BE_STATIC.has(output)) {
+			addBuildWarning(`This resource mode was set to "${output}" without it being made static. This means it has a hash in its filename and that will cause it be become unreferenced and deleted when it's changed. Consider making it static or changing its mode to "strict-lazy".`);
+		}
+
+		return output;
+
+		function addBuildMessageOrWarning(message: string, isMessage: boolean) {
+			let existing = messages.get(filePath);
+			existing ??= [];
+
+			existing.push({
+				isMessage,
+				message
+			});
+			messages.set(filePath, existing);
+		}
 	}));
 
 	let precache: string[] = [];
@@ -314,15 +338,18 @@ export async function categorizeFilesIntoModes(
 		else if (fileMode === "semi-lazy") semiLazy.push(fileName);
 	}
 
-	return {
-		precache,
-		laxLazy,
-		staleLazy,
-		strictLazy,
-		semiLazy,
+	return [
+		{
+			precache,
+			laxLazy,
+			staleLazy,
+			strictLazy,
+			semiLazy,
 
-		completeList
-	};
+			completeList
+		},
+		messages
+	];
 }
 export async function hashFiles(
 	filteredFileList: string[], routeFiles: Set<string>,
@@ -681,10 +708,18 @@ export async function writeInfoFile(infoFile: InfoFileV3, { minimalViteConfig, a
 export async function callFinishHook(workerBuildSucceeded: boolean, processedBuild: ProcessedBuild, configs: AllConfigs) {
 	await configs.adapterConfig.onFinish?.(workerBuildSucceeded, processedBuild, configs);
 }
-export function logInfoAndErrors(workerBuildErrors: WrappedRollupError[], { minimalViteConfig }: AllConfigs) {
+export function logInfoAndErrors(workerBuildErrors: WrappedRollupError[], { fileSorterMessages }: ProcessedBuild, { minimalViteConfig }: AllConfigs) {
+	if (fileSorterMessages.size !== 0) {
+		doubleBlankLines();
+		log.message(`${fileSorterMessages.size} resource${fileSorterMessages.size === 1? "" : "s"} logged a message or warning:`);
+		for (const [fileName, messagesForFile] of fileSorterMessages) {
+			for (const { message, isMessage } of messagesForFile) {
+				(isMessage? log.message : log.warn)(` * ${fileName} -> ${message}`, false);
+			}
+		}
+	}
 	if (workerBuildErrors.length !== 0) {
-		log.blankLine();
-		log.blankLine();
+		doubleBlankLines();
 		log.error(`Service worker failed to build. Reason${workerBuildErrors.length === 1? "" : "s"}:`);
 		for (const workerBuildError of workerBuildErrors) {
 			const { loc, frame, message, stack } = workerBuildError;
@@ -694,6 +729,11 @@ export function logInfoAndErrors(workerBuildErrors: WrappedRollupError[], { mini
 	
 			log.error(`\n${message}\n${errorPosition}\n\n${frame?? ""}${callStack}`, false);
 		}
+	}
+
+	function doubleBlankLines() {
+		log.blankLine();
+		log.blankLine();
 	}
 }
 

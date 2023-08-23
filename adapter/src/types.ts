@@ -171,10 +171,10 @@ export interface ValuesFromViteConfig {
 }
 
 export interface VersionedWorkerLogger {
-	message(msg: string): void,
+	message(msg: string, includePrefix?: boolean): void,
 	success(msg: string): void,
 	error(msg: string, includePrefix?: boolean): void,
-	warn(msg: string): void,
+	warn(msg: string, includePrefix?: boolean): void,
 
 	minor(msg: string): void,
 	info(msg: string): void,
@@ -292,6 +292,7 @@ export type BuildFinishHook = (workerBuildSucceeded: boolean, processedBuild: Pr
  */
 export interface ProcessedBuild {
 	categorizedFiles: CategorizedBuildFiles,
+	fileSorterMessages: FileSorterMessages,
 	routeFiles: Set<string>,
 	staticFileHashes: Map<string, string>,
 	fileSizes: Map<string, number>,
@@ -309,6 +310,11 @@ export interface CategorizedBuildFiles {
 
 	completeList: string[]
 	// never-cache just isn't included
+}
+export type FileSorterMessages = Map<string, FileSorterMessage[]>;
+export interface FileSorterMessage {
+	isMessage: boolean,
+	message: string
 }
 
 

@@ -1,7 +1,8 @@
 Log based on what files are new? e.g only list newly added lazy files?
-Warnings for large media files since they won't stream
-Warnings for non-static files using lax or stale lazy as they will become unreferenced and removed when updated
 Increase the number of updates per version file to 25 but reduce the max number to 5
+
+# To include in readme
+No support for range requests means large assets have to download the whole thing first
 
 # Svelte Utils
 
