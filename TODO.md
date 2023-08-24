@@ -1,5 +1,4 @@
 Log based on what files are new? e.g only list newly added lazy files?
-Increase the number of updates per version file to 25 but reduce the max number to 5
 
 # To include in readme
 No support for range requests means large assets have to download the whole thing first
@@ -9,7 +8,7 @@ No support for range requests means large assets have to download the whole thin
 # Bugs
 
 # Features
-Allow FileSorters to return null and create a utility function that runs through an array of them until one returns something other than null
+
 
 A way to transfer info from the prerender to the file sorter
 Make more hard-coded values configurable

@@ -94,14 +94,32 @@ export function updateInfoFileIfNeeded(infoFile: UnprocessedInfoFile): Unprocess
 			throw new VersionedWorkerError("Please release an update using the previous SvelteKit-Plugin-Versioned-Worker before using this adapter, as only that supports upgrading info files from version 1 to 2.");
 		}
 		else if (infoFile.formatVersion === 2) {
-			let newVersions: (InfoFileV2VersionBatch | InfoFileV3VersionBatch)[] = infoFile.versions;
-			// Trim the versions over 100, removing the oldest first
-			if (newVersions.length > MAX_VERSION_FILES) {
-				// ^ The version files are stored in batches, so this isn't multiplied by VERSION_FILE_BATCH_SIZE
-				newVersions.splice(0, newVersions.length - MAX_VERSION_FILES);
+			const oldUpdated = infoFile.versions.flatMap(({ updated }) => updated);
+			let newBatches: (InfoFileV2VersionBatch | InfoFileV3VersionBatch)[] = [];
+
+			// Reorganise it as V2 update batches with the sizes of V3 ones
+			let currentBatch: InfoFileV2VersionBatch | null = null;
+			const newMaxVersions = VERSION_FILE_BATCH_SIZE * MAX_VERSION_FILES;
+			const startIndex = Math.max(oldUpdated.length - newMaxVersions, 0);
+			for (let i = startIndex; i < oldUpdated.length; i++) {
+				if (currentBatch == null) {
+					currentBatch = {
+						formatVersion: 2,
+						updated: []
+					};
+				}
+
+				currentBatch.updated.push(oldUpdated[i]);
+				if (
+					currentBatch.updated.length === VERSION_FILE_BATCH_SIZE
+					|| (! (i + 1 < oldUpdated.length))
+				) {
+					newBatches.push(currentBatch);
+					currentBatch = null;
+				}
 			}
 
-			newVersions = newVersions.map(batch => {
+			newBatches = newBatches.map(batch => {
 				const updatePriorities: UpdatePriority[] = Array.from(new Array(batch.updated.length), () => 2);
 
 				return {
@@ -114,7 +132,7 @@ export function updateInfoFileIfNeeded(infoFile: UnprocessedInfoFile): Unprocess
 			return {
 				formatVersion: 3,
 				version: infoFile.version,
-				versions: newVersions as InfoFileV3VersionBatch[],
+				versions: newBatches as InfoFileV3VersionBatch[],
 				hashes: infoFile.hashes,
 				majorUpdateValue: 0,
 				criticalUpdateValue: 0
