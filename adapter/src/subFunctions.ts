@@ -670,12 +670,6 @@ export function addNewVersionToInfoFile(
 	infoFile.majorUpdateValue = typeof adapterConfig.isMajorUpdate === "boolean"? 0 : adapterConfig.isMajorUpdate;
 	infoFile.criticalUpdateValue = typeof adapterConfig.isCriticalUpdate === "boolean"? 0 : adapterConfig.isCriticalUpdate;
 
-
-	const isNewBatch = infoFile.version % VERSION_FILE_BATCH_SIZE === 0;
-	const lastVersion = isNewBatch?
-		null
-		: infoFile.versions[infoFile.versions.length - 1]
-	;
 	let updated = new Set<string>();
 	for (const [fileName, hash] of infoFile.hashes) { // This doesn't loop over any files that were added this version, so they can't be added to updated
 		if (! staticFileHashes.has(fileName)) continue; // File removed in this version
@@ -685,22 +679,20 @@ export function addNewVersionToInfoFile(
 		}
 	}
 
-	const index = isNewBatch?
-		infoFile.versions.length
-		: infoFile.versions.length - 1
-	;
-	infoFile.versions[index] = {
-		formatVersion: 3,
-		updated: [
-			// The second isn't spread because this is a nested array
-			...(lastVersion == null? [] : lastVersion.updated),
-			Array.from(updated)
-		],
-		updatePriorities: [
-			...(lastVersion == null? [] : lastVersion.updatePriorities),
-			updatePriority
-		]
-	};
+	let currentBatch = infoFile.versions.at(-1);
+	if (currentBatch == null || currentBatch.updated.length === VERSION_FILE_BATCH_SIZE) {
+		currentBatch = {
+			formatVersion: 3,
+			updated: [],
+			updatePriorities: []
+		};
+		infoFile.versions.push(currentBatch);
+	}
+
+	currentBatch.updated.push(Array.from(updated));
+	currentBatch.updatePriorities.push(updatePriority);
+	
+
 	if (infoFile.versions.length > MAX_VERSION_FILES) {
 		infoFile.versions.splice(0, infoFile.versions.length - MAX_VERSION_FILES);
 	}

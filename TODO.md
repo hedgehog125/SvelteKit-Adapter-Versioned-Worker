@@ -1,4 +1,5 @@
 Log based on what files are new? e.g only list newly added lazy files?
+Option to release a priority 2 update
 
 # To include in readme
 No support for range requests means large assets have to download the whole thing first

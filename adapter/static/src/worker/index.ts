@@ -128,6 +128,7 @@ addEventListener("install", e => {
 				...PRECACHE
 			]);
 			const toCopy = new Map<string, [containingCache: Cache, firstUpdatedInVersion: [number, number] | undefined, fromVersion: number]>(); // The key is the path
+			// TODO: during clean installs, download semi-lazy resources that were previously downloaded?
 			if (whenResourcesUpdated) { // Don't reuse anything if it's a clean install
 				const cacheNames = await caches.keys();
 				for (const cacheName of cacheNames) {
@@ -138,17 +139,14 @@ addEventListener("install", e => {
 					const pathsInCache = (await cache.keys()).map(req => new URL(req.url).pathname.slice(BASE_URL.length));
 					const cacheVersion = parseInt(cacheName.slice(STORAGE_PREFIX.length));
 					for (const path of pathsInCache) {
-						const isRoute = ROUTES.includes(path);
-						const firstUpdatedInVersion = isRoute?
-							undefined
-							: whenResourcesUpdated.get(path)
-						;
-						const changed = ! (isRoute || firstUpdatedInVersion == null);
+						if (ROUTES.includes(path)) continue;
+
+						const firstUpdatedInVersion = whenResourcesUpdated.get(path);
+						const changed = firstUpdatedInVersion != null;
 						
 						if (PRECACHE.includes(path)) {
-							if (toDownload.has(path) && (! changed)) {
-								toDownload.delete(path);
-		
+							if (! changed) {
+								toDownload.delete(path); // This might be called to remove it multiple times but that won't error
 								addToToCopyIfNewer();
 							}
 						}
@@ -161,8 +159,7 @@ addEventListener("install", e => {
 							}
 						}
 						else if (COMPLETE_CACHE_LIST.has(path)) {
-							const staleAndAcceptable = changed && REUSABLE_BETWEEN_VERSIONS.has(path); // Don't check if it's in REUSABLE_BETWEEN_VERSIONS if it's unchanged
-							const reusable = (! changed) || staleAndAcceptable;
+							const reusable = (! changed) || REUSABLE_BETWEEN_VERSIONS.has(path);
 
 							if (reusable) addToToCopyIfNewer(); // If it's reusable and has changed then it's stale
 						}
@@ -481,6 +478,9 @@ function parseUpdatedList(contents: string): VersionFile {
 		updatePriorities
 	};
 }
+/**
+ * @note The returned versions are sorted from high to low
+ */
 async function getInstalled(): Promise<number[]> {
 	let installedVersions = [];
 
@@ -515,7 +515,7 @@ async function getWhenEachResourceUpdated(installedVersions: number[]): Promise<
 	/* Fetch all the version files between the versions */
 
 	// Once the number of version files reaches MAX_VERSION_FILES, the version files are shifted down by 1
-	// + 1 and ceil so v100 gives an offset of -1 and <= -2 starts at 110 
+	// + 1 and ceil so v125 gives an offset of -1 and <= -2 starts at 150
 	const batchOffset = Math.min(MAX_VERSION_FILES - Math.ceil((VERSION + 1) / VERSION_FILE_BATCH_SIZE), 0); // Always <= 0
 
 	const rangeToDownload = [
@@ -529,22 +529,22 @@ async function getWhenEachResourceUpdated(installedVersions: number[]): Promise<
 	const numberToDownload = (rangeToDownload[1] - rangeToDownload[0]) + 1;
 	
 	let versionFiles = await Promise.all(
-		Array.from(new Array(numberToDownload), async (_, offset): Promise<VersionFile> => {
+		Array.from(new Array(numberToDownload), async (_, offset): Promise<VersionFile | null> => {
 			let fileID = offset + rangeToDownload[0];
 			const res = await fetch(`${VERSION_FOLDER}/${fileID}.txt`, { cache: httpCacheMode });
-			if (! isResponseUsable(res)) throw ""; // Fail the install
+			if (! isResponseUsable(res)) return null;
 
 			return parseUpdatedList(await res.text());
 		})
 	);
 
-	if (versionFiles.some(versionFile => versionFile.formatVersion === -1)) return cleanInstallReturnValue; // Unknown format version or not ok status, so do a clean install
+	if (versionFiles.some(versionFile => versionFile == null || versionFile.formatVersion === -1)) return cleanInstallReturnValue; // Unknown format version or not ok status, so do a clean install
 
 	let whenResourcesUpdated = new Map<string, [number, number]>();
 	let currentVersion = newestInstalled + 1;
 	let updatePriority: UpdatePriority = 1;
 	for (let i = 0; i < versionFiles.length; i++) {
-		const versionFile = versionFiles[i];
+		const versionFile = versionFiles[i] as VersionFile; // It would have returned earlier if one was null
 
 		// If the installed version is the last of its file, its batch won't be iterated over in this containing loop
 		const startIndex = installedInDownloadRange && i === 0? idInBatchOfOneAfterInstalled : 0;
