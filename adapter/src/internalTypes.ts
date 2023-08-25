@@ -29,6 +29,8 @@ interface InfoFileV3Base {
 	formatVersion: 3,
 	version: number,
 	versions: InfoFileV3VersionBatch[],
+
+	elevatedPatchUpdateValue: number,
 	majorUpdateValue: number,
 	criticalUpdateValue: number
 }

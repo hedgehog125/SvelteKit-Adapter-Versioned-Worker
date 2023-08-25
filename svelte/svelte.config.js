@@ -31,6 +31,7 @@ const config = {
 		},
 
 		adapter: adapter({
+			isElevatedPatchUpdate: 0,
 			isMajorUpdate: 0,
 			isCriticalUpdate: 0,
 			

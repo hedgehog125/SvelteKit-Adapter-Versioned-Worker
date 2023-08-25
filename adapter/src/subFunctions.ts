@@ -33,7 +33,7 @@ import type {
 } from "./internalTypes.js";
 import type { UpdatePriority } from "./worker/staticVirtual.js";
 
-import type { LoggingFunction, OutputBundle, RollupBuild, RollupError, RollupLog, RollupWarning } from "rollup";
+import type { OutputBundle, RollupBuild, RollupError } from "rollup";
 import type { Builder } from "@sveltejs/kit";
 
 
@@ -100,7 +100,8 @@ export function updateInfoFileIfNeeded(infoFile: UnprocessedInfoFile): Unprocess
 			// Reorganise it as V2 update batches with the sizes of V3 ones
 			let currentBatch: InfoFileV2VersionBatch | null = null;
 			const newMaxVersions = VERSION_FILE_BATCH_SIZE * MAX_VERSION_FILES;
-			const startIndex = Math.max(oldUpdated.length - newMaxVersions, 0);
+			const startIndex = Math.ceil(Math.max(oldUpdated.length - newMaxVersions, 0) / VERSION_FILE_BATCH_SIZE) * VERSION_FILE_BATCH_SIZE;
+			// The number of versions to exclude needs to be a multiple of VERSION_FILE_BATCH_SIZE
 			for (let i = startIndex; i < oldUpdated.length; i++) {
 				if (currentBatch == null) {
 					currentBatch = {
@@ -129,11 +130,14 @@ export function updateInfoFileIfNeeded(infoFile: UnprocessedInfoFile): Unprocess
 				} satisfies InfoFileV3VersionBatch;
 			});
 
+			console.log(infoFile.version, newBatches)
 			return {
 				formatVersion: 3,
 				version: infoFile.version,
 				versions: newBatches as InfoFileV3VersionBatch[],
 				hashes: infoFile.hashes,
+
+				elevatedPatchUpdateValue: 0,
 				majorUpdateValue: 0,
 				criticalUpdateValue: 0
 			};
@@ -151,6 +155,8 @@ export function processInfoFile(infoFile: UnprocessedV3InfoFile): InfoFileV3 {
 		version,
 		versions,
 		hashes,
+
+		elevatedPatchUpdateValue,
 		majorUpdateValue,
 		criticalUpdateValue
 	} = infoFile;
@@ -160,6 +166,8 @@ export function processInfoFile(infoFile: UnprocessedV3InfoFile): InfoFileV3 {
 		version,
 		versions,
 		hashes: new Map(Object.entries(hashes)),
+
+		elevatedPatchUpdateValue,
 		majorUpdateValue,
 		criticalUpdateValue
 	};
@@ -422,13 +430,15 @@ export async function getFileSizes(
 	}))).map((size, fileIndex) => [filteredFileList[fileIndex], size]));
 }
 export function getUpdatePriority(lastInfo: InfoFileV3, { adapterConfig }: AllConfigs): UpdatePriority {
-	const { isCriticalUpdate, isMajorUpdate } = adapterConfig;
+	const { isElevatedPatchUpdate, isCriticalUpdate, isMajorUpdate } = adapterConfig;
 	if (isCriticalUpdate === true) return 4;
 	if (isMajorUpdate === true) return 3;
+	if (isElevatedPatchUpdate === true) return 2;
 
-	// Neither of these will return if the value is false or 0
+	// None of these will return if the value is false or 0
 	if (isCriticalUpdate && isCriticalUpdate !== lastInfo.criticalUpdateValue) return 4;
 	if (isMajorUpdate && isMajorUpdate !== lastInfo.majorUpdateValue) return 3;
+	if (isElevatedPatchUpdate && isElevatedPatchUpdate !== lastInfo.elevatedPatchUpdateValue) return 2;
 
 	return 1;
 }
@@ -667,8 +677,12 @@ export function addNewVersionToInfoFile(
 	updatePriority: UpdatePriority, { adapterConfig }: AllConfigs
 ) {
 	infoFile.version++;
-	infoFile.majorUpdateValue = typeof adapterConfig.isMajorUpdate === "boolean"? 0 : adapterConfig.isMajorUpdate;
-	infoFile.criticalUpdateValue = typeof adapterConfig.isCriticalUpdate === "boolean"? 0 : adapterConfig.isCriticalUpdate;
+	infoFile.elevatedPatchUpdateValue = getUpdateValueToSave(adapterConfig.isElevatedPatchUpdate);
+	infoFile.majorUpdateValue = getUpdateValueToSave(adapterConfig.isMajorUpdate);
+	infoFile.criticalUpdateValue = getUpdateValueToSave(adapterConfig.isCriticalUpdate);
+	function getUpdateValueToSave(value: number | boolean): number {
+		return typeof value === "boolean"? 0 : value;
+	}
 
 	let updated = new Set<string>();
 	for (const [fileName, hash] of infoFile.hashes) { // This doesn't loop over any files that were added this version, so they can't be added to updated

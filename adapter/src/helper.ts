@@ -98,6 +98,8 @@ export function createInitialInfo(): UnprocessedV3InfoFile {
 		version: -1,
 		versions: [],
 		hashes: {},
+
+		elevatedPatchUpdateValue: 0,
 		majorUpdateValue: 0,
 		criticalUpdateValue: 0
 	};

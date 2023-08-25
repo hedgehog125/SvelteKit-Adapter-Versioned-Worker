@@ -119,6 +119,10 @@ export interface AdapterConfig {
 	/**
 	 * TODO
 	 */
+	isElevatedPatchUpdate?: number | boolean,
+	/**
+	 * TODO
+	 */
 	isMajorUpdate?: number | boolean,
 	/**
 	 * TODO

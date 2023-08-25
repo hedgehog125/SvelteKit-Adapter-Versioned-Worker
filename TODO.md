@@ -1,5 +1,4 @@
 Log based on what files are new? e.g only list newly added lazy files?
-Option to release a priority 2 update
 Use sets instead of arrays for the constants
 
 # To include in readme

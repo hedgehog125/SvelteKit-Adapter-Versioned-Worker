@@ -1,6 +1,12 @@
 <script lang="ts">
 	import type { InputMessageData, OutputMessageData, UpdatePriority } from "internal-adapter/worker";
-	import type { VWCustomMessageEvent, WorkerRegistrationFailEvent, WorkerUpdateCheckEvent } from "$lib/index_internal.js";
+	import type {
+		VWCustomMessageEvent,
+		WorkerRegistrationFailEvent,
+		WorkerUpdateCheckEvent,
+
+		Nullable
+	} from "$lib/index_internal.js";
 
 	import {
 		RESUMABLE_STATE_NAME,
@@ -216,6 +222,7 @@
 		internalState.reloadingPromise = new ExposedPromise();
 		await timeoutPromise(0);
 
+		let pageShowEventPromise: Nullable<Promise<Event>> = null;
 		while (true) {
 			if (internalState.navigatingTo) {
 				location.href = internalState.navigatingTo;
@@ -227,7 +234,11 @@
 			const skippedCountdown = await Promise.race([
 				timeoutPromise(RELOAD_TIMEOUT),
 				(async () => { // Skip the reload delay if the page is restored from the back forwards cache
-					await waitForEvent(window, "pageshow" satisfies keyof WindowEventMap);
+					// Don't add multiple listeners
+					if (! pageShowEventPromise) pageShowEventPromise = waitForEvent(window, "pageshow" satisfies keyof WindowEventMap);
+
+					await pageShowEventPromise;
+					pageShowEventPromise = null;
 					return true;
 				})(),
 				internalState.skipReloadCountdownPromise

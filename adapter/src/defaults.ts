@@ -31,6 +31,7 @@ export function applyAdapterConfigDefaults(config: AdapterConfig): ResolvedAdapt
 		useHTTPCache: true,
 		checkForUpdatesInterval: 86400_000, // Once every 24h
 		
+		isElevatedPatchUpdate: 0,
 		isMajorUpdate: 0,
 		isCriticalUpdate: 0
 	}) as ResolvedAdapterConfig;

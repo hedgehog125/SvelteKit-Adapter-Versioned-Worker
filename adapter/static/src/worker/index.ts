@@ -531,7 +531,6 @@ async function getWhenEachResourceUpdated(installedVersions: number[]): Promise<
 	if (rangeToDownload[0] < 0) return cleanInstallReturnValue; // The current installed version is too old, do a clean install
 
 	const idInBatchOfOneAfterInstalled = (newestInstalled + 1) % VERSION_FILE_BATCH_SIZE;
-	const installedInDownloadRange = idInBatchOfOneAfterInstalled !== 0; // If it's the last version in the batch, it won't be
 	const numberToDownload = (rangeToDownload[1] - rangeToDownload[0]) + 1;
 	
 	let versionFiles = await Promise.all(
@@ -553,7 +552,7 @@ async function getWhenEachResourceUpdated(installedVersions: number[]): Promise<
 		const versionFile = versionFiles[i]!; // It would have returned earlier if one was null
 
 		// If the installed version is the last of its file, its batch won't be iterated over in this containing loop
-		const startIndex = installedInDownloadRange && i === 0? idInBatchOfOneAfterInstalled : 0;
+		const startIndex = i === 0? idInBatchOfOneAfterInstalled : 0;
 		// ^ Ignore the files changed in versions before the installed
 
 		for (let versionInFile = startIndex; versionInFile < versionFile.updated.length; versionInFile++) {
