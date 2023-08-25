@@ -1,5 +1,4 @@
 Log based on what files are new? e.g only list newly added lazy files?
-Use sets instead of arrays for the constants
 
 # To include in readme
 No support for range requests means large assets have to download the whole thing first

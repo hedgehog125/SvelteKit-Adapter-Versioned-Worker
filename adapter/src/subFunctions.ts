@@ -130,7 +130,6 @@ export function updateInfoFileIfNeeded(infoFile: UnprocessedInfoFile): Unprocess
 				} satisfies InfoFileV3VersionBatch;
 			});
 
-			console.log(infoFile.version, newBatches)
 			return {
 				formatVersion: 3,
 				version: infoFile.version,
@@ -482,13 +481,13 @@ export function createWorkerConstants(
 	storagePrefix += "-";
 
 	return {
-		ROUTES: routes,
+		ROUTES: new Set(routes),
 
-		PRECACHE: categorizedBuildFiles.precache,
-		LAX_LAZY: categorizedBuildFiles.laxLazy,
-		STALE_LAZY: categorizedBuildFiles.staleLazy,
-		STRICT_LAZY: categorizedBuildFiles.strictLazy,
-		SEMI_LAZY: categorizedBuildFiles.semiLazy,
+		PRECACHE: new Set(categorizedBuildFiles.precache),
+		LAX_LAZY: new Set(categorizedBuildFiles.laxLazy),
+		STALE_LAZY: new Set(categorizedBuildFiles.staleLazy),
+		STRICT_LAZY: new Set(categorizedBuildFiles.strictLazy),
+		SEMI_LAZY: new Set(categorizedBuildFiles.semiLazy),
 
 		STORAGE_PREFIX: storagePrefix,
 		VERSION: lastInfo.version + 1,

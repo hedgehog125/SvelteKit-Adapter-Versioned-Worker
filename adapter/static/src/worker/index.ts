@@ -21,6 +21,7 @@ import type {
 declare var clients: Clients;
 declare var registration: Registration;
 declare var skipWaiting: SkipWaiting;
+type CopyInfo = [containingCache: Cache, firstUpdatedInVersion: [number, number] | undefined, fromVersion: number];
 
 import {
 	ROUTES,
@@ -82,7 +83,7 @@ const REUSABLE_BETWEEN_VERSIONS = new Set<string>([
 /**
  * This will be `false` if there's only an index route.
  */
-const TRAILING_SLASH = ROUTES.find(pathWithoutBase => pathWithoutBase !== "")?.slice(-1) === "/";
+const TRAILING_SLASH = [...ROUTES].find(pathWithoutBase => pathWithoutBase !== "")?.slice(-1) === "/";
 const infoHref = VIRTUAL_FETCH_PREFIX + INFO_STORAGE_PATH;
 
 const cachePromise = caches.open(currentStorageName);
@@ -127,7 +128,6 @@ addEventListener("install", e => {
 				...ROUTES,
 				...PRECACHE
 			]);
-			type CopyInfo = [containingCache: Cache, firstUpdatedInVersion: [number, number] | undefined, fromVersion: number];
 			const toCopy = new Map<string, CopyInfo>(); // The key is the path
 			// TODO: during clean installs, download semi-lazy resources that were previously downloaded?
 			if (whenResourcesUpdated) { // Don't reuse anything if it's a clean install
@@ -144,17 +144,17 @@ addEventListener("install", e => {
 				}));
 
 				for (const [path, copyInfo] of pathsInAllCaches) {
-					if (ROUTES.includes(path)) continue;
+					if (ROUTES.has(path)) continue;
 
 					const changed = copyInfo[1] != null;
 					
-					if (PRECACHE.includes(path)) {
+					if (PRECACHE.has(path)) {
 						if (! changed) {
 							toDownload.delete(path);
 							addToToCopy();
 						}
 					}
-					else if (SEMI_LAZY.includes(path)) {
+					else if (SEMI_LAZY.has(path)) {
 						if (changed) {
 							toDownload.add(path);
 						}
@@ -269,7 +269,7 @@ addEventListener("fetch", e => {
 		) {
 			// Non route files will also reach here
 			const withCorrectTrailingSlash = fixTrailingSlash(pathWithoutBase);
-			if (ROUTES.includes(withCorrectTrailingSlash)) {
+			if (ROUTES.has(withCorrectTrailingSlash)) {
 				fetchEvent.respondWith(Response.redirect(fixTrailingSlash(req.url)));
 				return;
 			}
@@ -335,7 +335,7 @@ addEventListener("fetch", e => {
 					const stale = parseInt(cached.headers.get("vw-version") as string) !== VERSION;
 					if (! stale) return await modifyResponseBeforeSending(cached, requestInfo, true, false, null);
 
-					if (vwMode === "no-network" || STALE_LAZY.includes(pathWithoutBase)) {
+					if (vwMode === "no-network" || STALE_LAZY.has(pathWithoutBase)) {
 						if (vwMode !== "no-network") updateResourceInBackground(modifiedRequest, cache, fetchEvent);
 						return await modifyResponseBeforeSending(cached, requestInfo, true, true, null); // The outdated version
 					}
@@ -633,7 +633,7 @@ async function fetchResource(
 		resource = await fetch(modifiedRequest);
 	}
 	catch {
-		if (isPage && ROUTES.includes(pathWithoutBase)) {
+		if (isPage && ROUTES.has(pathWithoutBase)) {
 			return [new Response("Something went wrong. Please connect to the internet and try again."), false];
 		}
 		else {

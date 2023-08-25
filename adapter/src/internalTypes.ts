@@ -68,13 +68,13 @@ export interface InputFiles {
 }
 
 export interface WorkerConstants {
-	ROUTES: string[],
+	ROUTES: Set<string>,
 	
-	PRECACHE: string[],
-	LAX_LAZY: string[],
-	STALE_LAZY: string[],
-	STRICT_LAZY: string[],
-	SEMI_LAZY: string[],
+	PRECACHE: Set<string>,
+	LAX_LAZY: Set<string>,
+	STALE_LAZY: Set<string>,
+	STRICT_LAZY: Set<string>,
+	SEMI_LAZY: Set<string>,
 
 	STORAGE_PREFIX: string,
 	VERSION: number,

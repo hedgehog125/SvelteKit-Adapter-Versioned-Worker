@@ -1,12 +1,12 @@
 /* Build constants */
 
-export const ROUTES: string[];
+export const ROUTES: Set<string>;
 	
-export const PRECACHE: string[];
-export const LAX_LAZY: string[];
-export const STALE_LAZY: string[];
-export const STRICT_LAZY: string[];
-export const SEMI_LAZY: string[];
+export const PRECACHE: Set<string>;
+export const LAX_LAZY: Set<string>;
+export const STALE_LAZY: Set<string>;
+export const STRICT_LAZY: Set<string>;
+export const SEMI_LAZY: Set<string>;
 
 export const STORAGE_PREFIX: string;
 export const VERSION: number;

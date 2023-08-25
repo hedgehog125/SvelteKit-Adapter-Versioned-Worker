@@ -124,7 +124,34 @@ export function removeNulls<T>(arr: T[]): Exclude<T, null>[] {
 }
 
 export function createConstantsModule(constants: Record<string, any>): string {
-	return Object.entries(constants).map(([name, value]) => `export const ${name} = ${JSON.stringify(value)};`).join("");
+	console.log(Object.entries(constants).map(([name, value]) => {
+		let codeForValue: string;
+		if (value instanceof Set) {
+			codeForValue = `new Set(${JSON.stringify([...value])})`;
+		}
+		else if (value instanceof Map) {
+			codeForValue = `new Map(Object.entries(${JSON.stringify(Object.fromEntries(value))}))`;
+		}
+		else {
+			codeForValue = JSON.stringify(value);
+		}
+
+		return `export const ${name} = ${codeForValue};`;
+	}).join(""));
+	return Object.entries(constants).map(([name, value]) => {
+		let codeForValue: string;
+		if (value instanceof Set) {
+			codeForValue = `new Set(${JSON.stringify([...value])})`;
+		}
+		else if (value instanceof Map) {
+			codeForValue = `new Map(Object.entries(${JSON.stringify(Object.fromEntries(value))}))`;
+		}
+		else {
+			codeForValue = JSON.stringify(value);
+		}
+
+		return `export const ${name} = ${codeForValue};`;
+	}).join("");
 }
 
 export function timePromise(duration: number): Promise<void> {
