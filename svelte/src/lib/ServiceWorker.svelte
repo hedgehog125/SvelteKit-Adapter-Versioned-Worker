@@ -226,6 +226,10 @@
 	
 			const skippedCountdown = await Promise.race([
 				timeoutPromise(RELOAD_TIMEOUT),
+				(async () => { // Skip the reload delay if the page is restored from the back forwards cache
+					await waitForEvent(window, "pageshow" satisfies keyof WindowEventMap);
+					return true;
+				})(),
 				internalState.skipReloadCountdownPromise
 			]);
 			dispatch("reloadfail");

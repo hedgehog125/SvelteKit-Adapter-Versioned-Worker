@@ -71,6 +71,7 @@ export function skipWaiting(
 ) {
 	waitingWorker.postMessage({
 		type: "conditionalSkipWaiting",
-		resumableState
+		resumableState,
+		sendFinish: true
 	} satisfies InputMessageData);
 }

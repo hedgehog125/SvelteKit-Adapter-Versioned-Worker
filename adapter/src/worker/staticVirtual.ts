@@ -231,7 +231,8 @@ export interface ConditionalSkipMessageData {
 	/**
 	 * `true` means there's state that should be packaged up before the worker updates, if it can.
 	 */
-	resumableState: Nullable<ResumableState> | true
+	resumableState: Nullable<ResumableState> | true,
+	sendFinish?: boolean
 }
 /**
  * TODO

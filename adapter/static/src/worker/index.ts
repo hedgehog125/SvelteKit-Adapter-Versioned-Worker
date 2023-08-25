@@ -127,50 +127,49 @@ addEventListener("install", e => {
 				...ROUTES,
 				...PRECACHE
 			]);
-			const toCopy = new Map<string, [containingCache: Cache, firstUpdatedInVersion: [number, number] | undefined, fromVersion: number]>(); // The key is the path
+			type CopyInfo = [containingCache: Cache, firstUpdatedInVersion: [number, number] | undefined, fromVersion: number];
+			const toCopy = new Map<string, CopyInfo>(); // The key is the path
 			// TODO: during clean installs, download semi-lazy resources that were previously downloaded?
 			if (whenResourcesUpdated) { // Don't reuse anything if it's a clean install
-				const cacheNames = await caches.keys();
-				for (const cacheName of cacheNames) {
-					if (! cacheName.startsWith(STORAGE_PREFIX)) continue;
-					if (cacheName === currentStorageName) continue;
-					
-					const cache = await caches.open(cacheName);
+				const pathsInAllCaches = new Map<string, CopyInfo>();
+				await Promise.all(installedVersions.map(async cacheVersion => {
+					const cache = await caches.open(STORAGE_PREFIX + cacheVersion);
 					const pathsInCache = (await cache.keys()).map(req => new URL(req.url).pathname.slice(BASE_URL.length));
-					const cacheVersion = parseInt(cacheName.slice(STORAGE_PREFIX.length));
+
 					for (const path of pathsInCache) {
-						if (ROUTES.includes(path)) continue;
+						if (pathsInAllCaches.has(path)) continue; // Since it's sorted, this cache item will be older than the existing one
 
-						const firstUpdatedInVersion = whenResourcesUpdated.get(path);
-						const changed = firstUpdatedInVersion != null;
-						
-						if (PRECACHE.includes(path)) {
-							if (! changed) {
-								toDownload.delete(path); // This might be called to remove it multiple times but that won't error
-								addToToCopyIfNewer();
-							}
-						}
-						else if (SEMI_LAZY.includes(path)) {
-							if (changed) {
-								toDownload.add(path);
-							}
-							else {
-								addToToCopyIfNewer();
-							}
-						}
-						else if (COMPLETE_CACHE_LIST.has(path)) {
-							const reusable = (! changed) || REUSABLE_BETWEEN_VERSIONS.has(path);
+						pathsInAllCaches.set(path, [cache, whenResourcesUpdated.get(path), cacheVersion]);
+					}
+				}));
 
-							if (reusable) addToToCopyIfNewer(); // If it's reusable and has changed then it's stale
-						}
+				for (const [path, copyInfo] of pathsInAllCaches) {
+					if (ROUTES.includes(path)) continue;
 
-
-						function addToToCopyIfNewer() {
-							const itemInToCopy = toCopy.get(path);
-							if (itemInToCopy == null || cacheVersion > itemInToCopy[2]) { // Make sure the resource isn't already in it or is newer
-								toCopy.set(path, [cache, firstUpdatedInVersion, cacheVersion]);
-							}
+					const changed = copyInfo[1] != null;
+					
+					if (PRECACHE.includes(path)) {
+						if (! changed) {
+							toDownload.delete(path);
+							addToToCopy();
 						}
+					}
+					else if (SEMI_LAZY.includes(path)) {
+						if (changed) {
+							toDownload.add(path);
+						}
+						else {
+							addToToCopy();
+						}
+					}
+					else if (COMPLETE_CACHE_LIST.has(path)) {
+						const reusable = (! changed) || REUSABLE_BETWEEN_VERSIONS.has(path);
+
+						if (reusable) addToToCopy();
+					}
+
+					function addToToCopy() {
+						toCopy.set(path, copyInfo);
 					}
 				}
 			}
@@ -308,7 +307,12 @@ addEventListener("fetch", e => {
 				const activeClients = await clients.matchAll();
 				if (activeClients.length < 2) {
 					finished = false; // Prevent an endless refresh loop if something goes wrong changing workers
-					return new Response(INLINED_RELOAD_PAGE, { headers: { "content-type": "text/html" } });
+					return new Response(INLINED_RELOAD_PAGE, {
+						headers: {
+							"content-type": "text/html",
+							"cache-control": "no-store" // Otherwise there might be some issues with the back/forwards cache
+						}
+					});
 					// ^ The conditional skip is sent as part of this page rather than here. This is because newly opened tabs aren't included in activeClients, which can result in unsafe reloads
 				}
 			}
@@ -389,7 +393,7 @@ type AddMessageListener = (type: "message", listener: ((this: typeof globalThis,
 						skipWaiting(),
 						new Promise<boolean>(resolve => setTimeout(() => resolve(true), 100))
 					]);
-					if (timedOut) {
+					if (timedOut && data.sendFinish) {
 						registration.active?.postMessage({ type: "finish" } satisfies InputMessageData);
 					}
 					broadcast(activeClients, { type: "vw-reload" });
@@ -480,6 +484,7 @@ function parseUpdatedList(contents: string): VersionFile {
 }
 /**
  * @note The returned versions are sorted from high to low
+ * @note This won't include the current version
  */
 async function getInstalled(): Promise<number[]> {
 	let installedVersions = [];
@@ -498,9 +503,10 @@ async function getInstalled(): Promise<number[]> {
 	return installedVersions;
 }
 /**
- * Returns `[null, 2]` if a clean install should be performed.
- * 
  * The key is the href (excluding the base) of a resource that was updated. The value is the version where it was first updated since the installed version.
+ * 
+ * @note Returns `[null, 2]` if a clean install should be performed.
+ * @note Newly added files won't be in the map
  */
 async function getWhenEachResourceUpdated(installedVersions: number[]): Promise<[
 	Nullable<Map<string, [versionWhenUpdated: number, revisions: number]>>,
@@ -544,7 +550,7 @@ async function getWhenEachResourceUpdated(installedVersions: number[]): Promise<
 	let currentVersion = newestInstalled + 1;
 	let updatePriority: UpdatePriority = 1;
 	for (let i = 0; i < versionFiles.length; i++) {
-		const versionFile = versionFiles[i] as VersionFile; // It would have returned earlier if one was null
+		const versionFile = versionFiles[i]!; // It would have returned earlier if one was null
 
 		// If the installed version is the last of its file, its batch won't be iterated over in this containing loop
 		const startIndex = installedInDownloadRange && i === 0? idInBatchOfOneAfterInstalled : 0;

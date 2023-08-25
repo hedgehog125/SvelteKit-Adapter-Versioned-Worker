@@ -1,7 +1,7 @@
 // This gets built and then inlined into the service worker, minus the outer function
 
 (() => {
-	addEventListener("DOMContentLoaded", () => {
+	onload = () => {
 		navigator.serviceWorker.getRegistration().then(async registration => {
 			if (! registration?.waiting) {
 				return reloadOnce();
@@ -19,7 +19,7 @@
 				});
 
 				tries++;
-				if (event.data?.type === "vw-skipFailed" || tries === 100) {
+				if (event.data?.type === "vw-skipFailed" || tries === 100 || (! registration.waiting)) {
 					return reloadOnce();
 				}
 
@@ -32,6 +32,7 @@
 			}
 
 			function sendConditionalSkip() {
+				// Note the lack of sendFinish: true
 				registration.waiting?.postMessage({ type: "conditionalSkipWaiting" });
 			}
 		});
@@ -42,8 +43,9 @@
 		function reloadOnce() {
 			if (reloading) return;
 			reloading = true;
-	
+
 			location.reload();
+			setInterval(() => location.reload(), 1000);
 		}
-	});
+	}
 })();

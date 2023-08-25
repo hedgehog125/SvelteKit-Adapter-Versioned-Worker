@@ -44,6 +44,9 @@
 	<h2>
 		Test update prompts
 	</h2>
+	<p>
+		Displayed update priority: {$displayedUpdatePriority}
+	</p>
 	{#each range(5, 1) as index} <!-- 0 is for when there isn't an update -->
 		<button type="button" on:click={() => simulateUpdate(index)}>
 			Simulate {UPDATE_PRIORITY_NAMES[index]}
@@ -65,6 +68,7 @@
 		Enable second update priority elevation: {ENABLE_SECOND_UPDATE_PRIORITY_ELEVATION} <br>
 		Use HTTP cache: {USE_HTTP_CACHE} <br>
 		Check for update interval: {CHECK_FOR_UPDATES_INTERVAL}ms <br>
+		<br>
 		{#if browser && "crossOriginIsolated" in window}
 			{#if crossOriginIsolated}
 				The site is currently cross origin isolated using the worker to add the headers.
