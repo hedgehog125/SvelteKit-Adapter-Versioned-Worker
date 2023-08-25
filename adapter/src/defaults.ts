@@ -21,7 +21,6 @@ export function applyAdapterConfigDefaults(config: AdapterConfig): ResolvedAdapt
 		outputWorkerSourceMap: false,
 		useWorkerScriptImport: config.outputWorkerSourceMap !== "inline",
 		cacheStorageName: null,
-		warnOnViteConfigUnresolved: true,
 
 		redirectTrailingSlash: true,
 		enablePassthrough: false,
@@ -33,7 +32,10 @@ export function applyAdapterConfigDefaults(config: AdapterConfig): ResolvedAdapt
 		
 		isElevatedPatchUpdate: 0,
 		isMajorUpdate: 0,
-		isCriticalUpdate: 0
+		isCriticalUpdate: 0,
+
+		warnOnViteConfigUnresolved: true,
+		logLevel: "minimal"
 	}) as ResolvedAdapterConfig;
 }
 export function applyManifestPluginConfigDefaults(config: ManifestPluginConfig): ResolvedManifestPluginConfig {

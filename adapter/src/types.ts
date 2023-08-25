@@ -6,6 +6,7 @@ import type { RollupTypescriptOptions } from "@rollup/plugin-typescript";
 
 export type Nullable<T> = T | null;
 export type MaybePromise<T> = T | Promise<T>;
+export type MaybeArray<T> = T | T[];
 
 // To make things a bit less confusing
 export type SvelteConfig = Builder["config"];
@@ -33,7 +34,7 @@ export interface AdapterConfig {
 	 * @note Routes always use the `"pre-cache"` mode without calling this function
 	 * @note Some other files are always set to `"never-cache"`, again without calling this function
 	 */
-	sortFile?: Nullable<FileSorter | FileSorter[]>,
+	sortFile?: MaybeArray<Nullable<FileSorter> | undefined | false>,
 	/**
 	 * TODO
 	 */
@@ -74,16 +75,7 @@ export interface AdapterConfig {
 	 * 
 	 * Defaults to the base URL if one is being used or to `"VersionedWorkerStorage"` otherwise.
 	 */
-	cacheStorageName?: Nullable<string>
-	/**
-	 * Enables and disables the warning when the Vite config can't be resolved due to the manifest generator plugin being missing.
-	 * 
-	 * @note
-	 * If you don't want to use the manifest plugin for whatever reason, you can probably disable this warning. However, if the current working directory doesn't match Vite's route or if Vite's manifest filename is different to the SvelteKit default (vite-manifest.json), you'll need to provide one with the `getViteManifest` config argument instead.
-	 * 
-	 * @default true
-	 */
-	warnOnViteConfigUnresolved?: boolean,
+	cacheStorageName?: Nullable<string>,
 
 	/**
 	 * TODO
@@ -127,7 +119,21 @@ export interface AdapterConfig {
 	/**
 	 * TODO
 	 */
-	isCriticalUpdate?: number | boolean
+	isCriticalUpdate?: number | boolean,
+
+	/**
+	 * Enables and disables the warning when the Vite config can't be resolved due to the manifest generator plugin being missing.
+	 * 
+	 * @note
+	 * If you don't want to use the manifest plugin for whatever reason, you can probably disable this warning. However, if the current working directory doesn't match Vite's route or if Vite's manifest filename is different to the SvelteKit default (vite-manifest.json), you'll need to provide one with the `getViteManifest` config argument instead.
+	 * 
+	 * @default true
+	 */
+	warnOnViteConfigUnresolved?: boolean,
+	/**
+	 * TODO
+	 */
+	logLevel?: LogLevel
 }
 export interface ManifestPluginConfig {
 	/**
@@ -169,8 +175,9 @@ export type ResolvedAdapterConfig = Required<AdapterConfig>;
 export type ResolvedManifestPluginConfig = Required<ManifestPluginConfig>;
 
 export interface ValuesFromViteConfig {
-	sortFile?: FileSorter | FileSorter[],
+	sortFile?: MaybeArray<Nullable<FileSorter> | undefined | false>,
 	onFinish?: BuildFinishHook,
+	configureWorkerTypescript?: WorkerTypeScriptConfigHook,
 	[otherItemKey: string]: unknown
 }
 
@@ -352,3 +359,5 @@ export interface MinimalViteConfig {
 	root: string,
 	manifest: string | boolean
 }
+
+export type LogLevel = "minimal" | "verbose";

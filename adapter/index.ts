@@ -53,29 +53,34 @@ import {
 	getInputFilesConfiguration,
 
 	listAllBuildFiles,
+	listStaticFolderFiles,
+	getFileSizes,
 	categorizeFilesIntoModes,
 	hashFiles,
+	getUpdatePriority,
+
 	writeWorkerEntry,
-	rollupBuild,
-	configureTypescript,
 	createWorkerConstants,
 	generateVirtualModules,
+	configureTypescript,
+	createWorkerFolder,
+	rollupBuild,
+	writeWorkerImporter,
 	
-	createRuntimeConstantsModule,
-	getManifestSource,
-	defaultManifestProcessor,
-	processManifest,
 	addNewVersionToInfoFile,
 	writeVersionFiles,
+
 	writeInfoFile,
-	createWorkerFolder,
-	writeWorkerImporter,
-	getFileSizes,
-	listStaticFolderFiles,
-	createPlaceholderRuntimeConstantsModule,
-	getUpdatePriority,
 	callFinishHook,
-	logInfoAndErrors
+	logOverallBuildInfo,
+	logFileSorterMessages,
+	logWorkerBuildErrors,
+
+	createRuntimeConstantsModule,
+	createPlaceholderRuntimeConstantsModule,
+	getManifestSource,
+	processManifest,
+	defaultManifestProcessor
 } from "./src/subFunctions.js";
 import {
 	applyAdapterConfigDefaults,
@@ -214,10 +219,12 @@ export function manifestGenerator(inputConfig: ManifestPluginConfig = {}): Plugi
 			configResolved(providedViteConfig) {
 				viteConfig = providedViteConfig;
 				isDev = ! viteConfig.isProduction;
-				if (isDev) minimalViteConfig = {
-					root: viteConfig.root,
-					manifest: viteConfig.build.manifest
-				};
+				if (isDev) {
+					minimalViteConfig = {
+						root: viteConfig.root,
+						manifest: viteConfig.build.manifest
+					};
+				}
 
 				log.verbose = viteConfig.logLevel === "info";
 				isSSR = !!viteConfig.build.ssr;
@@ -368,21 +375,23 @@ async function createNewVersion(staticFileHashes: Map<string, string>, updatePri
 async function finishUp(workerBuildErrors: WrappedRollupError[], processedBuild: ProcessedBuild, configs: AllConfigs) {
 	await writeInfoFile(lastInfo, configs);
 	await callFinishHook(workerBuildErrors == null, processedBuild, configs);
-	logInfoAndErrors(workerBuildErrors, processedBuild, configs);
+	logOverallBuildInfo(processedBuild, configs);
+	logFileSorterMessages(processedBuild);
+	logWorkerBuildErrors(workerBuildErrors, configs);
 }
 
 /* Manifest Generation */
 
 async function generateManifest(): Promise<Nullable<string>> {
 	const configs: ManifestProcessorConfigs = {
-		viteConfig: viteConfig as ViteConfig, // It's only null when the plugin isn't being used
+		viteConfig: viteConfig!, // It's only null when the plugin isn't being used
 		minimalViteConfig,
 		adapterConfig,
-		manifestPluginConfig: manifestPluginConfig as ResolvedManifestPluginConfig // Same here
+		manifestPluginConfig: manifestPluginConfig! // Same here
 	};
 
 	const source = await getManifestSource(
-		inputFiles, manifestPluginConfig as ResolvedManifestPluginConfig, // And here
+		inputFiles, manifestPluginConfig!, // And here
 		adapterConfig, minimalViteConfig
 	);
 	if (source == null) return null;

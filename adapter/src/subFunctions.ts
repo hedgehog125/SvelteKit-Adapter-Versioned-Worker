@@ -327,7 +327,7 @@ export async function categorizeFilesIntoModes(
 		} satisfies BuildInfo
 
 		for (const fileSorter of fileSorters) {
-			if (fileSorter == null) continue;
+			if (! fileSorter) continue;
 
 			const output = await fileSorter(fileInfo, buildInfo, configs);
 			if (output == null) continue;
@@ -741,9 +741,38 @@ export async function writeInfoFile(infoFile: InfoFileV3, { minimalViteConfig, a
 export async function callFinishHook(workerBuildSucceeded: boolean, processedBuild: ProcessedBuild, configs: AllConfigs) {
 	await configs.adapterConfig.onFinish?.(workerBuildSucceeded, processedBuild, configs);
 }
-export function logInfoAndErrors(workerBuildErrors: WrappedRollupError[], { fileSorterMessages }: ProcessedBuild, { minimalViteConfig }: AllConfigs) {
+export function logOverallBuildInfo(processedBuild: ProcessedBuild, { adapterConfig }: AllConfigs) {
+	log.blankLine();
+	log.blankLine();
+	log.message("File sortings:");
+	Object.entries({
+		"precache": "Precache",
+		"strictLazy": "Strict lazy",
+		"semiLazy": "Semi lazy",
+		"staleLazy": "Stale lazy",
+		"laxLazy": "Lax lazy"
+	}).forEach(([key, displayName]) => {
+		const resources = processedBuild.categorizedFiles[key as keyof CategorizedBuildFiles];
+
+		const roundedPercent = Math.round((resources.length / processedBuild.categorizedFiles.completeList.length) * 1000) / 10;
+		const messageBase = `${displayName}: ${resources.length} file${resources.length === 1? "" : "s"} (${roundedPercent}% of build files)`;
+		if (key === "precache" && adapterConfig.logLevel !== "verbose") {
+			log.message(`${messageBase}.`, false);
+			return;
+		}
+		if (resources.length === 0) return;
+
+		log.message(`${messageBase}:`, false);
+		resources.forEach(filePath => {
+			log.message(` * ${filePath}`, false);
+		});
+		log.blankLine();
+	});
+}
+export function logFileSorterMessages({ fileSorterMessages }: ProcessedBuild) {
 	if (fileSorterMessages.size !== 0) {
-		doubleBlankLines();
+		log.blankLine();
+		log.blankLine();
 		log.message(`${fileSorterMessages.size} resource${fileSorterMessages.size === 1? "" : "s"} logged a message or warning:`);
 		for (const [fileName, messagesForFile] of fileSorterMessages) {
 			for (const { message, isMessage } of messagesForFile) {
@@ -751,8 +780,11 @@ export function logInfoAndErrors(workerBuildErrors: WrappedRollupError[], { file
 			}
 		}
 	}
+}
+export function logWorkerBuildErrors(workerBuildErrors: WrappedRollupError[], { minimalViteConfig }: AllConfigs) {
 	if (workerBuildErrors.length !== 0) {
-		doubleBlankLines();
+		log.blankLine();
+		log.blankLine();
 		log.error(`Service worker failed to build. Reason${workerBuildErrors.length === 1? "" : "s"}:`);
 		for (const workerBuildError of workerBuildErrors) {
 			const { loc, frame, message, stack } = workerBuildError;
@@ -762,11 +794,6 @@ export function logInfoAndErrors(workerBuildErrors: WrappedRollupError[], { file
 	
 			log.error(`\n${message}\n${errorPosition}\n\n${frame?? ""}${callStack}`, false);
 		}
-	}
-
-	function doubleBlankLines() {
-		log.blankLine();
-		log.blankLine();
 	}
 }
 
