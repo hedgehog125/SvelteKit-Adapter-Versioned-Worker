@@ -13,18 +13,20 @@ import type {
 } from "internal-adapter/internal/exported-by-svelte-module";
 import type { BeforeNavigate } from "@sveltejs/kit";
 
-import { beforeNavigate } from "$app/navigation";
 import { internalState, skipIfWaiting } from "$lib/internal.js"; 
 import {
-	VIRTUAL_FETCH_PREFIX,
 	link,
 	getNavigationDestURL,
 	timeoutPromise,
 	waitForEventWithTimeout,
 	ExposedPromise
 } from "$lib/util.js";
+import {
+	VIRTUAL_FETCH_PREFIX
+} from "internal-adapter/worker/util";
 import { ENABLE_QUICK_FETCH } from "internal-adapter/runtime-constants";
 
+import { beforeNavigate } from "$app/navigation";
 import { writable } from "svelte/store";
 
 export type Nullable<T> = T | null;
@@ -93,8 +95,8 @@ export namespace VWCustomMessageEvent {
  * 
  * @note If you keep getting error responses, it could be because you've set `"enableQuickFetch"` in your adapter config to `false` and you aren't using the manfiest plugin.
  * 
- * @see `preloadQuickFetch` for how to preload the resource in the worker.
- * @see `AdapterConfig.enableQuickFetch` to re-enable or disable the feature.
+ * @see `preloadQuickFetch` for how to preload the resource in the worker
+ * @see `AdapterConfig.enableQuickFetch` to re-enable or disable the feature
  */
 let quickFetchDisabledWarnedAlready = false;
 export async function quickFetch(url: string, init?: RequestInit): Promise<Response> {
@@ -129,9 +131,10 @@ export async function quickFetch(url: string, init?: RequestInit): Promise<Respo
  * 
  * @note The returned promise will resolve to `null` if the worker isn't activated.
  * 
- * @see `isWorkerActivated` in this module for checking if it's activated yet.
- * @see `on:activate` in this module for waiting until it's activated, if it ever will be.
- * @see `on:fail` in this module for listening for registration errors.
+ * @see `VIRTUAL_FETCH_PREFIX` in the module `"sveltekit-adapter-versioned-worker/worker/util"` for more information on how the worker handles virtual fetches
+ * @see `isWorkerActivated` in this module for checking if it's activated yet
+ * @see `on:activate` in this module for waiting until it's activated, if it ever will be
+ * @see `on:fail` in this module for listening for registration errors
  */
 export async function virtualFetch(
 	relativePath: string, init?: RequestInit,

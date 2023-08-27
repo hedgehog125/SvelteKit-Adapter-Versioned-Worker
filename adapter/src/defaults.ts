@@ -36,15 +36,15 @@ export function applyAdapterConfigDefaults(config: AdapterConfig): ResolvedAdapt
 
 		warnOnViteConfigUnresolved: true,
 		logLevel: "minimal"
-	}) as ResolvedAdapterConfig;
+	});
 }
 export function applyManifestPluginConfigDefaults(config: ManifestPluginConfig): ResolvedManifestPluginConfig {
 	return applyDefaults<ManifestPluginConfig>(config, {
 		enable: true,
 		src: "manifest.webmanifest",
 		outputFileName: "manifest.webmanifest",
-		process: defaultManifestProcessor
-	}) as ResolvedManifestPluginConfig;
+		process: defaultManifestProcessor()
+	});
 }
 
 function applyDefaults<T>(source: T, defaults: Required<T>): Required<T> {

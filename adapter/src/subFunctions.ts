@@ -14,7 +14,8 @@ import type {
 	FileSorterMessages,
 	FileSorterMessage,
 	VWBuildFile,
-	BuildInfo
+	BuildInfo,
+	ManifestProcessor
 } from "./types.js";
 import type { WebAppManifest } from "./manifestTypes.js";
 import type {
@@ -854,20 +855,22 @@ export async function processManifest(source: string, configs: ManifestProcessor
 	return typeof processed === "string"? processed : JSON.stringify(processed);
 }
 /**
- * TODO
+ * A function returning a simple `ManifestProcessor` that makes the `"scope"` and `"start_url"` properties optional.
+ * 
+ * @returns A `ManifestProcessor` that makes the `"scope"` and `"start_url"` properties optional.
 */
 // Re-exported by index.ts
-export function defaultManifestProcessor(parsed: object, _: ManifestProcessorConfigs): object {
-	const asManifest = parsed as WebAppManifest;
+export function defaultManifestProcessor(): ManifestProcessor {
+	return parsed => {
+		/*
+			Relative paths are already supported by the browser, so there isn't much to do here.
+			They're resolved relative to the manifest
+		*/
 
-	/*
-		Relative paths are already supported by the browser, so there isn't much to do here.
-		They're resolved relative to the manifest
-	*/
-
-	if (asManifest.scope == null) asManifest.scope = "";
-	if (asManifest.start_url == null) asManifest.start_url = "";
+		if (parsed.scope == null) parsed.scope = "";
+		if (parsed.start_url == null) parsed.start_url = "";
 
 
-	return asManifest;
+		return parsed;
+	};
 }

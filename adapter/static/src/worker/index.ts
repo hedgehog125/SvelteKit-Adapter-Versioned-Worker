@@ -12,16 +12,21 @@ import type {
 	InputMessageData,
 	WindowClient,
 	ResumableState,
-	ExtendableMessageEvent,
 	WorkerV1Info,
 	UpdatePriority,
 	CustomMessageHookData,
-	VWRequest
+	VWRequest,
+	AddEventListener
 } from "sveltekit-adapter-versioned-worker/worker";
+
 declare var clients: Clients;
 declare var registration: Registration;
 declare var skipWaiting: SkipWaiting;
+declare var addEventListener: AddEventListener;
+
 type CopyInfo = [containingCache: Cache, firstUpdatedInVersion: [number, number] | undefined, fromVersion: number];
+type Nullable<T> = T | null;
+type MaybePromise<T> = Promise<T> | T;
 
 import {
 	ROUTES,
@@ -62,9 +67,6 @@ import {
 	INLINED_RELOAD_PAGE
 } from "sveltekit-adapter-versioned-worker/internal/worker-shared";
 import * as hooks from "sveltekit-adapter-versioned-worker/internal/hooks";
-
-type Nullable<T> = T | null;
-type MaybePromise<T> = Promise<T> | T;
 
 const httpCacheMode: RequestCache = USE_HTTP_CACHE? "no-cache" : "reload";
 const currentStorageName = STORAGE_PREFIX + VERSION;
@@ -119,7 +121,7 @@ const handleQuickFetch = (async ({ searchParams, request }) => {
 /* End of optional functions */
 
 addEventListener("install", e => {
-    (e as InstallEvent).waitUntil(
+    e.waitUntil(
 		(async () => {
 			const installedVersions = await getInstalled();
 			const [whenResourcesUpdated, updatePriority] = await getWhenEachResourceUpdated(installedVersions);
@@ -229,7 +231,7 @@ addEventListener("install", e => {
 });
 
 addEventListener("activate", e => {
-	(e as ActivateEvent).waitUntil(
+	e.waitUntil(
 		(async () => {
 			const claimTask = clients.claim();
 
@@ -247,8 +249,7 @@ addEventListener("activate", e => {
 		})()
 	);
 });
-addEventListener("fetch", e => {
-	const fetchEvent = e as FetchEvent;
+addEventListener("fetch", fetchEvent => {
 	const req = fetchEvent.request;
 	const urlObj = new URL(req.url);
 	const fullPath = urlObj.pathname;
@@ -329,7 +330,7 @@ addEventListener("fetch", e => {
 
 			const cache = await cachePromise;
 			if (inCacheList) {
-				const modifiedRequest = modifyRequestForCaching(req);
+				const modifiedRequest = modifyRequestBeforeSending(req, true);
 				let cached = await cache.match(modifiedRequest);
 				if (cached) {
 					const stale = parseInt(cached.headers.get("vw-version") as string) !== VERSION;
@@ -339,31 +340,26 @@ addEventListener("fetch", e => {
 						if (vwMode !== "no-network") updateResourceInBackground(modifiedRequest, cache, fetchEvent);
 						return await modifyResponseBeforeSending(cached, requestInfo, true, true, null); // The outdated version
 					}
-					else { // Must be a lax-lazy resource
-						const [resource, isError] = await fetchResource(pathWithoutBase, modifiedRequest, isPage, true);
-						if (isError) return await modifyResponseBeforeSending(cached, requestInfo, true, true, true);
-
-						updateResourceInBackground(modifiedRequest, cache, fetchEvent, resource.clone());
-						return await modifyResponseBeforeSending(resource, requestInfo, false, false, false);
+					else { // Must be a lax-lazy resource, since outdated strict-lazy resources are removed
+						return await fetchAndCache(pathWithoutBase, modifiedRequest, true, isPage, inCacheList, cache, fetchEvent, requestInfo);
 					}
 				}
 			}
 
-			/* The response won't already be in the cache if this point is reached (but could be in the cache list) */
+			/* The response won't already be in the cache if this point is reached, but could be in the cache list */
 			if (vwMode === "no-network") return Response.error();
 
-			const modifiedRequest = inCacheList? modifyRequestForCaching(req, false) : req; // Could be a HEAD request
-			const [resource, isCachable] = await fetchResource(pathWithoutBase, modifiedRequest, isPage, inCacheList);
-			if ((! isCachable) || isHeadRequest) return resource; // Send the error response or send the HEAD response from the server if applicable, as it can't be cached
+			/**
+			 * Does the request itself prevent it from being cached?
+			 */
+			let isRequestCachable = inCacheList && isGetRequest;
+			const modifiedRequest = modifyRequestBeforeSending(req, isRequestCachable);
 
-			if (inCacheList) updateResourceInBackground(modifiedRequest, cache, fetchEvent, resource.clone());
-			return await modifyResponseBeforeSending(resource, requestInfo, false, false, false);
+			return await fetchAndCache(pathWithoutBase, modifiedRequest, isRequestCachable, isPage, inCacheList, cache, fetchEvent, requestInfo);
         })()
     );
 });
-// The type of addEventListener is based off of the window one which is incorrect, hence this cast
-type AddMessageListener = (type: "message", listener: ((this: typeof globalThis, event: ExtendableMessageEvent) => any)) => void;
-(addEventListener as unknown as AddMessageListener)("message", messageEvent => {
+addEventListener("message", messageEvent => {
 	const backwardCompatibleData = messageEvent.data as InputMessageData | "skipWaiting";
 	// We're going to assume that invalid data will never be post-messaged here
 
@@ -606,61 +602,79 @@ function addVWHeaders(response: Response, version?: number, age = 0): Response {
 	});
 }
 /**
- * Removes the `Range` and `VW-Mode` headers, sets the method to `"GET"` and the cache mode to `httpCacheMode`.
+ * Removes the `Range` and `VW-Mode` headers.
+ * 
+ * If `willCache` is `true`, it also sets the method to `"GET"` and the cache mode to `httpCacheMode`.
  */
-function modifyRequestForCaching(request: Request, enforceGetRequest: boolean = true) {
+function modifyRequestBeforeSending(request: Request, willCache: boolean) {
 	return modifyRequestHeaders(request, {
 		range: null,
 		"vw-mode": null
 	}, {
-		method: enforceGetRequest? "GET" : request.method,
-		cache: httpCacheMode
+		method: willCache? "GET" : request.method,
+		cache: willCache? httpCacheMode : request.cache
 	});
 }
 
+async function fetchAndCache(
+	pathWithoutBase: string, modifiedRequest: Request, isRequestCachable: boolean,
+	isPage: boolean, inCacheList: boolean,
+	cache: Cache, fetchEvent: FetchEvent, requestInfo: VWRequest
+): Promise<Response> {
+	const [resource, errorCode] = await fetchResource(modifiedRequest, isPage, inCacheList, pathWithoutBase);
+
+	if (isRequestCachable && errorCode === 0) {
+		updateResourceInBackground(modifiedRequest, cache, fetchEvent, resource.clone());
+	}
+	return await modifyResponseBeforeSending(resource, requestInfo, false, false, errorCode !== 1); // 2 isn't cachable but isn't a network error
+}
 const acceptableResponseTypes = new Set([
 	"default",
 	"basic"
 ]);
 /**
  * Also adds the Versioned Worker headers
+ * 
+ * @note If `isPage` is `true`, `pathWithoutBase` must be specified
  */
 async function fetchResource(
-	pathWithoutBase: string, modifiedRequest: Request, isPage: boolean, shouldAddHeaders: boolean
-): Promise<[response: Response, isCachable: boolean]> {
+	modifiedRequest: Request, isPage: boolean, shouldAddHeaders: boolean, pathWithoutBase?: string
+): Promise<[response: Response, errorCode: number]> {
 	let resource: Response;
 	try {
 		resource = await fetch(modifiedRequest);
 	}
 	catch {
-		if (isPage && ROUTES.has(pathWithoutBase)) {
-			return [new Response("Something went wrong. Please connect to the internet and try again."), false];
+		if (isPage && ROUTES.has(pathWithoutBase!)) {
+			return [new Response("Something went wrong. Please connect to the internet and try again."), 1];
 		}
 		else {
-			return [Response.error(), false];
+			return [Response.error(), 1];
 		}
 	}
 
-	if (! acceptableResponseTypes.has(resource.type)) return [resource, false]; // It's an error or redirect
+	if (! isResponseUsable(resource)) return [resource, 2];
+
 	return [
 		shouldAddHeaders? addVWHeaders(resource) : resource,
-		true
+		0
 	];
 }
 /**
  * @note This consumes `resource`, if provided
  */
 function updateResourceInBackground(
-	modifiedRequest: Request, cache: Cache,
-	fetchEvent: FetchEvent, resource?: Response
+	modifiedRequest: Request,
+	cache: Cache, fetchEvent: FetchEvent, resource?: Response
 ) {
 	fetchEvent.waitUntil(
 		(async () => {
-			if (resource == null) resource = addVWHeaders(await fetch(modifiedRequest));
+			// Network errors will be detected by isResponseUsable since isPage is false in the call below
+			if (resource == null) [resource] = await fetchResource(modifiedRequest, false, true);
 			
 			if (isResponseUsable(resource)) {
 				if (isResponseTheDefault(modifiedRequest, resource) && resource.status !== 206) { // Also checks that it's a GET request
-					cache.put(modifiedRequest, resource); // Update it in the background
+					await cache.put(modifiedRequest, resource);
 				}
 			}
 		})()
@@ -695,9 +709,8 @@ function handleHeadRequest(response: Response, isHeadRequest: boolean) {
 }
 
 function isResponseUsable(response: Response): boolean {
+	if (! response.ok) return false;
 	if (! acceptableResponseTypes.has(response.type)) return false;
-	const codeRange = Math.floor(response.status / 100);
-	if (codeRange === 4 || codeRange === 5) return false;
 
 	return true;
 }

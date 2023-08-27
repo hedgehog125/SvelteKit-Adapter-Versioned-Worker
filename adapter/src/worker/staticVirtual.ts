@@ -18,7 +18,7 @@ export interface DataWithFormatVersion {
 	data: unknown
 }
 
-/* Hooks /*
+/* Hooks */
 
 /**
  * The type of the optional export `handleFetch` in your `"hooks.worker.ts"` file. The function is called when a network request is made by a client and the `VWRequestMode` isn't `"force-passthrough"`.
@@ -26,10 +26,10 @@ export interface DataWithFormatVersion {
  * @note By default, Versioned Worker will set the mode of cross origin requests to `"force-passthrough"`, in which case they won't cause any of your hooks be called. To handle them anyway, you'll need to set the `VWRequestMode` back to `"default"` or another value. Alternatively, you can disable this behaviour by setting `autoPassthroughCrossOriginRequests` in your adapter config to `false`.
  * @note Generally you should only handle requests with the `VIRTUAL_FETCH_PREFIX`.
  * 
- * @see `virtualRoutes`, `combineFetchHandlers` and `ignoreCrossOriginFetches` as they are utility functions that you might find helpful.
- * @see `virtualFetch` in the module `"sveltekit-adapter-versioned-worker/svelte"` for sending requests while ensuring the worker is running.
- * @see `VIRTUAL_FETCH_PREFIX` in the module `"sveltekit-adapter-versioned-worker/worker/util"` or `"sveltekit-adapter-versioned-worker/svelte/util"` for information on the virtual prefix.
- * @see `VWRequestMode` for more information on request modes.
+ * @see `virtualRoutes`, `combineFetchHandlers` and `ignoreCrossOriginFetches` as they are utility functions that you might find helpful
+ * @see `virtualFetch` in the module `"sveltekit-adapter-versioned-worker/svelte"` for sending requests while ensuring the worker is running
+ * @see `VIRTUAL_FETCH_PREFIX` in the module `"sveltekit-adapter-versioned-worker/worker/util"` for information on the virtual prefix
+ * @see `VWRequestMode` for more information on request modes
  * 
  * @example
  * // hooks.worker.ts
@@ -47,6 +47,8 @@ export interface DataWithFormatVersion {
  *   else if (href === "unprefixed-virtual/") { // Same here
  *     return new Response("This is a virtual route but without the virtual prefix.");
  *   }
+ * 
+ *   console.log("Since nothing was returned, Versioned Worker will handle the request.");
  * }) satisfies HandleFetchHook;
  * 
  * // ...
@@ -407,7 +409,7 @@ export interface InstallEvent extends ExtendableEvent {
 	activeWorker: ServiceWorker
 }
 export interface ActivateEvent extends ExtendableEvent { }
-export interface ExtendableMessageEvent<T = any> extends ExtendableEvent {
+export interface ExtendableMessageEvent<T = unknown> extends ExtendableEvent {
 	data: T,
 	origin: string,
 	lastEventId: string,
@@ -458,7 +460,7 @@ export interface Client {
  * @note This is just a type. To access the variable in the worker, you need to declare it as a variable.
  * 
  * @example
- * // In an ambient d.ts file or, so you don't your global scope, in your hooks.worker.ts file. You may prefer to use a static import for the second case.
+ * // In an ambient d.ts file or, so you don't affect your other files, in your hooks.worker.ts file. You may prefer to use a static import for the second case.
  * declare var clients: import("sveltekit-adapter-versioned-worker/worker").Clients;
  * 
  */
@@ -489,7 +491,7 @@ export type WindowClientState = "hidden" | "visible";
  * @note This is just a type. To access the variable in the worker, you need to declare it as a variable.
  * 
  * @example
- * // In an ambient d.ts file or, so you don't your global scope, in your hooks.worker.ts file
+ * // In an ambient d.ts file or, so you don't affect your other files, in your hooks.worker.ts file. You may prefer to use a static import for the second case.
  * declare var registration: ServiceWorkerRegistration; // Or import("sveltekit-adapter-versioned-worker/worker").Registration
  */
 export type Registration = ServiceWorkerRegistration;
@@ -498,10 +500,30 @@ export type Registration = ServiceWorkerRegistration;
  * @note This is just a type. To access the variable in the worker, you need to declare it as a variable.
  * 
  * @example
- * // In an ambient d.ts file or, so you don't your global scope, in your hooks.worker.ts file. You may prefer to use a static import for the second case.
+ * // In an ambient d.ts file or, so you don't affect your other files, in your hooks.worker.ts file. You may prefer to use a static import for the second case.
  * declare var skipWaiting: import("sveltekit-adapter-versioned-worker/worker").SkipWaiting;
  */
 export type SkipWaiting = () => Promise<void>;
+
+/**
+ * @note This is just a type. To access the variable in the worker, you need to declare it as a variable.
+ * 
+ * @example
+ * // In an ambient d.ts file or, so you don't affect your other files, in your hooks.worker.ts file. You may prefer to use a static import for the second case.
+ * declare var addEventListener: import("sveltekit-adapter-versioned-worker/worker").AddEventListener;
+ */
+export type AddEventListener = <K extends keyof ServiceWorkerGlobalScopeEventMap>(type: K, listener: ((this: typeof globalThis, event: ServiceWorkerGlobalScopeEventMap[K]) => any)) => void;
+export interface ServiceWorkerGlobalScopeEventMap {
+	install: InstallEvent,
+	activate: ActivateEvent,
+	fetch: FetchEvent,
+	message: ExtendableMessageEvent,
+
+	notificationclick: NotificationEvent,
+	notificationclose: NotificationEvent,
+	push: PushEvent,
+	sync: SyncEvent
+}
 
 
 /* Code */

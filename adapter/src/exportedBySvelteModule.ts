@@ -5,7 +5,21 @@ Some of the Svelte module exports need to be used by the adapter or worker, thos
 import type { DataWithFormatVersion } from "./worker/staticVirtual";
 
 /**
- * TODO
+ * A class that produces `Promise`-like objects that can be made to resolve or reject externally.
+ * 
+ * @note `Promise`-like refers to how `ExposedPromise`s have a `then` method, allowing them to be `await`ed.
+ * @example
+ * let somethingToHappenPromise = new ExposedPromise();
+ * 
+ * async function doSomething() {
+ *   await somethingToHappenPromise;
+ *   // Do something now it's done
+ * }
+ * function makeSomethingHappen() {
+ *   // Maybe modify some shared state
+ *   somethingToHappenPromise.resolve(); // "Something" has now happened
+ *   somethingToHappenPromise = new ExposedPromise(); // So it can be sent again
+ * }
  */
 export class ExposedPromise<T = void> {
 	public resolve: ExposedPromise.Resolve<T>;
@@ -41,28 +55,30 @@ export namespace ExposedPromise {
 
 export interface CustomCurrentWorkerMessageEventLikeData<TEvent> extends CustomMessageEventLikeBase<TEvent> {
 	/**
-	 * TODO
+	 * If `data` comes from a different version or not. If this is `true`, the `data` will be wrapped in a `DataWithFormatVersion` object.
 	 */
 	isFromDifferentVersion: false,
 	/**
-	 * TODO
+	 * The data that was postmessaged.
 	 */
 	data: unknown
 }
 export interface CustomWaitingWorkerMessageEventLikeData<TEvent> extends CustomMessageEventLikeBase<TEvent> {
 	/**
-	 * TODO
+	 * If `data` comes from a different version or not. If this is `true`, the `data` will be wrapped in a `DataWithFormatVersion` object.
 	 */
 	isFromDifferentVersion: true,
 	/**
-	 * TODO
+	 * The data that was postmessaged.
+	 * 
+	 * @note You should type narrow this using `isFromDifferentVersion` before casting it to a known type.
 	 */
 	data: DataWithFormatVersion
 }
 interface CustomMessageEventLikeBase<TEvent> {
 	isFromDifferentVersion: boolean,
 	/**
-	 * TODO
+	 * The `MessageEvent` (received by clients) or `ExtendableMessageEvent` (received by service workers) that triggered this event or handler call.
 	 */
 	event: TEvent
 }

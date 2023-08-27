@@ -4,11 +4,6 @@ import type { BeforeNavigate } from "@sveltejs/kit";
 
 import { onMount } from "svelte";
 import { base } from "$app/paths";
-import { VIRTUAL_FETCH_PREFIX } from "internal-adapter/worker/util";
-
-export {
-	VIRTUAL_FETCH_PREFIX
-}
 
 type Nullable<T> = T | null;
 

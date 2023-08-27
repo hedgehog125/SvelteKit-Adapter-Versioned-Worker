@@ -203,11 +203,11 @@ export function adapter(inputConfig: AdapterConfig): Adapter {
 /**
  * Call this function, optionally with a `ManifestPluginConfig` object, to get a Vite plugin that manages your web app manifest.
  * 
- * @note
- * You should still use this plugin even if you don't want to use its main feature, as it improves a few things about the adapter. To do this, set the `enable` property in the `inputConfig` to `false`.
- * 
  * @param inputConfig An optional configuration object for this Vite plugin
  * @returns An array of Vite plugins which generate manifests and improves the adapter
+ * 
+ * @note
+ * You should still use this plugin even if you don't want to use its main feature, as it improves a few things about the adapter. To do this, set the `enable` property in the `inputConfig` to `false`.
  */
 export function manifestGenerator(inputConfig: ManifestPluginConfig = {}): Plugin[] {
 	manifestPluginConfig = applyManifestPluginConfigDefaults(inputConfig);
@@ -451,12 +451,12 @@ export function fetchLast(url: string): LastInfoProvider {
 /**
  * Another premade `LastInfoProvider` for use with the `lastInfo` property in the adapter config. Unless you're storing the file outside of the build directory, this function doesn't need any arguments.
  * 
- * @note
- * For production builds, you'll probably want to use `fetchLast`, as that will prevent you publishing useless information about test builds (i.e the number of them and the files changed between them). However, this is good to use for test builds, as it means you can check the update behaviour. Because of these pros and cons, it's best to use `standardGetLast` to use the correct one for the type of build.
- * 
  * @param filePath The absolute or relative file path to your versionedWorker.json file, or where it will be.
  * **Default**: `<adapterConfig.outputDir>/versionedWorker.json`.
  * @returns A `LastInfoProvider` that gets your versionedWorker.json file by reading it from the disk.
+ * 
+ * @note
+ * For production builds, you'll probably want to use `fetchLast`, as that will prevent you publishing useless information about test builds (i.e the number of them and the files changed between them). However, this is good to use for test builds, as it means you can check the update behaviour. Because of these pros and cons, it's best to use `standardGetLast` to use the correct one for the type of build.
  * 
  * @example
  * // svelte.config.js
@@ -535,11 +535,74 @@ export function standardGetLast(url: string, isDev: boolean, filePath?: string):
 }
 
 /**
- * TODO
+ * An object containing the values you shared from the `vite.config.ts` file. This is intended to be used in your `svelte.config.js` file.
+ * 
+ * @see `shareValueWithSvelteConfig` for how to share a value
+ * @example
+ * // vite.config.ts
+ * // ...
+ * import { shareValueWithSvelteConfig } from "sveltekit-adapter-versioned-worker";
+ * // ...
+ * 
+ * shareValueWithSvelteConfig("sortFile", ({ href }) => {
+ *   // Since this is a .ts file, you can write this in TypeScript instead of JavaScript
+ * });
+ * // ^ Since "sortFile" is reserved, there's no need to use "satisfies FileSorter"
+ * 
+ * // ...
+ * 
+ * // svelte.config.js
+ * import { valuesFromViteConfig } from "sveltekit-adapter-versioned-worker";
+ * // ...
+ * 
+ * const config = {
+ *   kit: {
+ *     // ...
+ *     sortFile: valuesFromViteConfig.sortFile
+ *     // ...
+ *   }
+ * };
  */
 export const valuesFromViteConfig: ValuesFromViteConfig = {};
 /**
- * TODO
+ * Shares a value with your `svelte.config.js` file. Use this in your `vite.config.ts` file.
+ * 
+ * @param key The key to put the `value` in `valuesFromViteConfig` as
+ * @param value The value to share with the `svelte.config.js` file
+ * 
+ * @note The following `key`s have to use the types they imply:
+ * * `"lastInfo"` -> `LastInfoProvider` 
+ * * `"sortFile"` -> A `FileSorter` or an array of them (`MaybeArray<Nullable<FileSorter> | undefined | false>`)
+ * * `"configureWorkerTypescript"` -> `WorkerTypeScriptConfigHook`
+ * * `"onFinish"` -> `BuildFinishHook`
+ * 
+ * @see `valuesFromViteConfig` for how to use the shared values
+ * 
+ * @example
+ * // vite.config.ts
+ * // ...
+ * import { shareValueWithSvelteConfig } from "sveltekit-adapter-versioned-worker";
+ * // ...
+ * 
+ * shareValueWithSvelteConfig("sortFile", ({ href }) => {
+ *   // Since this is a .ts file, you can write this in TypeScript instead of JavaScript
+ * });
+ * // ^ Since "sortFile" is reserved, there's no need to use "satisfies FileSorter"
+ * 
+ * // ...
+ * 
+ * // svelte.config.js
+ * import { valuesFromViteConfig } from "sveltekit-adapter-versioned-worker";
+ * // ...
+ * 
+ * const config = {
+ *   kit: {
+ *     // ...
+ *     sortFile: valuesFromViteConfig.sortFile
+ *     // ...
+ *   }
+ * };
+ * 
  */
 export function shareValueWithSvelteConfig<TKey extends keyof ValuesFromViteConfig>(key: TKey, value: ValuesFromViteConfig[TKey]) {
 	valuesFromViteConfig[key] = value;

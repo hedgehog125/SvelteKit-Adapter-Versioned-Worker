@@ -8,13 +8,16 @@ No support for range requests means large assets have to download the whole thin
 # Bugs
 
 # Features
+-
 
+hasUnsavedChanges store which is boolean | null. Null uses the old behaviour while if it's set, the critical update will work better and reloadOppertunity won't do anything if it's true
 
 A way to transfer info from the prerender to the file sorter
 Make more hard-coded values configurable
 Add option for the service worker TypeScript folder. Then only the entry and hooks file would need to be transpiled from the "src" folder
 
 # Tweaks
+Refactor some of the worker
 
 # Low priority
 How does this plugin work when deploying to Vercel? Since that changes how the static adapter works
