@@ -1,7 +1,8 @@
 import type {
 	InputMessageData,
 	ResumableState,
-	WorkerInfo
+	WorkerInfo,
+	WorkerV1Info
 } from "internal-adapter/worker";
 
 import { ExposedPromise } from "$util";
@@ -29,7 +30,7 @@ export interface InternalState {
 	 */
 	waitingResumableState: Nullable<ResumableState>,
 
-	activeWorkerInfo: Nullable<WorkerInfo>,
+	activeWorkerInfo: Nullable<WorkerV1Info>,
 	waitingWorkerInfo: Nullable<WorkerInfo>,
 	waitingWorkerInfoPromise: ExposedPromise<void>,
 

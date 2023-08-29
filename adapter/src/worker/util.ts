@@ -1,13 +1,18 @@
 type Nullable<T> = T | null;
 
 /**
- * TODO
+ * When a request with this prefix is received by a service worker, its `VwRequestMode` is automatically set to `"handle-only"`. Using this prefix for virtual routes also stops them from being able to clash with normal routes.
+ * 
+ * @see `virtualFetch` in the module `"sveltekit-adapter-versioned-worker/svelte"` for the more common way to send virtual requests
+ * @see `HandleFetchHook` in the module `"sveltekit-adapter-versioned-worker/worker"` for more information on handling virtual requests in the worker
  */
 export const VIRTUAL_FETCH_PREFIX = "__vw_virtual__/";
 /**
- * TODO
+ * The path the worker info is stored under, minus the `VIRTUAL_FETCH_PREFIX`.
  * 
  * @note To read the corresponding cache item, this should be prefixed with `VIRTUAL_FETCH_PREFIX`.
+ * 
+ * @see `getActiveWorkerInfo` and `getWaitingWorkerInfo` in the module `"sveltekit-adapter-versioned-worker/svelte"` for the more common way to get this information
  */
 export const INFO_STORAGE_PATH = "info";
 
@@ -107,11 +112,11 @@ function modifyHeaders(original: Headers, newHeaders: Record<string, Nullable<st
 
 export type SummarizedRequest = [method: string, url: string, headers: Record<string, string>];
 /**
- * Allows requests to be postmessaged and compared more easily. To compare 2, `JSON.s 
+ * Allows requests to be postmessaged and compared more easily. To compare 2, `JSON.stringify` each and compare the resulting strings.
  * 
  * @param request The request to summarise
  * @param headersToInclude If specified, the `SummarizedRequest` will only include these headers
- * @returns A `SummarizedRequest`
+ * @returns A `SummarizedRequest`.
  */
 export function summarizeRequest(request: Request, headersToInclude?: string[]): SummarizedRequest {
 	let unsortedHeaders = Array.from(request.headers)

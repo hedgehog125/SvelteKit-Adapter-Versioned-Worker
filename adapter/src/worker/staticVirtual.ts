@@ -35,7 +35,7 @@ export interface DataWithFormatVersion {
  * // hooks.worker.ts
  * 
  * // ...
- * import type { HandleFetchHook } from "sveltekit-adapter-versioned-worker";
+ * import type { HandleFetchHook } from "sveltekit-adapter-versioned-worker/worker";
  * // ...
  * 
  * export const handleFetch = (({ href, fullHref, virtualHref }) => {
@@ -59,102 +59,172 @@ export type HandleFetchHook = (requestInfo: VWRequest) => MaybePromise<Response 
  */
 export interface VWRequest {
 	/**
-	 * TODO
+	 * The href of the request, minus the base URL.
 	 * 
-	 * @note This doesn't start with a slash
-	 * @note This doesn't include search parameters
+	 * @note This doesn't start with a slash.
+	 * @note This doesn't include search parameters.
+	 * 
+	 * @see `fullHref` for the href with the base URL
 	 */
 	href: string,
 	/**
-	 * TODO
+	 * The full href of the request.
 	 * 
-	 * @note This doesn't include search parameters
+	 * @note As this is affected by the base URL, generally you should use `href` instead.
+	 * @note This will always start with a slash.
+	 * @note This doesn't include search parameters.
+	 * 
+	 * @see `href` for this without the base URL
 	 */
 	fullHref: string,
 	/**
 	 * The href of the virtual request.
 	 * 
-	 * @note This doesn't start with a slash or the virtual prefix
-	 * @note This will be `null` if the request doesn't have the virtual prefix
-	 * @note If the request is cross origin, this will always be `null`
+	 * @note This doesn't start with a slash or the virtual prefix.
+	 * @note This will be `null` if the request doesn't have the virtual prefix.
+	 * @note If the request is cross origin, this will always be `null`.
 	 */
 	virtualHref: Nullable<string>,
 	/**
-	 * TODO
+	 * The search parameters of the request.
 	 */
 	searchParams: URLSearchParams,
 	/**
-	 * TODO
+	 * A `URL` object constructed from `request.url`.
 	 */
 	urlObj: URL,
 
 	/**
-	 * TODO
+	 * If `request.mode` is `"navigate"` and it's a `GET` request.
 	 */
 	isPage: boolean,
 	/**
-	 * TODO
+	 * If the request is cross origin or not.
 	 * 
 	 * @note By default, Versioned Worker will set the mode of cross origin requests to `"force-passthrough"`, in which case they won't cause any of your hooks be called. To handle them anyway, you'll need to set the `VWRequestMode` back to `"default"` or another value. Alternatively, you can disable this behaviour by setting `autoPassthroughCrossOriginRequests` in your adapter config to `false`.
 	 * 
-	 * @see `VWRequestMode` for more information on request modes.
+	 * @see `VWRequestMode` for more information on request modes
 	 */
 	isCrossOrigin: boolean,
 	/**
-	 * TODO
+	 * The `VWRequestMode` of the request.
+	 * 
+	 * @see `VWRequestMode` for more information on Versioned Worker request modes
 	 */
 	vwMode: VWRequestMode,
 	/**
-	 * TODO
+	 * If the resource is in the cache list.
+	 * 
+	 * @note This will always be `false` if the request is cross origin
+	 * @note This will always be `false` if the request isn't a `GET` or `HEAD` request
+	 * @note Resources that were sorted as `"never-cache"` aren't included in the cache list
+	 * 
+	 * @see `isCrossOrigin` for checking if a request is cross origin
+	 * @see `FileSortMode` in the module `"sveltekit-adapter-versioned-worker"` for more information on file sort modes
 	 */
 	inCacheList: boolean
 
 	/**
-	 * TODO
+	 * The underlying `Request` object given to the service worker as part of the `FetchEvent`.
+	 * 
+	 * @note You should make sure to use its `clone` method to create a copy if your `HandleFetchHook` consumes its body without returning a `Response`.
 	 */
 	request: Request,
 	/**
-	 * TODO
+	 * The underlying `FetchEvent` that Versioned Worker intercepted.
 	 */
 	event: FetchEvent
 }
 /**
- * A string union type representing the mode of a request made by a client. To set the mode of a request, set the `vw-mode` header 
- * Each causes the service worker to handle the request differently:
- * TODO
+ * A string union type representing the Versioned Worker mode of a request made by a client. To set the mode of a request, set the `vw-mode` header or search parameter to it.
  * 
- * @example 
- * TODO
+ * Each causes the service worker to handle the request differently:
+ * * `"default"` requests will call the `HandleFetchHook` and send its response to the client if it returns one. If it doesn't, Versioned Worker checks if it's been cached. If it's up-to-date or the resource's mode is `"stale-lazy"`, it's sent. If it was stale, it's updated in the background. If a response hasn't been sent, Versioned Worker tries to fetch it from the network. If that fails, or `response.ok` is `false`, an outdated version will be sent if available, otherwise an error response. Outdated `"strict-lazy"` resources can't be sent in this case, as they are removed from the cache once they become outdated.  
+ * * `"no-network"` is similar to `"default"` except instead of trying the network, it will be treated as if it failed.
+ * * `"handle-only"` will return an error response if the `HandleFetchHook` doesn't return a response.
+ * * `"force-passthrough"` will stop Versioned Worker from handling the request and instead let the browser use its default behaviour.
+ * 
+ * @note Not to be confused by `Request`'s `"mode"` property.
+ * 
+ * @see `createURLWithVWMode` if you need to use a search parameter rather than a header for this
+ * @see `FileSortMode` in the module `"sveltekit-adapter-versioned-worker"` for more information on file sort modes
+ * @see `HandleFetchHook` for more information on handling fetches
  */
 export type VWRequestMode = "default" | "no-network" | "handle-only" | "force-passthrough";
 
 /**
- * TODO
+ * The type of the optional export `handleCustomMessage` in your `"hooks.worker.ts"` file. The function is called when a client calls `messageActiveWorker` or `messageWaitingWorker`.
+ * 
+ * Currently you can't send a specific reply but you can use `broadcast` to trigger the `ServiceWorker` component's `"message"` event on all clients.
+ * 
+ * @note If you return a `Promise` or use an `async` function, Versioned Worker will request that the browser doesn't kill the service worker until the promise resolves.
+ * 
+ * @example
+ * // hooks.worker.ts
+ * 
+ * // ...
+ * import type { HandleCustomMessageHook } from "sveltekit-adapter-versioned-worker/worker";
+ * // ...
+ * import { broadcast } from "sveltekit-adapter-versioned-worker/worker";
+ * // ...
+ * 
+ * type V1MessageToWorker = V1HiMessage | V1UnusedMessage; // Sent by clients
+ * interface V1HiMessage {
+ *   type: "sayHi"
+ * }
+ * interface V1UnusedMessage {
+ *   type: "unused",
+ *   // ^ The "unused" isn't anything Versioned Worker specific, it's just to demonstrate how to handle different types of messages
+ *   unusedData: string
+ * }
+ * export interface V1MessageFromWorker { // Sent by service workers
+ *   type: "alert",
+ *   message: string
+ * }
+ * 
+ * export const handleCustomMessage = (messageInfo => {
+ *   if (messageInfo.isFromDifferentVersion) return;
+ * 
+ *   const data = messageInfo.data as V1MessageToWorker;
+ *   if (data.type === "sayHi") {
+ *     // Because of the check, data is now a V1HiMessage, so unusedData can't be accessed
+ *     broadcast({
+ *       type: "alert",
+ *       message: "Hi!"
+ *     } satisfies V1MessageFromWorker, false);
+ *   }
+ * }) satisfies HandleCustomMessageHook;
  */
 export type HandleCustomMessageHook = (messageInfo: CustomMessageHookData) => MaybePromise<void>;
 /**
- * TODO
+ * The type of data provided to a `HandleCustomMessageHook`.
  * 
- * @see `CustomMessageData` for the type of data that gets directly postmessaged to or from the worker.
+ * @note Make sure to check the `isFromDifferentVersion` property as the `data` will be wrapped in a `DataWithFormatVersion` object if it's `true`.
+ * 
+ * @see `CustomMessageData` for the semi-internal wrapper of data that gets directly postmessaged to or from the worker
  */
 export type CustomMessageHookData = CustomMessageHookData.CurrentWorker | CustomMessageHookData.WaitingWorker;
 export namespace CustomMessageHookData {
-	/** 
-	 * TODO
+	/**
+	 * The type of data received in the `HandleCustomMessageHook` of an active service worker.
 	 * 
-	 * @see `CustomMessageData` for TODO.
+	 * @see `CustomMessageHookData.WaitingWorker` for the version of this that has the data wrapped in a `DataWithFormatVersion` object
+	 * @see `CustomMessageData` for the semi-internal wrapper of data that gets directly postmessaged to or from the worker
 	 */
 	export type CurrentWorker = CustomCurrentWorkerMessageEventLikeData<ExtendableMessageEvent>;
 	/**
-	 * TODO
+	 * The type of data received in the `HandleCustomMessageHook` of a waiting service worker.
 	 * 
-	 * @see `CustomMessageData` for TODO.
+	 * @see `CustomMessageHookData.CurrentWorker` for the version of this that doesn't have the data wrapped in a `DataWithFormatVersion` object
+	 * @see `CustomMessageData` for the semi-internal wrapper of data that gets directly postmessaged to or from the worker
 	 */
 	export type WaitingWorker = CustomWaitingWorkerMessageEventLikeData<ExtendableMessageEvent>;
 }
 
 /**
- * TODO
+ * The type of the optional export `handleResponse` in your `"hooks.worker.ts"` file. It allows you to modify a response before it's sent.
+ * 
+ * To modify the response, you can either return a new `Response` or modify the `responseInfo.response` object itself.
  * 
  * @note This won't be called for requests where any of the following are the case:
  * * A response was returned by `handleFetch`
@@ -163,47 +233,80 @@ export namespace CustomMessageHookData {
  * 
  * @see `HandleFetchHook` for more information on handling requests
  * @see `AdapterConfig.enablePassthrough` for more information on enabling auto passthrough
+ * 
+ * @example
+ * // hooks.worker.ts
+ * 
+ * // ...
+ * import type { HandleResponseHook } from "sveltekit-adapter-versioned-worker/worker";
+ * // ...
+ * import { modifyResponseHeaders } from "sveltekit-adapter-versioned-worker/worker";
+ * // ...
+ * 
+ * // Normally you'd use modifyResponseHeadersBeforeSending for this
+ * export const handleResponse = ((_, { response }) => {
+ *   // Modify all responses since we only know the answer, not the question
+ *   return modifyResponseHeaders(response, {
+ *     "the-meaning-of-life": "42"
+ *   });
+ * }) satisfies HandleResponseHook;
+ * 
+ * // ...
  */
 export type HandleResponseHook = (requestInfo: VWRequest, responseInfo: VWResponse) => MaybePromise<Response | undefined | void>;
 /**
- * TODO
+ * The interface representing the data Versioned Worker provides about a response to a `HandleResponseHook`.
  */
 export interface VWResponse {
 	/**
-	 * TODO
+	 * The `Response` object that will be sent if a different one isn't returned.
+	 * 
+	 * @note Make sure you use call `Response.clone()` and use that instead if you consume the response without returning a new one.
 	 */
 	response: Response,
 	/**
-	 * TODO
+	 * If the response was served from Versioned Worker's cache.
 	 */
 	isFromCache: boolean,
 	/**
-	 * TODO
+	 * If the response is outdated.
 	 */
 	isStale: boolean,
 	/**
-	 * TODO
+	 * If Versioned Worker encountered a network error while handling the request.
 	 * 
 	 * @note This will be `null` if the worker never fetched as part of the request in the first place.
 	 * @note It will also be `null` for resources that have their `FileSortMode` set to `"lazy-cache"` unless they haven't been cached yet. This is because they're normally only updated in the background, so it's not known if it'll succeed at this point.
+	 * @note This will be `false` if a non `ok` response was received by the client from the server.
 	 * 
-	 * @see `FileSortMode` in the module `"sveltekit-adapter-versioned-worker"` for more information on file sort modes.
+	 * @see `FileSortMode` in the module `"sveltekit-adapter-versioned-worker"` for more information on file sort modes
 	 */
 	didNetworkFail: Nullable<boolean>,
 	/**
-	 * TODO
+	 * The underlying `FetchEvent` that Versioned Worker intercepted.
 	 */
 	event: FetchEvent
 }
 
 
 /**
- * TODO
+ * A number union representing the different Versioned Worker update priorities.
+ * 
+ * Each value has a different meaning:
+ * * `0` means there's no updates to install.
+ * * `1` is a patch update and means Versioned Worker will rely on reload opportunities to install the update, instead of prompting the user. However, an update's priority will be increased to `2` if:
+ *     * The update was downloaded a day or more ago and 2 or more reload opportunities were blocked
+ *     * Or if the update was downloaded 3 or more days ago, provided `AdapterConfig.enableSecondUpdatePriorityElevation` hasn't been set to `false`
+ * * `2` is an elevated patch, and will trigger a dismissible prompt where the update isn't portrayed to be as noteworthy as a priority `3` update.
+ * * `3` is a major update and also triggers a dismissible prompt. It's portrayed as being more noteworthy than a priority `2` update.
+ * * And `4` is a critical update. Once downloaded, it triggers a fullscreen popup where the user has to choose to either reload immediately or in 60 seconds. This should only really be used if you've fixed an important vulnerability of some kind and you really need everyone to update. It's also worth noting that it currently appears to users that the reload could result in unsaved changes being discarded. This is because the `hasUnsavedChanges` store hasn't yet been implemented into Versioned Worker, meaning it just has to respond to `beforeunload` events stopping the reload and can't anticipate them.
+ * 
+ * @see `reloadOpportunity` in the module `"sveltekit-adapter-versioned-worker/svelte"` for more information on reload opportunities
  */
 export type UpdatePriority = 0 | 1 | 2 | 3 | 4;
 
 /**
- * TODO
+ * A type representing a parsed version file in the service worker. This is mostly only intended to be used internally.
  */
 export interface VersionFile {
 	formatVersion: number,
@@ -211,22 +314,27 @@ export interface VersionFile {
 	updatePriorities: UpdatePriority[]
 }
 
+
 /**
- * TODO
+ * The semi-internal type of a message sent to a service worker.
  */
-export type InputMessageVoidType = "skipWaiting" | "finish" | "resume" | "getInfo";
+export type InputMessageData = InputMessageVoidData | ConditionalSkipMessageData | CustomMessageData;
 /**
- * TODO
+ * The semi-internal string union type of `InputMessageData`'s `"type" property.
  */
 export type InputMessageType = InputMessageVoidType | ConditionalSkipMessageData["type"] | CustomMessageData["type"];
 /**
- * TODO
+ * The semi-internal string union type of `InputMessageVoidData`'s `"type" property.
+ */
+export type InputMessageVoidType = "skipWaiting" | "finish" | "resume" | "getInfo";
+/**
+ * The semi-internal type of a message sent to a service worker that only contains a type and no other contents.
  */
 export interface InputMessageVoidData {
 	type: InputMessageVoidType
 }
 /**
- * TODO
+ * The semi-internal type of a conditional skip message sent to a service worker. When sent, it requests that the worker skips waiting, provided there's only 1 client.
  */
 export interface ConditionalSkipMessageData {
 	type: "conditionalSkipWaiting",
@@ -237,135 +345,152 @@ export interface ConditionalSkipMessageData {
 	sendFinish?: boolean
 }
 /**
- * TODO
+ * The semi-internal type of a custom message sent to a service worker.
  * 
- * @see `CustomMessageHookData` for the type of data received by a `HandleCustomMessageHook`.
+ * @note Make sure to check the `isFromDifferentVersion` property as the `data` will be wrapped in a `DataWithFormatVersion` object if it's `true`.
+ * 
+ * @see `CustomMessageHookData` for the type of data received by a `HandleCustomMessageHook`
+ * @see `messageActiveWorker` and `messageWaitingWorker` in the module `"sveltekit-adapter-versioned-worker/svelte`" for the functions that send this message
  */
 export type CustomMessageData = CustomMessageData.CurrentWorker | CustomMessageData.WaitingWorker;
 export namespace CustomMessageData {
 	/**
-	 * TODO
+	 * The semi-internal type of a custom message sent to the active service worker.
 	 * 
-	 * @see `VWCustomMessageHookData` for TODO.
+	 * @see `CustomMessageData.WaitingWorker` for the version of this that has the data wrapped in a `DataWithFormatVersion` object
+	 * @see `CustomMessageHookData` for the type of data received by a `HandleCustomMessageHook`
 	 */
 	export interface CurrentWorker extends CustomMessageDataBase {
 		isFromDifferentVersion: false,
 		/**
-		 * TODO
+		 * The data that was postmessaged.
 		 */
 		data: unknown
 	}
 	/**
-	 * TODO
+	 * The semi-internal type of a custom message sent to a waiting service worker.
 	 * 
-	 * @see `VWCustomMessageHookData` for TODO.
+	 * @see `CustomMessageData.CurrentWorker` for the version of this that doesn't have the data wrapped in a `DataWithFormatVersion` object
+	 * @see `CustomMessageHookData` for the type of data received by a `HandleCustomMessageHook`
 	 */
 	export interface WaitingWorker extends CustomMessageDataBase {
 		isFromDifferentVersion: true,
 		/**
-		 * TODO
+		 * The data that was postmessaged.
 		 */
 		data: DataWithFormatVersion
 	}
 	interface CustomMessageDataBase {
-		type: "custom",
+		type: "vw-custom", // Since this same type is used for custom messages sent by service workers, it has the prefix
 		/**
-		 * TODO
+		 * If `data` comes from a different version or not. If this is `true`, the `data` will be wrapped in a `DataWithFormatVersion` object.
 		 */
 		isFromDifferentVersion: boolean
 	}
 }
 
-/**
- * TODO
- */
-export type InputMessageData = InputMessageVoidData | ConditionalSkipMessageData | CustomMessageData;
-/**
- * TODO
- */
-export interface InputMessageEvent extends MessageEvent {
-	data: InputMessageData
-}
 
 /**
- * TODO
+ * The semi-internal type of a message sent to a client from a service worker.
+ */
+export type OutputMessageData = OutputMessageVoidData | ResumeMessageData | WorkerInfoMessageData | CustomMessageData;
+/**
+ *  The semi-internal string union type of `OutputMessageData`'s `"type" property.
+ */
+export type OutputMessageType = OutputMessageVoidType | ResumeMessageData["type"] | WorkerInfoMessageData["type"] | CustomMessageData["type"];
+/**
+ * The semi-internal string union type of `OutputMessageVoidData`'s `"type" property.
  * 
  * @note `"vw-updateWithResumable"` is a response to a `"conditionalSkipWaiting"` input. 
  */
 export type OutputMessageVoidType = "vw-reload" | "vw-updateWithResumable" | "vw-skipFailed";
 /**
- * TODO
- */
-export type OutputMessageType = OutputMessageVoidType | ResumeMessageData["type"] | WorkerInfoMessageData["type"] | CustomMessageData["type"];
-/**
- * TODO
+ * The semi-internal type of a message sent to a client from a service worker that only contains a type and no other contents.
  */
 export interface OutputMessageVoidData {
 	type: OutputMessageVoidType
 }
 /**
- * TODO
+ * The semi-internal type of a resume message sent to a client by a service worker. When received by a client, the `data` is used to put the app back in a similar state to how it was before the update.
+ * 
+ * @see `ResumableState` for more information
  */
 export interface ResumeMessageData {
 	type: "vw-resume",
 	data: Nullable<ResumableState>
 }
 /**
- * TODO
+ * The semi-internal type of a worker info message sent to a client by a service worker. It provides some information about a service worker.
+ * 
+ * @see `getActiveWorkerInfo` and `getWaitingWorkerInfo` in the module `"sveltekit-adapter-versioned-worker/svelte"` for the more common way to get this information
  */
 export interface WorkerInfoMessageData {
 	type: "vw-info",
 	info: WorkerInfo
 }
-/**
- * TODO
- */
-export type OutputMessageData = OutputMessageVoidData | ResumeMessageData | WorkerInfoMessageData | CustomMessageData;
-/**
- * TODO
- */
-export interface OutputMessageEvent extends MessageEvent {
-	data: OutputMessageData
-}
 
 /**
- * TODO
+ * An alias for `DataWithFormatVersion`.
+ * 
+ * When `reloadOpportunity` is called, you can give it a `ResumableState` object or a `ResumableStateCallback`. This allows your web app to resume from a similar state to how it was before the page reloaded. Do this by `await`ing a call of `resumeState` in an `onMount`. If it resolves to another `ResumableState` object, you can use the data to put the app back into a similar state to before.
+ * 
+ * @see `reloadOpportunity` and `resumeState` in the module `"sveltekit-adapter-versioned-worker/svelte"` for the methods that use it
  */
 export type ResumableState = DataWithFormatVersion;
 /**
- * TODO
+ * The type of a function that returns a `ResumableState` object or a promise for one.
+ * 
+ * @see `reloadOpportunity` in the module `"sveltekit-adapter-versioned-worker/svelte"` for the function that uses it
  */
 export type ResumableStateCallback = () => MaybePromise<ResumableState>;
 
 /**
- * TODO
+ * The type of an information object from a service worker.
+ * 
+ * @note If the object is from a future service worker, make sure you type narrow using `majorFormatVersion` and possibly `minorFormatVersion`, as the format might have changed.
+ * 
+ * @see `getActiveWorkerInfo` and `getWaitingWorkerInfo` in the module `"sveltekit-adapter-versioned-worker/svelte"` for how to get this information
+ */
+export type WorkerInfo = KnownMajorVersionWorkerInfo | UnknownWorkerInfo;
+/**
+ * The type of an information object from a service worker that uses an unknown `majorFormatVersion`. You likely can't do much with this object as it comes from a future service worker, but your code should have a fail-safe for this situation.
  */
 export interface UnknownWorkerInfo {
 	/**
-	 * TODO: this is the latest major version + 1
+	 * The major format version of this worker info. Different values *aren't* backwards or forwards compatible.
+	 * 
+	 * @note This could be any number other than `KnownMajorVersionWorkerInfo.majorFormatVersion`, but this has to be approximated in TypeScript as the latest known major version + 1.
 	 */
 	majorFormatVersion: 2
 }
 /**
- * TODO
+ * The type of info data from a service worker that uses the `majorFormatVersion` and `minorFormatVersion` of `1`.
+*/
+export interface WorkerV1Info extends WorkerMajorV1InfoBase {
+	/**
+	 * The minor format version of this worker info. Unlike with major versions, this is forwards and backwards compatible. Just note that some properties might only exist in newer minor versions.
+	 * 
+	 * @note This could be any number other than `WorkerMajorV1KnownMinorInfo.minorFormatVersion`, but this has to be approximated in TypeScript as the latest known minor version + 1.
+	 */
+	minorFormatVersion: 1
+}
+/**
+ * The type of info data from a service worker that uses the `majorFormatVersion` of `1` and an unknown `minorFormatVersion`.
 */
 export interface WorkerMajorV1UnknownMinorInfo extends WorkerMajorV1InfoBase {
 	/**
-	 * TODO: this is the latest minor version + 1
+	 * The minor format version of this worker info. Unlike with major versions, this is forwards and backwards compatible. Just note that some properties might only exist in newer minor versions.
+	 * 
+	 * @note This could be any number other than `WorkerMajorV1KnownMinorInfo.minorFormatVersion`, but this has to be approximated in TypeScript as the latest known minor version + 1.
 	 */
 	minorFormatVersion: 2
 }
-/**
- * TODO
-*/
-export interface WorkerV1Info extends WorkerMajorV1InfoBase {
-	minorFormatVersion: 1,
-	templateVersion: 1
-}
-/**
- * TODO
- */
 interface WorkerMajorV1InfoBase {
+	/**
+	 * The major format version of this worker info. Different values *aren't* backwards or forwards compatible.
+	 * 
+	 * @note This could be any number other than `KnownMajorVersionWorkerInfo.majorFormatVersion`, but this has to be approximated in TypeScript as the latest known major version + 1.
+	 */
 	majorFormatVersion: 1,
 	minorFormatVersion: number,
 	
@@ -377,20 +502,16 @@ interface WorkerMajorV1InfoBase {
 }
 
 /**
- * TODO
- */
-export type WorkerInfo = KnownMajorVersionWorkerInfo | UnknownWorkerInfo;
-/**
- * TODO
+ * The type of info data from a service worker that uses the `majorFormatVersion` of `1` any `minorFormatVersion`.
  */
 export type KnownMajorVersionWorkerInfo = WorkerMajorV1KnownMinorInfo | WorkerMajorV1UnknownMinorInfo;
 /**
- * TODO
+ * The type of info data from a service worker that uses the `majorFormatVersion` of `1` a known `minorFormatVersion`.
  */
 export type WorkerMajorV1KnownMinorInfo = WorkerV1Info;
 
 /* Worker types */
-// Adapted from https://gist.github.com/ithinkihaveacat/227bfe8aa81328c5d64ec48f4e4df8e5 by Tiernan Cridland under ISC license:
+// Adapted from https://gist.github.com/ithinkihaveacat/227bfe8aa81328c5d64ec48f4e4df8e5 by Tiernan Cridland under ISC license
 
 // Events
 export interface ExtendableEvent extends Event {
@@ -609,7 +730,7 @@ export function combineFetchHandlers(handlers: HandleFetchHook[]): HandleFetchHo
  * * Set the `VWRequestMode` back to `"default"` or another value
  * * Disable this behaviour by setting `autoPassthroughCrossOriginRequests` in your adapter config to `false`
  * 
- * @see `VWRequestMode` for more information on request modes.
+ * @see `VWRequestMode` for more information on request modes
  * 
  * @example
  * // src/hooks.worker.ts
@@ -688,7 +809,11 @@ export function virtualRoutes(handlers: { [href: string]: HandleFetchHook }, ign
 }
 
 /**
- * TODO
+ * A function returning a `HandleResponseHook` that modifies the service worker's responses before they're sent.
+ * 
+ * @param newHeaders The headers to change. Set the value to `null` to remove a header.
+ * @param conditionCallback A callback that returns `true` if the response should be modified, otherwise it'll be left unchanged.
+ * @returns A `HandleResponseHook` that modifies the service worker's responses before they're sent.
  */
 export function modifyResponseHeadersBeforeSending(newHeaders: Record<string, Nullable<string>>, conditionCallback: (requestInfo: VWRequest, responseInfo: VWResponse) => MaybePromise<boolean>): HandleResponseHook {
 	return async (requestInfo, responseInfo) => {
@@ -698,7 +823,12 @@ export function modifyResponseHeadersBeforeSending(newHeaders: Record<string, Nu
 	};
 }
 /**
- * TODO
+ * A function returning a `HandleResponseHook` that makes the site cross origin isolated. You might find this useful if you can't change the headers your server sends.
+ * 
+ * @returns A `HandleResponseHook` that makes the site cross origin isolated.
+ * 
+ * @see
+ * https://web.dev/cross-origin-isolation-guide/
  */
 export function modifyResponsesToCrossOriginIsolateApp(): HandleResponseHook {
 	return modifyResponseHeadersBeforeSending({
@@ -708,25 +838,49 @@ export function modifyResponsesToCrossOriginIsolateApp(): HandleResponseHook {
 }
 
 /**
- * TODO
+ * Sends a custom message to all clients* which can be received via the `"message"` event on the `ServiceWorker` component.
  * 
- * @note The returned promise should be ignored as it doesn't indicate when the message is received.
+ * \*At least all *controlled* clients. You can include uncontrolled clients by passing `true` as the 2nd parameter.
+ * 
+ * @param message The message to send. If `includeUncontrolled` is `true`, this must be wrapped in a `DataWithFormatVersion` object.
+ * @param includeUncontrolled If uncontrolled clients should be included. Set this to `true` if you're sending from a waiting worker.
+ * @returns A void promise.
+ * 
+ * @note Generally the returned promise should be ignored as it doesn't indicate when the message is received. However, it does indicate when postmessage has been called on all the `Client`s.
+ * 
+ * @see `ServiceWorker`'s events in the module `"sveltekit-adapter-versioned-worker/svelte"` for more information on receiving these messages
  */
 export async function broadcast(message: DataWithFormatVersion, includeUncontrolled: true): Promise<void>;
 /**
- * TODO
+ * Sends a custom message to all clients* which can be received via the `"message"` event on the `ServiceWorker` component.
  * 
- * @note The returned promise should be ignored as it doesn't indicate when the message is received.
+ * \*At least all *controlled* clients. You can include uncontrolled clients by passing `true` as the 2nd parameter.
+ * 
+ * @param message The message to send. If `includeUncontrolled` is `true`, this must be wrapped in a `DataWithFormatVersion` object.
+ * @param includeUncontrolled If uncontrolled clients should be included. Set this to `true` if you're sending from a waiting worker.
+ * @returns A void promise.
+ * 
+ * @note Generally the returned promise should be ignored as it doesn't indicate when the message is received. However, it does indicate when postmessage has been called on all the `Client`s.
+ * 
+ * @see `ServiceWorker`'s events in the module `"sveltekit-adapter-versioned-worker/svelte"` for more information on receiving these messages
  */
 export async function broadcast(message: unknown, includeUncontrolled: false): Promise<void>;
 /**
- * TODO
+ * Sends a custom message to all clients* which can be received via the `"message"` event on the `ServiceWorker` component.
  * 
- * @note The returned promise should be ignored as it doesn't indicate when the message is received.
+ * \*At least all *controlled* clients. You can include uncontrolled clients by passing `true` as the 2nd parameter.
+ * 
+ * @param message The message to send. If `includeUncontrolled` is `true`, this must be wrapped in a `DataWithFormatVersion` object.
+ * @param includeUncontrolled If uncontrolled clients should be included. Set this to `true` if you're sending from a waiting worker.
+ * @returns A void promise.
+ * 
+ * @note Generally the returned promise should be ignored as it doesn't indicate when the message is received. However, it does indicate when postmessage has been called on all the `Client`s.
+ * 
+ * @see `ServiceWorker`'s events in the module `"sveltekit-adapter-versioned-worker/svelte"` for more information on receiving these messages
  */
 export async function broadcast(message: unknown, includeUncontrolled: boolean) {
 	broadcastInternal((await clients.matchAll({ includeUncontrolled })) as WindowClient[], {
-		type: "custom",
+		type: "vw-custom",
 		isFromDifferentVersion: includeUncontrolled,
 		data: message
 	} as CustomMessageData);

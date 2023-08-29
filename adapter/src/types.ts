@@ -106,7 +106,7 @@ export interface AdapterConfig {
 	/**
 	 * The base name for the cache storage. The name used will be `"{this config property}-{appVersion}"`.
 	 * 
-	 * Defaults to the base URL if one is being used or to `"VersionedWorkerStorage"` otherwise.
+	 * Defaults to the base URL if one is being used or to `"VersionedWorkerCache"` otherwise.
 	 */
 	cacheStorageName?: Nullable<string>,
 
@@ -183,34 +183,91 @@ export interface AdapterConfig {
 	 */
 	useHTTPCache?: boolean,
 	/**
-	 * TODO
+	 * How often, in milliseconds, the `ServiceWorker` component should check for updates.
+	 * 
+	 * @note Setting this to `false` will disable this periodic checking.
+	 * @note In addition to this, the browser also checks for updates for every full page load.
+	 * 
+	 * @default 86400_000 // Once every 24h
 	 */
 	checkForUpdatesInterval?: number | false,
 
 	/**
-	 * TODO
+	 * If this update you're publishing is an elevated patch or not.
+	 * 
+	 * You might find it best to use a number for this, as it means only 1 update will be marked with this priority. Doing so will mean the update will only be this priority if this value is different to what it was in the previous update, and also isn't now `0`.
+	 * 
+	 * @note If the update is set to be multiple priorities, the highest will be used.
+	 * @note If no priority is set, the update will be a patch (priority `1`).
+	 * 
+	 * @see `UpdatePriority` in the module `"sveltekit-adapter-versioned-worker/worker"` for more information about update priorities
+	 * 
+	 * @example
+	 * // Value in previous version | Value in this version | Result
+	 * // 0 -> 1 = Update is this priority
+	 * // 5 -> 4 = Update is this priority
+	 * // 5 -> 0 = Update isn't this priority
+	 * // 5 -> 5 = Update isn't this priority
+	 * 
+	 * @default 0 // Meaning the update isn't this priority
 	 */
 	isElevatedPatchUpdate?: number | boolean,
 	/**
-	 * TODO
+	 * If this update you're publishing is a major update or not.
+	 * 
+	 * You might find it best to use a number for this, as it means only 1 update will be marked with this priority. Doing so will mean the update will only be this priority if this value is different to what it was in the previous update, and also isn't now `0`.
+	 * 
+	 * @note If the update is set to be multiple priorities, the highest will be used.
+	 * @note If no priority is set, the update will be a patch (priority `1`).
+	 * 
+	 * @see `UpdatePriority` in the module `"sveltekit-adapter-versioned-worker/worker"` for more information about update priorities
+	 * 
+	 * @example
+	 * // Value in previous version | Value in this version | Result
+	 * // 0 -> 1 = Update is this priority
+	 * // 5 -> 4 = Update is this priority
+	 * // 5 -> 0 = Update isn't this priority
+	 * // 5 -> 5 = Update isn't this priority
+	 * 
+	 * @default 0 // Meaning the update isn't this priority
 	 */
 	isMajorUpdate?: number | boolean,
 	/**
-	 * TODO
+	 * If this update you're publishing is a critical update or not.
+	 * 
+	 * You might find it best to use a number for this, as it means only 1 update will be marked with this priority. Doing so will mean the update will only be this priority if this value is different to what it was in the previous update, and also isn't now `0`.
+	 * 
+	 * @note If the update is set to be multiple priorities, the highest will be used.
+	 * @note If no priority is set, the update will be a patch (priority `1`).
+	 * 
+	 * @see `UpdatePriority` in the module `"sveltekit-adapter-versioned-worker/worker"` for more information about update priorities
+	 * 
+	 * @example
+	 * // Value in previous version | Value in this version | Result
+	 * // 0 -> 1 = Update is this priority
+	 * // 5 -> 4 = Update is this priority
+	 * // 5 -> 0 = Update isn't this priority
+	 * // 5 -> 5 = Update isn't this priority
+	 * 
+	 * @default 0 // Meaning the update isn't this priority
 	 */
 	isCriticalUpdate?: number | boolean,
 
 	/**
-	 * Enables and disables the warning when the Vite config can't be resolved due to the manifest generator plugin being missing.
+	 * Enables and disables the warning for when the Vite config can't be resolved due to the manifest generator plugin being missing.
 	 * 
 	 * @note
-	 * If you don't want to use the manifest plugin for whatever reason, you can probably disable this warning. However, if the current working directory doesn't match Vite's route or if Vite's manifest filename is different to the SvelteKit default (vite-manifest.json), you'll need to provide one with the `getViteManifest` config argument instead.
+	 * If you don't want to use the manifest plugin for whatever reason, I'd strongly suggest setting its `enable` option to `false` instead of removing it from your Vite plugins. This way it'll still be able to improve how the adapter works.
 	 * 
 	 * @default true
 	 */
 	warnOnViteConfigUnresolved?: boolean,
 	/**
-	 * TODO
+	 * How much should be logged during the build.
+	 * 
+	 * At the moment, this only affects the file sortings that are logged after the build is complete. When set to `"normal"`, the resources set to `"pre-cache"` aren't listed as most of your resources likely use that mode. Setting this to `"verbose"` will cause them to all be listed.
+	 * 
+	 * @default "normal"
 	 */
 	logLevel?: LogLevel
 }
@@ -248,7 +305,12 @@ export interface ManifestPluginConfig {
 	outputFileName?: string,
 
 	/**
-	 * TODO
+	 * The `ManifestProcessor` to use.
+	 * 
+	 * @see `ManifestProcessor` for more information on writing your own
+	 * @see `defaultManifestProcessor` for more info on the default one
+	 * 
+	 * @default defaultManifestProcessor()
 	 */
 	process?: ManifestProcessor
 }
@@ -291,7 +353,13 @@ export interface VersionedWorkerLogger {
  */
 export type LastInfoProvider = (log: VersionedWorkerLogger, configs: LastInfoProviderConfigs) => MaybePromise<Nullable<string>>;
 /**
- * TODO
+ * The type of the configs object provided to `LastInfoProvider`s.
+ * 
+ * @note The `viteConfig` will be `null` if the manifest plugin isn't being used.
+ * @note The `manifestPluginConfig` will be `null` if the manifest plugin isn't being used.
+ * @note Unlike `AllConfigs`, this doesn't contain the Svelte config as SvelteKit likely hasn't called the adapter at this point in the build.
+ * 
+ * @see `LastInfoProvider` for the type of the function that's called with this
  */
 export interface LastInfoProviderConfigs {
 	viteConfig: Nullable<ViteConfig>,
@@ -301,54 +369,60 @@ export interface LastInfoProviderConfigs {
 }
 
 /**
- * TODO
+ * The type of a function that returns a `FileSortMode` or a promise for it. The function can also return `undefined`.
+ * 
+ * @tip `fileInfo` contains a `addBuildMessage` and a `addBuildWarning` function.
+ * 
+ * @see `FileSortMode` for more information on the different resource modes
+ * @see `AdapterConfig.sortFile` for how `undefined` returns are handled
+ * @see `VWBuildFile`, `BuildInfo` and `AllConfigs` for more information on the data provided to this function
  */
 export type FileSorter = (fileInfo: VWBuildFile, overallInfo: BuildInfo, configs: AllConfigs) => MaybePromise<FileSortMode | undefined | null | void>;
 /**
- * TODO
+ * A type representing the information Versioned Worker provides about a build file.
  */
 export interface VWBuildFile {
 	/**
 	 * The href of the file.
 	 * 
-	 * @note This has the base URL removed and doesn't start with "/" or "./"
+	 * @note This has the base URL removed and doesn't start with "/" or "./".
 	 */
 	href: string,
 	/**
 	 * The absolute path to the file on this computer.
 	 * 
-	 * @note Use `href` instead of this for categorising files based on paths
+	 * @note Use `href` instead of this for categorising files based on paths.
 	 */
 	localFilePath: string,
 	/**
 	 * The MIME type associated with the file's extension. Provided by mime-types.
 	 * 
-	 * @note If mime-types doesn't recognise the extension, the value will be `null`
+	 * @note If mime-types doesn't recognise the extension, the value will be `null`.
 	 */
 	mimeType: Nullable<string>,
 	/**
 	 * If the file is static or not. `true` if the file is in the static folder. Otherwise it's based on if `viteInfo` has `name` defined.
 	 * 
-	 * @note This will be `null` if the manifest plugin isn't being used and the file isn't in the static folder
+	 * @note This will be `null` if the manifest plugin isn't being used and the file isn't in the static folder.
 	 */
 	isStatic: Nullable<boolean>,
 	/**
 	 * The size of this file in bytes.
 	 * 
-	 * @note Due to compression, the resource might take significantly less data to download than this 
+	 * @note Due to compression, the resource might take significantly less data to download than this.
 	 */
 	size: number,
 	/**
 	 * The ID of the file in the array of build files.
 	 * 
-	 * @note The build files aren't sorted and could be in any order
-	 * @note Due to some files being sorted without calling the `FileSorter` (like routes), this will skip numbers
+	 * @note The build files aren't sorted and could be in any order.
+	 * @note Due to some files being sorted without calling the `FileSorter` (like routes), this will skip numbers.
 	 */
 	fileID: number,
 	/**
 	 * The `OutputAsset` or `OutputChunk` provided by Vite.
 	 * 
-	 * @note This will be null if there's no corresponding item in the bundle or if the manifest plugin isn't being used 
+	 * @note This will be null if there's no corresponding item in the bundle or if the manifest plugin isn't being used.
 	 */
 	viteInfo: Nullable<OutputAsset | OutputChunk>,
 
@@ -366,48 +440,56 @@ export interface VWBuildFile {
 	addBuildWarning: (message: string) => void
 }
 /**
- * TODO
+ * A type representing the information Versioned Worker provides about the SvelteKit build.
  */
 export interface BuildInfo {
 	/**
 	 * The whole Vite bundle. The key is the filename and the value is the `OutputAsset` or `OutputChunk`.
 	 * 
-	 * @note This will be `null` if the manifest plugin isn't being used
-	 * @note Some files might not have a corresponding item in the bundle 
+	 * @note This will be `null` if the manifest plugin isn't being used.
+	 * @note Some files might not have a corresponding item in the bundle.
 	 */
 	viteBundle: Nullable<OutputBundle>,
 	/**
 	 * All of the file paths of the build files, relative to the build directory.
 	 * 
-	 * @note They are normalised to be UNIX like (`"/"` instead of `"\"` on Windows)
-	 * @note They **don't** start with `"./"`
+	 * @note They are normalised to be UNIX like (`"/"` instead of `"\"` on Windows).
+	 * @note They **don't** start with `"./"`.
 	 */
 	fullFileList: Set<string>,
 	/**
 	 * All of the route file paths, relative to the build directory.
 	 * 
-	 * @note They are normalised to be UNIX like (`"/"` instead of `"\"` on Windows)
-	 * @note They **don't** start with `"./"`
+	 * @note They are normalised to be UNIX like (`"/"` instead of `"\"` on Windows).
+	 * @note They **don't** start with `"./"`.
 	 */
 	routeFiles: Set<string>,
 	/**
 	 * All of `fullFileList` mapped to each's size in bytes.
 	 * 
-	 * @note Due to compression, some files might take significantly less data to download than this number
+	 * @note Due to compression, some files might take significantly less data to download than this number.
 	 */
 	fileSizes: Map<string, number>
 }
 
 /**
- * TODO
+ * The type of a function that modifies the service worker's TypeScript config. It can either modify the provided `typescriptConfig` or return a new `TypescriptConfig`.
+ * 
+ * @note `configs` is unrelated to the TypeScript config and instead contains the Vite, Svelte, adapter and manifest plugin configs.
+ * 
+ * @see `AdapterConfig.configureWorkerTypescript` for its corresponding config item
+ * @see
+ * https://www.typescriptlang.org/tsconfig
  */
 export type WorkerTypeScriptConfigHook = (typescriptConfig: TypescriptConfig, configs: AllConfigs) => MaybePromise<TypescriptConfig | void | undefined>;
 /**
- * TODO
+ * The type of a function that runs once the whole build is finished.
+ * 
+ * @see `AdapterConfig.onFinish` for its corresponding config item
  */
 export type BuildFinishHook = (workerBuildSucceeded: boolean, processedBuild: ProcessedBuild, configs: AllConfigs) => void | Promise<void>;
 /**
- * TODO
+ * An interface representing the information Versioned Worker collected after sorting the build's files and gathering some more information.
  */
 export interface ProcessedBuild {
 	categorizedFiles: CategorizedBuildFiles,
@@ -418,7 +500,11 @@ export interface ProcessedBuild {
 	updatePriority: UpdatePriority
 }
 /**
- * TODO
+ * A type representing how the build files were sorted.
+ * 
+ * @note Files whose mode was set to `"never-cache"` will only be in the `completeList`.
+ * 
+ * @see `FileSortMode` for more information on the different resource modes
  */
 export interface CategorizedBuildFiles {
 	precache: string[],
@@ -431,11 +517,16 @@ export interface CategorizedBuildFiles {
 	// never-cache just isn't included
 }
 /**
- * TODO
+ * A map containing `FileSorterMessage`s, where the key is the file's path in the build.
+ * 
+ * @see FileSorterMessage for more information on messages logged by `FileSorter`s
+ * @see `FileSorter` for more information on file sorters
  */
 export type FileSorterMessages = Map<string, FileSorterMessage[]>;
 /**
- * TODO
+ * The type of a message logged by a `FileSorter`. The message can either be a regular message or a warning.
+ * 
+ * @see `FileSorter` for more information on file sorters
  */
 export interface FileSorterMessage {
 	isMessage: boolean,
@@ -444,11 +535,18 @@ export interface FileSorterMessage {
 
 
 /**
- * TODO
+ * The type of a function that takes a parsed web app manifest file and returns a new or modified one.
+ * 
+ * @note The provided `WebAppManifest` isn't validated, though it likely isn't worth checking it.
+ * @note If you change the format of it, you'll need to cast `parsed` to a different type, possibly via `unknown`.
  */
 export type ManifestProcessor = (parsed: WebAppManifest, configs: ManifestProcessorConfigs) => MaybePromise<string | WebAppManifest>;
 /**
- * TODO
+ * The type of the configs object provided to `ManifestProcessor`s.
+ * 
+ * @note `adapterConfig` will be `null` if the adapter isn't being used for some reason. You might just want to put a guard error clause at the top of your `ManifestProcessor` function to handle this.
+ * 
+ * @see `ManifestProcessor` for the type of the function that's called with this
  */
 export interface ManifestProcessorConfigs {
 	viteConfig: ViteConfig,
@@ -460,9 +558,9 @@ export interface ManifestProcessorConfigs {
 /**
  * A string enum representing how a file should be handled. Generally, most files should use the default mode: `"pre-cache"`.
  * 
- * @options
  * Note that a new version has to be released for Versioned Worker to detect a file as outdated. If you want more control for some files, you may need to set their modes to `"never-cache"` and implement the caching yourself.
  * 
+ * The different modes are:
  * * `"pre-cache"` resources should always be available as they're downloaded during the worker install. They're also updated with the new worker if they've changed and will always be from the same version as each other.
  * * `"lax-lazy"` only downloads and caches the resource when it's requested. If the latest version is cached, that will be sent. Otherwise it'll try and fetch the resource from the network, if that fails, the worker will send a stale version. The fetch will only fail if the user is offline and there's no version of the resource in the cache.
  * * `"stale-lazy"` (stale while revalidate) is similar to `"lax-lazy"` but serves stale responses before downloading the current version. If and when this current version is downloaded, it's stored in the cache for next time. Like with `"lax-lazy"`, it won't use the network if the resource is up-to-date.
@@ -472,14 +570,16 @@ export interface ManifestProcessorConfigs {
  */
 export type FileSortMode = "pre-cache" | "lax-lazy" | "stale-lazy" | "strict-lazy" | "semi-lazy" | "never-cache";
 /**
- * TODO
+ * An interface of an object that contains a number of different configs.
  */
 export interface AllConfigs extends LastInfoProviderConfigs {
 	svelteConfig: SvelteConfig
 }
 
 /**
- * TODO
+ * An interface containing the 2 most important values for Versioned Worker in the Vite config: the `"root"` and the `"manifest"` options.
+ * 
+ * @note If the manifest plugin isn't being used, `root` will be `process.cwd()` and `manifest` will be `"vite-manifest.json".
  */
 export interface MinimalViteConfig {
 	root: string,
@@ -487,6 +587,8 @@ export interface MinimalViteConfig {
 }
 
 /**
- * TODO
+ * The type of `AdapterConfig.logLevel`.
+ * 
+ * @see `AdapterConfig.logLevel` for more information
  */
-export type LogLevel = "minimal" | "verbose";
+export type LogLevel = "normal" | "verbose";

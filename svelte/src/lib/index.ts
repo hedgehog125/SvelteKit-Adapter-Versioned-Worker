@@ -2,14 +2,8 @@
 
 export * from "./index_internal.js";
 
-/**
- * TODO
-*/
 // @ts-ignore
 export { default as ServiceWorker } from "./ServiceWorker.svelte";
 
-/**
- * TODO
-*/
 // @ts-ignore
 export { default as DefaultUpdatePrompt } from "./DefaultUpdatePrompt.svelte";

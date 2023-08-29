@@ -1,4 +1,4 @@
-import type { V1ReceivedWorkerMessage, V1SentWorkerMessage } from "./demo.js";
+import type { V1MessageFromWorker, V1MessageToWorker } from "./demo.js";
 import type { IDBPDatabase } from "idb";
 import type { HandleCustomMessageHook } from "internal-adapter/worker";
 
@@ -58,12 +58,12 @@ async function quickFetchBackgroundTask() {
 export const handleCustomMessage = (messageInfo => {
 	if (messageInfo.isFromDifferentVersion) return;
 
-	const data = messageInfo.data as V1SentWorkerMessage;
+	const data = messageInfo.data as V1MessageToWorker;
 	if (data.type === "sayHi") {
 		broadcast({
 			type: "alert",
 			message: "Hi!"
-		} satisfies V1ReceivedWorkerMessage, false);
+		} satisfies V1MessageFromWorker, false);
 	}
 }) satisfies HandleCustomMessageHook;
 export const handleResponse = modifyResponsesToCrossOriginIsolateApp();

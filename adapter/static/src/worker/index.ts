@@ -238,8 +238,7 @@ addEventListener("activate", e => {
 			// Clean up
 			const cacheNames = await caches.keys();
 			for (const cacheName of cacheNames) {
-				const hasAnOldName = cacheName.startsWith("VersionedWorkerStorage-") || cacheName.startsWith("VersionedWorkerCache-");
-				if (! (cacheName.startsWith(STORAGE_PREFIX) || hasAnOldName)) continue;
+				if (! cacheName.startsWith(STORAGE_PREFIX)) continue;
 				if (cacheName === currentStorageName) continue;
 
 				await caches.delete(cacheName); // There'll probably only be 1 anyway so it's not worth doing in parallel
@@ -324,8 +323,9 @@ addEventListener("fetch", fetchEvent => {
 			}
 			if (vwMode === "handle-only") return Response.error();
 
-			if (isCrossOrigin || (! (isGetRequest || isHeadRequest))) { // Sort of passthrough: no headers are added
-				return await wrappedFetch(req);
+			if (isCrossOrigin || (! (isGetRequest || isHeadRequest))) { // Semi passthrough: no headers are added but the handleResponse hook is called
+				const res = await wrappedFetch(req);
+				return await modifyResponseBeforeSending(res, requestInfo, false, false, res.type === "error", false);
 			}
 
 			const cache = await cachePromise;
@@ -334,14 +334,14 @@ addEventListener("fetch", fetchEvent => {
 				let cached = await cache.match(modifiedRequest);
 				if (cached) {
 					const stale = parseInt(cached.headers.get("vw-version") as string) !== VERSION;
-					if (! stale) return await modifyResponseBeforeSending(cached, requestInfo, true, false, null);
+					if (! stale) return await modifyResponseBeforeSending(cached, requestInfo, true, false, null, true);
 
 					if (vwMode === "no-network" || STALE_LAZY.has(pathWithoutBase)) {
 						if (vwMode !== "no-network") updateResourceInBackground(modifiedRequest, cache, fetchEvent);
-						return await modifyResponseBeforeSending(cached, requestInfo, true, true, null); // The outdated version
+						return await modifyResponseBeforeSending(cached, requestInfo, true, true, null, true); // The outdated version
 					}
 					else { // Must be a lax-lazy resource, since outdated strict-lazy resources are removed
-						return await fetchAndCache(pathWithoutBase, modifiedRequest, true, isPage, inCacheList, cache, fetchEvent, requestInfo);
+						return await fetchAndCache(pathWithoutBase, modifiedRequest, true, isPage, cached, cache, fetchEvent, requestInfo);
 					}
 				}
 			}
@@ -437,7 +437,7 @@ addEventListener("message", messageEvent => {
 			})
 		})());
 	}
-	else if (data.type === "custom") {
+	else if (data.type === "vw-custom") {
 		const output = hooks.handleCustomMessage?.({
 			isFromDifferentVersion: data.isFromDifferentVersion,
 			data: data.data,
@@ -618,15 +618,22 @@ function modifyRequestBeforeSending(request: Request, willCache: boolean) {
 
 async function fetchAndCache(
 	pathWithoutBase: string, modifiedRequest: Request, isRequestCachable: boolean,
-	isPage: boolean, inCacheList: boolean,
+	isPage: boolean, inCacheListOrFallback: boolean | Response,
 	cache: Cache, fetchEvent: FetchEvent, requestInfo: VWRequest
 ): Promise<Response> {
-	const [resource, errorCode] = await fetchResource(modifiedRequest, isPage, inCacheList, pathWithoutBase);
+	let [resource, errorCode] = await fetchResource(modifiedRequest, isPage, !!inCacheListOrFallback, pathWithoutBase);
 
-	if (isRequestCachable && errorCode === 0) {
-		updateResourceInBackground(modifiedRequest, cache, fetchEvent, resource.clone());
+	if (errorCode === 0) {
+		if (isRequestCachable) {
+			updateResourceInBackground(modifiedRequest, cache, fetchEvent, resource.clone());
+		}
 	}
-	return await modifyResponseBeforeSending(resource, requestInfo, false, false, errorCode !== 1); // 2 isn't cachable but isn't a network error
+	else {
+		if (typeof inCacheListOrFallback !== "boolean") {
+			resource = inCacheListOrFallback;
+		}
+	}
+	return await modifyResponseBeforeSending(resource, requestInfo, false, false, errorCode !== 1, true); // 2 isn't cachable but isn't a network error
 }
 const acceptableResponseTypes = new Set([
 	"default",
@@ -683,18 +690,22 @@ function updateResourceInBackground(
 
 async function modifyResponseBeforeSending(
 	response: Response, request: VWRequest,
-	isFromCache: boolean, isStale: boolean, didNetworkFail: Nullable<boolean>
+	isFromCache: boolean, isStale: boolean, didNetworkFail: Nullable<boolean>, shouldModifyHeadRequests: boolean
 ): Promise<Response> {
-	response = handleHeadRequest(response, request.request.method === "HEAD");
+	if (shouldModifyHeadRequests) {
+		response = handleHeadRequest(response, request.request.method === "HEAD");
+	}
 	
 	let output: Response | null | undefined | void;
-	if (hooks.handleResponse) output = await hooks.handleResponse(request, {
-		response,
-		isFromCache,
-		isStale,
-		didNetworkFail,
-		event: request.event
-	});
+	if (hooks.handleResponse) {
+		output = await hooks.handleResponse(request, {
+			response,
+			isFromCache,
+			isStale,
+			didNetworkFail,
+			event: request.event
+		});
+	}
 	
 	if (output) return output;
 	return response;
@@ -721,8 +732,16 @@ function isResponseUsable(response: Response): boolean {
 function selectHandleFetchFunction(virtualHref: string | null, isCrossOrigin: boolean): Nullable<HandleFetchHook> {
 	if (isCrossOrigin) return hooks.handleFetch;
 	if (ENABLE_QUICK_FETCH && virtualHref === "quick-fetch") return handleQuickFetch;
+	if (virtualHref === INFO_STORAGE_PATH) return handleInfoRoute;
 
 	return hooks.handleFetch;
+}
+async function handleInfoRoute(): Promise<Response> {
+	return new Response(JSON.stringify(await getWorkerInfo()), {
+		headers: {
+			"content-type": "application/json"
+		}
+	});
 }
 
 function fixTrailingSlash(urlOrPath: string): string {

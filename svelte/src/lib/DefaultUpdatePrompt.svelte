@@ -1,3 +1,7 @@
+<!-- @component
+The default update prompt that the `ServiceWorker` component uses.
+-->
+
 <script lang="ts">
     import type { UpdatePriority } from "internal-adapter/worker";
 
@@ -192,7 +196,7 @@
 		top: 0;
 		bottom: 0;
 
-		z-index: 99;
+		z-index: 99999;
 		display: flex;
 		justify-content: center;
 		align-items: center;

@@ -17,11 +17,11 @@ export async function openSettingsDB(): Promise<IDBPDatabase<SettingsDB>> {
 	});
 }
 
-export interface V1ReceivedWorkerMessage {
+export interface V1MessageFromWorker {
 	type: "alert" | "unused",
 	message: string
 }
-export interface V1SentWorkerMessage {
+export interface V1MessageToWorker {
 	type: "sayHi" | "unused"
 }
 

@@ -1,5 +1,9 @@
+<!-- @component
+The component that manages your service worker. Put it in your top level +layout.svelte file.
+-->
+
 <script lang="ts">
-	import type { InputMessageData, OutputMessageData, UpdatePriority } from "internal-adapter/worker";
+	import type { InputMessageData, OutputMessageData, UpdatePriority, WorkerV1Info } from "internal-adapter/worker";
 	import type {
 		VWCustomMessageEvent,
 		WorkerRegistrationFailEvent,
@@ -14,7 +18,7 @@
 		dontAllowReloadForNextNavigation,
 		isReloadOnNavigateAllowed,
 
-        isWorkerActivated,
+        isWorkerActive,
 		displayedUpdatePriority,
 
         RELOAD_TIMEOUT,
@@ -53,19 +57,23 @@
 		 */
 		fail: WorkerRegistrationFailEvent,
 		/**
-		 * TODO: only runs when beforeunload prevents default
+		 * Called when a reload is attempted but times out. Versioned Worker will continue to retry after this event is fired as there might now be a mismatch between the client version and the service worker version. 
+		 * 
+		 * This generally only runs when a `beforeunload` event calls `preventDefault`.
 		*/
 		reloadfail: void,
 		/**
-		 * TODO
+		 * Called when the component checks for an update.
+		 * 
+		 * @note This won't be called when the browser checks for updates after a page load.
 		*/
 		updatecheck: WorkerUpdateCheckEvent,
 		/**
-		 * TODO
+		 * Triggered when an update is downloaded and ready to be installed.
 		 */
 		updateready: void,
 		/**
-		 * TODO
+		 * Triggered when a service worker sends a custom message to this client.
 		 */
 		message: VWCustomMessageEvent
 	}>();
@@ -87,7 +95,7 @@
 		}
 		pageLoadTimestamp = Date.now();
 
-		if (isWorkerActivated()) {
+		if (isWorkerActive()) {
 			dispatch("activate");
 			activateEventSent = true;
 		}
@@ -184,11 +192,12 @@
 			sessionStorage.removeItem(RESUMABLE_STATE_NAME);
 		}
 		else if (data.type === "vw-info") {
+			const info = data.info;
 			if (isFromActiveWorker) {
-				internalState.activeWorkerInfo = data.info;
+				internalState.activeWorkerInfo = info as WorkerV1Info;
 			}
 			else {
-				internalState.waitingWorkerInfo = data.info;
+				internalState.waitingWorkerInfo = info;
 			}
 
 			internalState.waitingWorkerInfoPromise.resolve();
@@ -205,7 +214,7 @@
 			$displayedUpdatePriority = getUpdatePriority();
 			dispatch("updateready");
 		}
-		else if (data.type === "custom") {
+		else if (data.type === "vw-custom") {
 			dispatch("message", {
 				isFromDifferentVersion: data.isFromDifferentVersion,
 				data: data.data,
@@ -235,7 +244,7 @@
 				timeoutPromise(RELOAD_TIMEOUT),
 				(async () => { // Skip the reload delay if the page is restored from the back forwards cache
 					// Don't add multiple listeners
-					if (! pageShowEventPromise) pageShowEventPromise = waitForEvent(window, "pageshow" satisfies keyof WindowEventMap);
+					pageShowEventPromise ??= waitForEvent(window, "pageshow" satisfies keyof WindowEventMap);
 
 					await pageShowEventPromise;
 					pageShowEventPromise = null;

@@ -742,9 +742,18 @@ export async function writeInfoFile(infoFile: InfoFileV3, { minimalViteConfig, a
 export async function callFinishHook(workerBuildSucceeded: boolean, processedBuild: ProcessedBuild, configs: AllConfigs) {
 	await configs.adapterConfig.onFinish?.(workerBuildSucceeded, processedBuild, configs);
 }
-export function logOverallBuildInfo(processedBuild: ProcessedBuild, { adapterConfig }: AllConfigs) {
+export function logOverallBuildInfo(processedBuild: ProcessedBuild, infoFile: InfoFileV3, { adapterConfig }: AllConfigs) {
+	const updatePriorityNames = [
+		null,
+		"patch",
+		"elevated patch",
+		"major",
+		"critical"
+	];
+
 	log.blankLine();
 	log.blankLine();
+	log.message(`Created version ${infoFile.version}. Update priority: ${updatePriorityNames[processedBuild.updatePriority]} (${processedBuild.updatePriority}).`);
 	log.message("File sortings:");
 	Object.entries({
 		"precache": "Precache",

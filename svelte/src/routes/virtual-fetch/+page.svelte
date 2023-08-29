@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { isWorkerActivated, virtualFetch } from "$lib/index_internal.js";
+    import { isWorkerActive, virtualFetch } from "$lib/index_internal.js";
     import { loadOnMount } from "$lib/util.js";
 
 	const loadPromise = loadOnMount(async () => {

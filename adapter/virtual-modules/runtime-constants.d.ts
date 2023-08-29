@@ -11,7 +11,7 @@ export const VERSION: number | null;
  * @note
  * This property requires the manifest plugin to be used. It only works during the build (and not in the prerender or worker build). If you try to read the property in other situations, it will always be `null`.
  * 
- * @see `AdapterConfig.redirectTrailingSlash` for more information.
+ * @see `AdapterConfig.redirectTrailingSlash` for more information
  */
 export const REDIRECT_TRAILING_SLASH: boolean | null;
 /**
@@ -20,7 +20,7 @@ export const REDIRECT_TRAILING_SLASH: boolean | null;
  * @note
  * This property requires the manifest plugin to be used. It only works during the build (and not in the prerender or worker build). If you try to read the property in other situations, it will always be `null`.
  * 
- * @see `AdapterConfig.enablePassthrough` for more information.
+ * @see `AdapterConfig.enablePassthrough` for more information
  */
 export const ENABLE_PASSTHROUGH: boolean | null;
 /**
@@ -29,7 +29,7 @@ export const ENABLE_PASSTHROUGH: boolean | null;
  * @note
  * This property requires the manifest plugin to be used. It only works during the build (and not in the prerender or worker build). If you try to read the property in other situations, it will always be `null`.
  * 
- * @see `AdapterConfig.autoPassthroughCrossOriginRequests` for more information.
+ * @see `AdapterConfig.autoPassthroughCrossOriginRequests` for more information
  */
 export const AUTO_PASSTHROUGH_CROSS_ORIGIN_REQUESTS: boolean | null;
 /**
@@ -38,8 +38,8 @@ export const AUTO_PASSTHROUGH_CROSS_ORIGIN_REQUESTS: boolean | null;
  * @note
  * This property requires the manifest plugin to be used. It only works during the build (and not in the prerender or worker build). If you try to read the property in other situations, it will always be `null`.
  * 
- * @see `AdapterConfig.enableQuickFetch` for more information.
- * @see `quickFetch` in the module `"sveltekit-adapter-versioned-worker/svelte"`.
+ * @see `AdapterConfig.enableQuickFetch` for more information
+ * @see `quickFetch` in the module `"sveltekit-adapter-versioned-worker/svelte"`
  */
 export const ENABLE_QUICK_FETCH: boolean | null;
 /**
@@ -48,8 +48,8 @@ export const ENABLE_QUICK_FETCH: boolean | null;
  * @note
  * This property requires the manifest plugin to be used. It only works during the build (and not in the prerender or worker build). If you try to read the property in other situations, it will always be `null`.
  * 
- * @see `AdapterConfig.enableSecondUpdatePriorityElevation` for more information.
- * @see `UpdatePriority` in the module `"sveltekit-adapter-versioned-worker/worker"` for more information about update priorities.
+ * @see `AdapterConfig.enableSecondUpdatePriorityElevation` for more information
+ * @see `UpdatePriority` in the module `"sveltekit-adapter-versioned-worker/worker"` for more information about update priorities
  */
 export const ENABLE_SECOND_UPDATE_PRIORITY_ELEVATION: boolean | null;
 /**
@@ -58,7 +58,7 @@ export const ENABLE_SECOND_UPDATE_PRIORITY_ELEVATION: boolean | null;
  * @note
  * This property requires the manifest plugin to be used. It only works during the build (and not in the prerender or worker build). If you try to read the property in other situations, it will always be `null`.
  * 
- * @see `AdapterConfig.useHTTPCache` for more information.
+ * @see `AdapterConfig.useHTTPCache` for more information
  */
 export const USE_HTTP_CACHE: boolean | null;
 /**
@@ -67,7 +67,7 @@ export const USE_HTTP_CACHE: boolean | null;
  * @note
  * This property requires the manifest plugin to be used. It only works during the build (and not in the prerender or worker build). If you try to read the property in other situations, it will always be `null`.
  * 
- * @see `AdapterConfig.checkForUpdatesInterval` for more information.
+ * @see `AdapterConfig.checkForUpdatesInterval` for more information
  */
 export const CHECK_FOR_UPDATES_INTERVAL: number | null | false;
 /**
@@ -76,6 +76,6 @@ export const CHECK_FOR_UPDATES_INTERVAL: number | null | false;
  * @note
  * This property requires the manifest plugin to be used. It only works during the build (and not in the prerender or worker build). If you try to read the property in other situations, it will always be `null`.
  * 
- * @see `AdapterConfig.outputWorkerFileName` for more information.
+ * @see `AdapterConfig.outputWorkerFileName` for more information
  */
 export const OUTPUT_WORKER_FILE_NAME: string | null;

@@ -35,7 +35,7 @@ export function applyAdapterConfigDefaults(config: AdapterConfig): ResolvedAdapt
 		isCriticalUpdate: 0,
 
 		warnOnViteConfigUnresolved: true,
-		logLevel: "minimal"
+		logLevel: "normal"
 	});
 }
 export function applyManifestPluginConfigDefaults(config: ManifestPluginConfig): ResolvedManifestPluginConfig {

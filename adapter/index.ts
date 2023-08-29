@@ -375,7 +375,7 @@ async function createNewVersion(staticFileHashes: Map<string, string>, updatePri
 async function finishUp(workerBuildErrors: WrappedRollupError[], processedBuild: ProcessedBuild, configs: AllConfigs) {
 	await writeInfoFile(lastInfo, configs);
 	await callFinishHook(workerBuildErrors == null, processedBuild, configs);
-	logOverallBuildInfo(processedBuild, configs);
+	logOverallBuildInfo(processedBuild, lastInfo, configs);
 	logFileSorterMessages(processedBuild);
 	logWorkerBuildErrors(workerBuildErrors, configs);
 }

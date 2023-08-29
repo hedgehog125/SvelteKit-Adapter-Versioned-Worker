@@ -6,7 +6,8 @@ import type {
 	ResumableStateCallback,
 	UpdatePriority,
 	VWRequestMode,
-	WorkerInfo
+	WorkerInfo,
+	WorkerV1Info
 } from "internal-adapter/worker";
 import type {
 	CustomCurrentWorkerMessageEventLikeData, CustomWaitingWorkerMessageEventLikeData
@@ -33,17 +34,20 @@ export type Nullable<T> = T | null;
 export type MaybePromise<T> = T | Promise<T>;
 
 /**
- * TODO
+ * The type of the `detail` property of the `ServiceWorker` component's `"fail"` event.
  */
 export interface WorkerRegistrationFailEvent {
+	/**
+	 * The reason the registration failed.
+	 */
 	reason: WorkerRegistrationFailReason
 }
 /**
- * TODO
+ * The string union representing the reason why the service worker failed to be registered.
  */
 export type WorkerRegistrationFailReason = "unsupported" | "error" | "dev";
 /**
- * TODO
+ * The type of the `detail` property of the `ServiceWorker` component's `"updatecheck"` event.
  */
 export interface WorkerUpdateCheckEvent {
 	/**
@@ -55,8 +59,9 @@ export interface WorkerUpdateCheckEvent {
 	 * 
 	 * @note The update is likely still installing at this point.
 	 * @note It could be the same update that set this to `true` in the last event.
-	 * @see `isNew` to check if the update is different to the one from the previous event.
-	 * @see `ServiceWorker` (the component)'s `updateready` event for waiting until the update is installed.
+	 * 
+	 * @see `isNew` to check if the update is different to the one from the previous event
+	 * @see `ServiceWorker` (the component)'s `updateready` event for waiting until the update is installed
 	 */
 	updateAvailable: boolean,
 	/**
@@ -67,36 +72,42 @@ export interface WorkerUpdateCheckEvent {
 	isNew: boolean
 }
 /**
- * TODO
+ * The type of the `detail` property of the `ServiceWorker` component's `"message"` event.
  */
 export type VWCustomMessageEvent = VWCustomMessageEvent.CurrentWorker | VWCustomMessageEvent.WaitingWorker;
 export namespace VWCustomMessageEvent {
 	/** 
-	 * TODO
+	 * The type of the `detail` property of the `ServiceWorker` component's `"message"` event when the message was from the active worker.
 	 * 
-	 * @see `CustomMessageData` for TODO.
+	 * @see `VWCustomMessageEvent.WaitingWorker` for the version of this that has the data wrapped in a `DataWithFormatVersion` object
+	 * @see `CustomMessageData` in the module `"sveltekit-adapter-versioned-worker/worker"` for the semi-internal wrapper of data that gets directly postmessaged to or from the worker
 	 */
-	export type CurrentWorker = CustomCurrentWorkerMessageEventLikeData<MessageEvent>;
-	/**
-	 * TODO
+	export type CurrentWorker = CustomCurrentWorkerMessageEventLikeData<MessageEvent<unknown>>;
+	/** 
+	 * The type of the `detail` property of the `ServiceWorker` component's `"message"` event when the message was from a waiting worker.
 	 * 
-	 * @see `CustomMessageData` for TODO.
+	 * @see `VWCustomMessageEvent.CurrentWorker` for the version of this that has the data wrapped in a `DataWithFormatVersion` object
+	 * @see `CustomMessageData` in the module `"sveltekit-adapter-versioned-worker/worker"` for the semi-internal wrapper of data that gets directly postmessaged to or from the worker
 	 */
-	export type WaitingWorker = CustomWaitingWorkerMessageEventLikeData<MessageEvent>;
+	export type WaitingWorker = CustomWaitingWorkerMessageEventLikeData<MessageEvent<unknown>>;
 }
 
 
 /**
- * TODO
+ * Fetches a `Response` that was preloaded by the service worker. If it hasn't been preloaded, the worker will fetch the it normally.
  * 
- * @param url TODO: should be absolute
- * @param init 
- * @returns 
+ * @param url The absolute URL or absolute path to fetch. Use `link` if you want to use a path relative to your base URL.
+ * @param init The `RequestInit` to use. It's the same as the second argument to `fetch`.
+ * @returns A promise for a response.
  * 
  * @note If you keep getting error responses, it could be because you've set `"enableQuickFetch"` in your adapter config to `false` and you aren't using the manfiest plugin.
+ * @note This can fetch URLs that aren't in the cache list. It can also be used for `POST` and other types of requests, although since `init.body` isn't used when checking for matches in the worker, you might need to add a header with some kind of hash in these situations.
+ * @note Like `fetch`, this will throw if there's a network error.
  * 
  * @see `preloadQuickFetch` for how to preload the resource in the worker
  * @see `AdapterConfig.enableQuickFetch` to re-enable or disable the feature
+ * @see `link` in the module `"sveltekit-adapter-versioned-worker/svelte/util"` for a function to convert relative paths to absolute ones
+ * @see `summarizeRequest` and `SummarizedRequest` in the module `"sveltekit-adapter-versioned-worker/worker/util"` for more information on how requests are compared
  */
 let quickFetchDisabledWarnedAlready = false;
 export async function quickFetch(url: string, init?: RequestInit): Promise<Response> {
@@ -108,7 +119,7 @@ export async function quickFetch(url: string, init?: RequestInit): Promise<Respo
 		}
 	}
 
-	if (enabled && isWorkerActivated()) {
+	if (enabled && isWorkerActive()) {
 		let specifiedHeaders: string[] = [...new Headers(init?.headers).keys()];
 
 		const response = await virtualFetch("quick-fetch", init, {
@@ -121,27 +132,31 @@ export async function quickFetch(url: string, init?: RequestInit): Promise<Respo
 	return await fetch(url, init);
 }
 /**
- * TODO
+ * Fetches a `relativePath` while ensuring it's handled and not sent over the network*.
  * 
- * @param relativePath 
- * @param init 
- * @param searchParams
- * @param useVirtualPrefix
+ * \*If you set `useVirtualPrefix` to `false`, you'll need to set the `VWRequestMode` to `"handle-only"`, either by using a header or search parameter.
+ * 
+ * @param relativePath The path relative to the base URL to virtual fetch.
+ * @param init The `RequestInit` to use. It's the same as the second argument to `fetch`.
+ * @param searchParams The search parameters to include in the URL.
+ * @param useVirtualPrefix If the `VIRTUAL_FETCH_PREFIX` should also be added to the URL.
  * @returns A promise for a `Response` or `null`.
  * 
  * @note The returned promise will resolve to `null` if the worker isn't activated.
  * 
  * @see `VIRTUAL_FETCH_PREFIX` in the module `"sveltekit-adapter-versioned-worker/worker/util"` for more information on how the worker handles virtual fetches
- * @see `isWorkerActivated` in this module for checking if it's activated yet
- * @see `on:activate` in this module for waiting until it's activated, if it ever will be
- * @see `on:fail` in this module for listening for registration errors
+ * @see `HandleFetchHook` in the module `"sveltekit-adapter-versioned-worker/worker"` for how to handle these requests in the worker
+ * @see `isWorkerActive` or checking if it's activated yet
+ * @see `VWRequestMode` in the module `"sveltekit-adapter-versioned-worker/worker"` for more information on request modes
+ * @see `ServiceWorker` component's `"activate"` event for waiting until it's activated, if it ever will be
+ * @see `ServiceWorker` component's `"fail"` for listening for registration errors
  */
 export async function virtualFetch(
 	relativePath: string, init?: RequestInit,
 	searchParams?: Record<string, string>,
 	useVirtualPrefix = true
 ): Promise<Nullable<Response>> {
-	if (! isWorkerActivated()) return null;
+	if (! isWorkerActive()) return null;
 
 	relativePath = link(useVirtualPrefix?
 		(VIRTUAL_FETCH_PREFIX + relativePath)
@@ -158,33 +173,45 @@ export async function virtualFetch(
 }
 
 /**
- * TODO
+ * @returns `true` if a service worker is active.
  */
-export function isWorkerActivated(): boolean {
+export function isWorkerActive(): boolean {
 	return !!navigator.serviceWorker?.controller;
 }
 
 /**
- * TODO
+ * @returns A `WorkerV1Info` object from the active service worker, if it's been received yet by this client. Otherwise `null`.
  */
-export function getActiveWorkerInfo(): Nullable<WorkerInfo> {
+export function getActiveWorkerInfo(): Nullable<WorkerV1Info> {
 	return internalState.activeWorkerInfo;
 }
 /**
- * TODO
+ * @returns A `WorkerInfo` object from the waiting service worker, if it's been received yet by this client. Otherwise `null`.
+ * 
+ * @note Since there usually won't be a waiting service worker, this will usually return `null`.
  */
 export function getWaitingWorkerInfo(): Nullable<WorkerInfo> {
 	return internalState.waitingWorkerInfo;
 }
 
 /**
- * TODO
+ * Sends a custom message to the active service worker.
+ * 
+ * @param message The data to send.
+ * @returns `true` if the worker exists, otherwise `false.
+ * 
+ * @see `HandleCustomMessageHook` in the module `"sveltekit-adapter-versioned-worker/worker"` for how to receive it in the worker
  */
 export function messageActiveWorker(message: unknown): boolean {
 	return customMessageWorkerInternal(message, true);
 }
 /**
- * TODO
+ * Sends a custom message to the waiting service worker.
+ * 
+ * @param message The data to send, wrapped in a `DataWithFormatVersion` object.
+ * @returns `true` if the worker exists, otherwise `false.
+ * 
+ * @see `HandleCustomMessageHook` in the module `"sveltekit-adapter-versioned-worker/worker"` for how to receive it in the worker
  */
 export function messageWaitingWorker(message: DataWithFormatVersion): boolean {
 	return customMessageWorkerInternal(message, false);
@@ -195,7 +222,7 @@ function customMessageWorkerInternal(message: unknown, targetIsTheActive: boolea
 	if (! worker) return false;
 
 	worker.postMessage({
-		type: "custom",
+		type: "vw-custom",
 		isFromDifferentVersion: ! targetIsTheActive,
 		data: message
 	} as InputMessageData);
@@ -204,31 +231,10 @@ function customMessageWorkerInternal(message: unknown, targetIsTheActive: boolea
 }
 
 /**
- * TODO
- */
-export interface ResourceInfo {
-	/**
-	 * The version the resource is from.
-	 * 
-	 * @note This number will still increase with new app versions even if the resource hasn't changed.
-	 * 
-	 * @see `FileSortMode` in the module `"sveltekit-adapter-versioned-worker"` to see the different update behaviours of resources.
-	 */
-	version: number,
-	/**
-	 * The number of revisions the resource is behind by. If it's up-to-date, this will be `0`.
-	 * 
-	 * @note If the resource is updated infrequently, there will be a big disparity between this and `VERSION - resourceInfo.version`. For example, the app's version might be `25` and the resource might be the latest as of version `2`, but since it was only updated twice between those versions, its age would only be `2`. This is all assuming the resource's mode allows it to become stale though.
-	 * 
-	 * @see `FileSortMode` in the module `"sveltekit-adapter-versioned-worker"` to see the different update behaviours of resources.
-	 */
-	age: number
-}
-/**
- * TODO
+ * Checks the status of a resource in the cache list.
  * 
- * @param relativePath 
- * @returns 
+ * @param relativePath The path of the resource to stat relative to the base URL.
+ * @returns A promise resolving to a `ResourceInfo` object, or `null` if it isn't cached.
  * 
  * @note If the resource isn't cached, the promise will resolve to `null`.
  * @note If the service worker isn't active, the promise will again resolve to `null`.
@@ -256,6 +262,27 @@ export async function statResource(relativePath: string): Promise<Nullable<Resou
 		age
 	};
 }
+/**
+ * The type of the object returned from `statResource`.
+ */
+export interface ResourceInfo {
+	/**
+	 * The version the resource is from.
+	 * 
+	 * @note This number will still increase with new app versions even if the resource hasn't changed.
+	 * 
+	 * @see `FileSortMode` in the module `"sveltekit-adapter-versioned-worker"` to find out about the different update behaviours of resources
+	 */
+	version: number,
+	/**
+	 * The number of revisions the resource is behind by. If it's up-to-date, this will be `0`.
+	 * 
+	 * @note If the resource is updated infrequently, there will be a big disparity between this and `VERSION - resourceInfo.version`. For example, the app's version might be `25` and the resource might be the latest as of version `2`, but since it was only updated twice between those versions, its age would only be `2`. This is all assuming the resource's mode allows it to become stale though.
+	 * 
+	 * @see `FileSortMode` in the module `"sveltekit-adapter-versioned-worker"` to find out about the different update behaviours of resources
+	 */
+	age: number
+}
 
 /**
  * The name of the `SessionStorage` item that remembers if there was any resumable state.
@@ -264,11 +291,11 @@ export async function statResource(relativePath: string): Promise<Nullable<Resou
  */
 export const RESUMABLE_STATE_NAME: string = "vw-hasResumableState";
 /**
- * TODO
+ * The timeout in milliseconds for the `resumeState` function when the `RESUMABLE_STATE_NAME` item in `SessionStorage` indicates there's some `ResumableState` to request. If this timeout is exceeded, `resumeState`'s returned promise will resolve to `null`.
  */
 export const RESUMABLE_STATE_TIMEOUT: number = 5000;
 /**
- * TODO
+ * The timeout for seeing if the service worker will request the `ResumableState`.
  */
 export const REQUEST_RESUMABLE_STATE_TIMEOUT: number = 500;
 
@@ -325,13 +352,13 @@ export async function reloadOpportunity(navigateTo?: string | BeforeNavigate, re
 	}		
 }
 /**
- * TODO
+ * Sets the `displayedUpdatePriority` store to `0`, hiding the update prompt if it was being shown.
  */
 export function dismissUpdateMessage() {
 	displayedUpdatePriority.set(0);
 }
 /**
- * TODO
+ * Checks to see if there's a new service worker. If there is, the update will be downloaded and could result in an update prompt, depending on its priority.
  */
 export function checkForUpdates() {
 	internalState.commandForComponentPromise.resolve({ type: "updateCheck" });
@@ -340,18 +367,22 @@ export function checkForUpdates() {
 
 
 /**
- * TODO
+ * Checks if there's any resumable state, but since it doesn't return it, you can find out if there's any a little quicker.
  * 
  * @note This function uses a `SessionStorage` call, which are synchronous.
+ * 
+ * @see `resumeState` if you want to get the actual `ResumableState` object
  */
 export function checkIfResumableState(): boolean {
 	return sessionStorage.getItem(RESUMABLE_STATE_NAME) === "1";
 }
 /**
- * TODO
+ * Gets the `ResumableState` if there is any. Use this to put the app back in a similar state to how it was before it reloaded for an update.
  * 
  * @param guaranteeState Set this to `true` if you've already ensured there's some resumable state as this prevents a second `SessionStorage` call, which are synchronous. Otherwise leave it at its default of `false`.
  * @returns A promise resolving to a `ResumableState` object or `null` if there was no state.
+ * 
+ * @see `reloadOpportunity` for where the object originates from
  */
 export async function resumeState(guaranteeState = false): Promise<Nullable<ResumableState>> {
 	const waitingState = internalState.waitingResumableState;
@@ -458,7 +489,7 @@ export function dontAllowReloadOnNavigateWhileMounted() {
 }
 
 /**
- * TODO
+ * The messages that the `DefaultUpdatePrompt` component uses.
  */
 export const UPDATE_PROMPT_MESSAGES = [
 	null, // None
@@ -468,7 +499,7 @@ export const UPDATE_PROMPT_MESSAGES = [
 	"An important update is ready" // Critical
 ] as const;
 /**
- * TODO
+ * The names of the different update priorities that the `DefaultUpdatePrompt` component uses.
  */
 export const UPDATE_PRIORITY_NAMES = [
 	null,
@@ -478,15 +509,21 @@ export const UPDATE_PRIORITY_NAMES = [
 	"critical update"
 ] as const;
 /**
- * TODO
+ * How long the `ServiceWorker` and `DefaultUpdatePrompt` components wait after triggering a reload before considering it to have failed.
  */
 export const RELOAD_TIMEOUT: number = 7500;
 /**
- * TODO
+ * How long the `ServiceWorker` and `DefaultUpdatePrompt` components wait after a reload timeout before retrying.
+ * 
+ * @see `RELOAD_TIMEOUT` for how long the reload timeout is
  */
 export const RELOAD_RETRY_TIME: number = 10000;
 
 /**
- * TODO: this should only really be modified for the purpose of debugging
+ * A writable store containing the `UpdatePriority` that's currently being displayed. It determines what, if any, update prompt is displayed.
+ * 
+ * @note This should only really be modified for debugging purposes.
+ * 
+ * @see `UpdatePriority` in the module `"sveltekit-adapter-versioned-worker/worker`" for more information on update priorities
  */
 export const displayedUpdatePriority = writable<UpdatePriority>(0);
