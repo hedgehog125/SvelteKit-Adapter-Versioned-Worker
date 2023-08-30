@@ -161,8 +161,34 @@ let initTaskDone = false;
 /**
  * When called with an `AdapterConfig` object, this function returns a SvelteKit adapter that builds your service worker.
  * 
- * @param inputConfig The required configuration object for this adapter. It should have a `fetchLast` property
- * @returns A SvelteKit adapter that builds your service worker
+ * @param inputConfig The required configuration object for this adapter. It should have a `lastInfo` property.
+ * @returns A SvelteKit adapter that generates a service worker and its necessary files.
+ * 
+ * @example
+ * // svelte.config.js
+ * 
+ * 
+ * // Most of the time, you'll want to use a different info file for test builds compared to what you use for releases. That's why `standardGetLast` is used here.
+ * 
+ * 
+ * import { adapter, standardGetLast } from "sveltekit-adapter-versioned-worker";
+ * 
+ * const isDev = process.env.DEV_BUILD === "true";
+ * // ...
+ * const config = {
+ *   kit: {
+ *     // ...
+ *     adapter: adapter({
+ *       lastInfo: standardGetLast(
+ *         "https://hedgehog125.github.io/SvelteKit-Adapter-Versioned-Worker/versionedWorker.json",
+ *         isDev
+ *       ),
+ *       // ...
+ *     })
+ *     // ...
+ *   }
+ * };
+ * // ...
  */
 export function adapter(inputConfig: AdapterConfig): Adapter {
 	if (typeof inputConfig !== "object" || typeof inputConfig.lastInfo !== "function") {

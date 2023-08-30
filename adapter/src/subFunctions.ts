@@ -48,7 +48,8 @@ import {
 	hash,
 	findUniqueFileName,
 	createConstantsModule,
-	removeNulls
+	removeNulls,
+	createInitialTag
 } from "./helper.js";
 import { log } from "./globals.js";
 import {
@@ -133,6 +134,7 @@ export function updateInfoFileIfNeeded(infoFile: UnprocessedInfoFile): Unprocess
 
 			return {
 				formatVersion: 3,
+				tag: createInitialTag(),
 				version: infoFile.version,
 				versions: newBatches as InfoFileV3VersionBatch[],
 				hashes: infoFile.hashes,
@@ -152,6 +154,7 @@ export function updateInfoFileIfNeeded(infoFile: UnprocessedInfoFile): Unprocess
 export function processInfoFile(infoFile: UnprocessedV3InfoFile): InfoFileV3 {
 	const {
 		formatVersion,
+		tag,
 		version,
 		versions,
 		hashes,
@@ -163,6 +166,7 @@ export function processInfoFile(infoFile: UnprocessedV3InfoFile): InfoFileV3 {
 	
 	return {
 		formatVersion,
+		tag,
 		version,
 		versions,
 		hashes: new Map(Object.entries(hashes)),
@@ -482,6 +486,8 @@ export function createWorkerConstants(
 	storagePrefix += "-";
 
 	return {
+		TAG: lastInfo.tag,
+		VERSION: lastInfo.version + 1,
 		ROUTES: new Set(routes),
 
 		PRECACHE: new Set(categorizedBuildFiles.precache),
@@ -490,12 +496,11 @@ export function createWorkerConstants(
 		STRICT_LAZY: new Set(categorizedBuildFiles.strictLazy),
 		SEMI_LAZY: new Set(categorizedBuildFiles.semiLazy),
 
-		STORAGE_PREFIX: storagePrefix,
-		VERSION: lastInfo.version + 1,
 		VERSION_FOLDER: adapterConfig.outputVersionDir,
 		VERSION_FILE_BATCH_SIZE,
 		MAX_VERSION_FILES,
 		BASE_URL: baseURL,
+		STORAGE_PREFIX: storagePrefix,
 
 		REDIRECT_TRAILING_SLASH: adapterConfig.redirectTrailingSlash,
 		ENABLE_PASSTHROUGH: adapterConfig.enablePassthrough,

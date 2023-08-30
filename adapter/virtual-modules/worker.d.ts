@@ -1,6 +1,10 @@
 /* Build constants */
 
 /**
+ * The tag of the `versionedWorker.json` file. This is mostly only intended to be used internally.
+ */
+export const TAG: string;
+/**
  * The current version of the worker.
  * 
  * In the active worker, this will match the equivalent in `"sveltekit-adapter-versioned-worker/runtime-constants"`.
@@ -57,12 +61,6 @@ export const STRICT_LAZY: Set<string>;
 export const SEMI_LAZY: Set<string>;
 
 /**
- * The storage prefix the worker is set to use in the adapter config.
- * 
- * @see `AdapterConfig.cacheStorageName` for more information
- */
-export const STORAGE_PREFIX: string;
-/**
  * The filename that was set in the adapter config for the folder that contains the version files.
  * 
  * @see `AdapterConfig.outputVersionDir` for more information
@@ -83,6 +81,12 @@ export const MAX_VERSION_FILES: number;
  * https://kit.svelte.dev/docs/configuration#paths
  */
 export const BASE_URL: string;
+/**
+ * The storage prefix the worker is set to use in the adapter config.
+ * 
+ * @see `AdapterConfig.cacheStorageName` for more information
+ */
+export const STORAGE_PREFIX: string;
 
 /* Config */
 

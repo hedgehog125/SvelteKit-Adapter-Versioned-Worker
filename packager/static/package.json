@@ -58,25 +58,25 @@
 	},
 	"scripts": {},
 	"dependencies": {
-		"@types/web-app-manfest": "^1.0.4",
+		"@types/web-app-manifest": "^1.0.4",
 		
-		"@rollup/plugin-alias": "^4.0.3",
-		"@rollup/plugin-node-resolve": "^15.0.1",
-		"kleur": "^4.1.5",
+		"@rollup/plugin-alias": "^4.0.0",
+		"@rollup/plugin-node-resolve": "^15.0.0",
+		"@rollup/plugin-typescript": "^11.1.0",
+		"kleur": "^4.1.0",
 		"make-dir": "^4.0.0",
-		"mime-types": "^2.1.35",
-		"recursive-readdir": "^2.2.3",
-		"rollup": "^3.19.1",
-		"rollup-plugin-esbuild": "^5.0.0",
-		"tslib": "^2.5.0",
-		"typescript": "^5.0.2"
+		"mime-types": "^2.1.0",
+		"recursive-readdir": "^2.2.0",
+		"rollup": "^3.19.0",
+		"rollup-plugin-esbuild": "^5.0.0"
 	},
 	"peerDependencies": {
 		"@sveltejs/adapter-static": "^2.0.0",
 		"@sveltejs/kit": "^1.22.0",
 		"svelte": "^4.0.0",
 		"tslib": "^2.0.0",
-		"typescript": "^5.0.0"
+		"typescript": "^5.0.0",
+		"vite": "^4.0.0"
 	},
 	"keywords": [
 		"svelte",

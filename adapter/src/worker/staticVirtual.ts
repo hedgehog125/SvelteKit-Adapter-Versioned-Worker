@@ -494,6 +494,7 @@ interface WorkerMajorV1InfoBase {
 	majorFormatVersion: 1,
 	minorFormatVersion: number,
 	
+	tag: string,
 	version: number,
 	templateVersion: number,
 	timeInstalled: number,

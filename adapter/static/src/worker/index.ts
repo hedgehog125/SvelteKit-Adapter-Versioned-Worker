@@ -16,7 +16,8 @@ import type {
 	UpdatePriority,
 	CustomMessageHookData,
 	VWRequest,
-	AddEventListener
+	AddEventListener,
+	WorkerInfo
 } from "sveltekit-adapter-versioned-worker/worker";
 
 declare var clients: Clients;
@@ -29,19 +30,21 @@ type Nullable<T> = T | null;
 type MaybePromise<T> = Promise<T> | T;
 
 import {
+	TAG,
+	VERSION,
 	ROUTES,
+
 	PRECACHE,
 	LAX_LAZY,
 	STALE_LAZY,
 	STRICT_LAZY,
 	SEMI_LAZY,
 
-	STORAGE_PREFIX,
-	VERSION,
 	VERSION_FOLDER,
 	VERSION_FILE_BATCH_SIZE,
 	MAX_VERSION_FILES,
 	BASE_URL,
+	STORAGE_PREFIX,
 
 	REDIRECT_TRAILING_SLASH,
 	ENABLE_PASSTHROUGH,
@@ -133,9 +136,18 @@ addEventListener("install", e => {
 			const toCopy = new Map<string, CopyInfo>(); // The key is the path
 			// TODO: during clean installs, download semi-lazy resources that were previously downloaded?
 			if (whenResourcesUpdated) { // Don't reuse anything if it's a clean install
+				let foundInvalidInstall = false;
 				const pathsInAllCaches = new Map<string, CopyInfo>();
 				await Promise.all(installedVersions.map(async cacheVersion => {
 					const cache = await caches.open(STORAGE_PREFIX + cacheVersion);
+					const res = await cache.match(infoHref);
+					const info = (res? await res.json() : null) as Nullable<WorkerInfo>;
+					if (foundInvalidInstall) return; // A different one was invalid
+					if (info?.majorFormatVersion !== 1 || info.tag !== TAG) {
+						foundInvalidInstall = true;
+						return;
+					}
+
 					const pathsInCache = (await cache.keys()).map(req => new URL(req.url).pathname.slice(BASE_URL.length));
 
 					for (const path of pathsInCache) {
@@ -145,40 +157,44 @@ addEventListener("install", e => {
 					}
 				}));
 
-				for (const [path, copyInfo] of pathsInAllCaches) {
-					if (ROUTES.has(path)) continue;
-
-					const changed = copyInfo[1] != null;
-					
-					if (PRECACHE.has(path)) {
-						if (! changed) {
-							toDownload.delete(path);
-							addToToCopy();
+				if (foundInvalidInstall) {
+					logCleanInstallMessage();
+				}
+				else {
+					for (const [path, copyInfo] of pathsInAllCaches) {
+						if (ROUTES.has(path)) continue;
+	
+						const changed = copyInfo[1] != null;
+						
+						if (PRECACHE.has(path)) {
+							if (! changed) {
+								toDownload.delete(path);
+								addToToCopy();
+							}
 						}
-					}
-					else if (SEMI_LAZY.has(path)) {
-						if (changed) {
-							toDownload.add(path);
+						else if (SEMI_LAZY.has(path)) {
+							if (changed) {
+								toDownload.add(path);
+							}
+							else {
+								addToToCopy();
+							}
 						}
-						else {
-							addToToCopy();
+						else if (COMPLETE_CACHE_LIST.has(path)) {
+							const reusable = (! changed) || REUSABLE_BETWEEN_VERSIONS.has(path);
+	
+							if (reusable) addToToCopy();
 						}
-					}
-					else if (COMPLETE_CACHE_LIST.has(path)) {
-						const reusable = (! changed) || REUSABLE_BETWEEN_VERSIONS.has(path);
-
-						if (reusable) addToToCopy();
-					}
-
-					function addToToCopy() {
-						toCopy.set(path, copyInfo);
+	
+						function addToToCopy() {
+							toCopy.set(path, copyInfo);
+						}
 					}
 				}
+
 			}
 			else {
-				if (installedVersions.length != 0) {
-					console.warn("Versioned Worker: Performing clean install");
-				}
+				logCleanInstallMessage();
 			}
 
 			const cache = await cachePromise;
@@ -226,6 +242,12 @@ addEventListener("install", e => {
 			]);
 
 			await createInfoResource(updatePriority);
+
+			function logCleanInstallMessage() {
+				if (installedVersions.length != 0) {
+					console.warn("Versioned Worker: Performing clean install");
+				}
+			}
 		})()
 	);
 });
@@ -759,6 +781,7 @@ async function createInfoResource(updatePriority: UpdatePriority = 0): Promise<W
 		majorFormatVersion: 1,
 		minorFormatVersion: 1,
 
+		tag: TAG,
 		version: VERSION,
 		templateVersion: 1,
 		timeInstalled: Date.now(),

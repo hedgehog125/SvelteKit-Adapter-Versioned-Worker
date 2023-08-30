@@ -74,14 +74,15 @@ export function createSuffixes(inputtedPath: string, suffixes: string[]): string
 	return suffixes.map(suffix => withoutSuffix + suffix);
 }
 export async function findUniqueFileName(dir: string, baseName: string, extension: string): Promise<string> {
-	const characters = "abcdefghijklmnopqrstuvwxyz0123456789";
-
 	while (true) {
-		const randomCharacters = Array.from(new Array(5), () => randomItemOfString(characters)).join("");
+		const randomCharacters = randomString(5);
 		const fileName = `${baseName}-${randomCharacters}.${extension}`;
 
 		if (! (await fileExists(path.join(dir, fileName)))) return fileName;
 	}
+}
+export function randomString(len: number, characters = "abcdefghijklmnopqrstuvwxyz0123456789"): string {
+	return Array.from(new Array(len), () => randomItemOfString(characters)).join("");
 }
 export function randomItemOfString(str: string): string {
 	return str[Math.floor(Math.random() * str.length)];
@@ -95,6 +96,7 @@ export const adapterFilesPath = path.join(dirname(fileURLToPath(import.meta.url)
 export function createInitialInfo(): UnprocessedV3InfoFile {
 	return {
 		formatVersion: 3,
+		tag: createInitialTag(),
 		version: -1,
 		versions: [],
 		hashes: {},
@@ -103,6 +105,9 @@ export function createInitialInfo(): UnprocessedV3InfoFile {
 		majorUpdateValue: 0,
 		criticalUpdateValue: 0
 	};
+}
+export function createInitialTag(): string {
+	return randomString(16, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_");
 }
 
 /**

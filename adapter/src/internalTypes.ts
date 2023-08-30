@@ -27,6 +27,7 @@ export interface InfoFileV2VersionBatch {
 
 interface InfoFileV3Base {
 	formatVersion: 3,
+	tag: string,
 	version: number,
 	versions: InfoFileV3VersionBatch[],
 
@@ -68,6 +69,8 @@ export interface InputFiles {
 }
 
 export interface WorkerConstants {
+	TAG: string,
+	VERSION: number,
 	ROUTES: Set<string>,
 	
 	PRECACHE: Set<string>,
@@ -76,12 +79,11 @@ export interface WorkerConstants {
 	STRICT_LAZY: Set<string>,
 	SEMI_LAZY: Set<string>,
 
-	STORAGE_PREFIX: string,
-	VERSION: number,
 	VERSION_FOLDER: string,
 	VERSION_FILE_BATCH_SIZE: number,
 	MAX_VERSION_FILES: number,
 	BASE_URL: string,
+	STORAGE_PREFIX: string,
 
 	REDIRECT_TRAILING_SLASH: boolean,
 	ENABLE_PASSTHROUGH: boolean,
