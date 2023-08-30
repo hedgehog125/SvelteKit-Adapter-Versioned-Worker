@@ -1,5 +1,5 @@
 <!-- @component
-The component that manages your service worker. Put it in your top level +layout.svelte file.
+The component that manages your service worker. Put it in your top level `+layout.svelte` file.
 -->
 
 <script lang="ts">

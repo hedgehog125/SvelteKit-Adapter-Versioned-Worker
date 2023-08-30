@@ -27,7 +27,7 @@ An unrelated gotcha is importing `src/lib/index.ts` (or an equivalent like `$lib
 # Packaging
 This process has a few moving parts than I would like, but it's the best solution I was able to come up with. 
 
-First, build the adapter and the Svelte library project. This is done with their npm `"build"` scripts. For the adapter folder you can alternatively use the watch mode but **remember to also do this for the templates in `adapter/static`**.  
+First, package the adapter and the Svelte library project individually. This is done with their npm `"package"` scripts. For the adapter folder you can alternatively use the watch mode but **remember to also do this for the templates in `adapter/static`**.  
 
 **Note**: if you add any new module entries to `internal-adapter`, you'll need to update `fixImports.js` as mentioned in a moment.
 

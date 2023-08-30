@@ -1,6 +1,7 @@
 import type { Adapter, Builder } from "@sveltejs/kit";
 import type {
 	AdapterConfig,
+	LogLevel,
 	ResolvedAdapterConfig,
 	ManifestPluginConfig,
 	ResolvedManifestPluginConfig,
@@ -11,22 +12,28 @@ import type {
 	LastInfoProvider,
 	FileSorter,
 	FileSortMode,
+	FileSorterMessage,
+	FileSorterMessages,
 	VWBuildFile,
+	WorkerTypeScriptConfigHook,
 	BuildInfo,
 	BuildFinishHook,
+
 	ManifestProcessor,
-	LastInfoProviderConfigs,
 	ManifestProcessorConfigs,
+	LastInfoProviderConfigs,
 
 	ProcessedBuild,
 	CategorizedBuildFiles,
 
 	AllConfigs,
 	ViteConfig,
-
+	SvelteConfig,
 	TypescriptConfig,
+
 	Nullable,
-	MaybePromise
+	MaybePromise,
+	MaybeArray
 } from "./src/types.js";
 import { WebAppManifest } from "./src/manifestTypes.js";
 import type {
@@ -98,6 +105,7 @@ installPolyfills();
 
 export {
 	AdapterConfig,
+	LogLevel,
 	ResolvedAdapterConfig,
 	ManifestPluginConfig,
 	ResolvedManifestPluginConfig,
@@ -107,22 +115,29 @@ export {
 	LastInfoProvider,
 	FileSorter,
 	FileSortMode,
+	FileSorterMessage,
+	FileSorterMessages,
 	VWBuildFile,
+	WorkerTypeScriptConfigHook,
 	BuildInfo,
 	BuildFinishHook,
 	ProcessedBuild,
 	CategorizedBuildFiles,
+	
 	ManifestProcessor,
-
 	ManifestProcessorConfigs,
 	LastInfoProviderConfigs,
+	
 	AllConfigs,
+	SvelteConfig,
+	ViteConfig,
+	TypescriptConfig,
 
 	ValuesFromViteConfig,
 	WebAppManifest,
 	Nullable,
 	MaybePromise,
-	TypescriptConfig,
+	MaybeArray,
 
 	defaultManifestProcessor
 };

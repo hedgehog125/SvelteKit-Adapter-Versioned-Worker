@@ -1,5 +1,4 @@
 Documentation
-Test base URLs, particularly with the info file and virtual routes
 
 # To include in readme
 No support for range requests means large assets have to download the whole thing first

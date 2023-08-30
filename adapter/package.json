@@ -50,6 +50,7 @@
 		}
 	},
 	"scripts": {
+		"package": "npm run build",
 		"build": "tsc && npm run buildTemplates",
 		"buildTemplates": "cd static && npm run build",
 		"dev": "tsc --watch",

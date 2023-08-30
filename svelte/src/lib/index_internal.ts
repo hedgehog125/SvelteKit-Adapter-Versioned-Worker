@@ -10,7 +10,7 @@ import type {
 	WorkerV1Info
 } from "internal-adapter/worker";
 import type {
-	CustomCurrentWorkerMessageEventLikeData, CustomWaitingWorkerMessageEventLikeData
+	VWCustomMessageEvent
 } from "internal-adapter/internal/exported-by-svelte-module";
 import type { BeforeNavigate } from "@sveltejs/kit";
 
@@ -71,26 +71,7 @@ export interface WorkerUpdateCheckEvent {
 	 */
 	isNew: boolean
 }
-/**
- * The type of the `detail` property of the `ServiceWorker` component's `"message"` event.
- */
-export type VWCustomMessageEvent = VWCustomMessageEvent.CurrentWorker | VWCustomMessageEvent.WaitingWorker;
-export namespace VWCustomMessageEvent {
-	/** 
-	 * The type of the `detail` property of the `ServiceWorker` component's `"message"` event when the message was from the active worker.
-	 * 
-	 * @see `VWCustomMessageEvent.WaitingWorker` for the version of this that has the data wrapped in a `DataWithFormatVersion` object
-	 * @see `CustomMessageData` in the module `"sveltekit-adapter-versioned-worker/worker"` for the semi-internal wrapper of data that gets directly postmessaged to or from the worker
-	 */
-	export type CurrentWorker = CustomCurrentWorkerMessageEventLikeData<MessageEvent<unknown>>;
-	/** 
-	 * The type of the `detail` property of the `ServiceWorker` component's `"message"` event when the message was from a waiting worker.
-	 * 
-	 * @see `VWCustomMessageEvent.CurrentWorker` for the version of this that has the data wrapped in a `DataWithFormatVersion` object
-	 * @see `CustomMessageData` in the module `"sveltekit-adapter-versioned-worker/worker"` for the semi-internal wrapper of data that gets directly postmessaged to or from the worker
-	 */
-	export type WaitingWorker = CustomWaitingWorkerMessageEventLikeData<MessageEvent<unknown>>;
-}
+export type { VWCustomMessageEvent } // Defined in exportedBySvelteModule.ts
 
 
 /**

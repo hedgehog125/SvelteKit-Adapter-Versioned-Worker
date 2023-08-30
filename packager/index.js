@@ -7,7 +7,8 @@ const OUTPUT_DIR = "dist";
 const COPY_LIST = [
 	["adapter/src", "src"],
 	["adapter/build", "build"],
-	["adapter/static", "static"],
+	["adapter/static/src", "static/src"],
+	["adapter/static/jsBuild", "static/jsBuild"],
 	["adapter/virtual-modules", "virtual-modules"],
 	["adapter/index.ts", "index.ts"],
 

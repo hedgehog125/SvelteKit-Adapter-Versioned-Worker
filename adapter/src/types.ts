@@ -10,8 +10,26 @@ export type MaybePromise<T> = T | Promise<T>;
 export type MaybeArray<T> = T | T[];
 
 // To make things a bit less confusing
+/**
+ * An alias for SvelteKit's config.
+ * 
+ * @see
+ * https://kit.svelte.dev/docs/configuration
+ */
 export type SvelteConfig = Builder["config"];
+/**
+ * An alias for Vite's config.
+ * 
+ * @see
+ * https://vitejs.dev/config/
+ */
 export type ViteConfig = ResolvedConfig;
+/**
+ * An alias for `@rollup/plugin-typescript`'s config.
+ * 
+ * @see
+ * https://vitejs.dev/config/
+ */
 export type TypescriptConfig = RollupTypescriptOptions;
 
 /**

@@ -49,6 +49,27 @@ export namespace ExposedPromise {
 	export type RejectCallback = (reason?: any) => any;
 }
 
+// The parser doesn't like how this is both a type and a namespace
+/**
+ * The type of the `detail` property of the `ServiceWorker` component's `"message"` event.
+ */
+export type VWCustomMessageEvent = VWCustomMessageEvent.CurrentWorker | VWCustomMessageEvent.WaitingWorker;
+export namespace VWCustomMessageEvent {
+	/** 
+	 * The type of the `detail` property of the `ServiceWorker` component's `"message"` event when the message was from the active worker.
+	 * 
+	 * @see `VWCustomMessageEvent.WaitingWorker` for the version of this that has the data wrapped in a `DataWithFormatVersion` object
+	 * @see `CustomMessageData` in the module `"sveltekit-adapter-versioned-worker/worker"` for the semi-internal wrapper of data that gets directly postmessaged to or from the worker
+	 */
+	export type CurrentWorker = CustomCurrentWorkerMessageEventLikeData<MessageEvent<unknown>>;
+	/** 
+	 * The type of the `detail` property of the `ServiceWorker` component's `"message"` event when the message was from a waiting worker.
+	 * 
+	 * @see `VWCustomMessageEvent.CurrentWorker` for the version of this that has the data wrapped in a `DataWithFormatVersion` object
+	 * @see `CustomMessageData` in the module `"sveltekit-adapter-versioned-worker/worker"` for the semi-internal wrapper of data that gets directly postmessaged to or from the worker
+	 */
+	export type WaitingWorker = CustomWaitingWorkerMessageEventLikeData<MessageEvent<unknown>>;
+}
 
 
 /* Internal */

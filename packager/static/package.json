@@ -39,6 +39,11 @@
 			"types": "./svelte/index.d.ts",
 			"import": "./svelte/index.js",
 			"svelte": "./svelte/index.js"
+		},
+		"./svelte/util": {
+			"types": "./svelte/util.d.ts",
+			"import": "./svelte/util.js",
+			"svelte": "./svelte/util.js"
 		}
 	},
 	"types": "./build/index.d.ts",
@@ -47,7 +52,8 @@
 			"worker": ["./virtual-modules/worker.d.ts"],
 			"worker/util": ["./build/src/worker/util.d.ts"],
 			"runtime-constants": ["./virtual-modules/runtime-constants.d.ts"],
-			"svelte": ["./svelte/index.d.ts"]
+			"svelte": ["./svelte/index.d.ts"],
+			"svelte/util": ["./svelte/util.d.ts"]
 		}
 	},
 	"scripts": {},

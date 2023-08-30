@@ -21,7 +21,7 @@ export interface DataWithFormatVersion {
 /* Hooks */
 
 /**
- * The type of the optional export `handleFetch` in your `"hooks.worker.ts"` file. The function is called when a network request is made by a client and the `VWRequestMode` isn't `"force-passthrough"`.
+ * The type of the optional export `handleFetch` in your `"hooks.worker.ts"` (or .js) file. The function is called when a network request is made by a client and the `VWRequestMode` isn't `"force-passthrough"`.
  * 
  * @note By default, Versioned Worker will set the mode of cross origin requests to `"force-passthrough"`, in which case they won't cause any of your hooks be called. To handle them anyway, you'll need to set the `VWRequestMode` back to `"default"` or another value. Alternatively, you can disable this behaviour by setting `autoPassthroughCrossOriginRequests` in your adapter config to `false`.
  * @note Generally you should only handle requests with the `VIRTUAL_FETCH_PREFIX`.
@@ -153,7 +153,7 @@ export interface VWRequest {
 export type VWRequestMode = "default" | "no-network" | "handle-only" | "force-passthrough";
 
 /**
- * The type of the optional export `handleCustomMessage` in your `"hooks.worker.ts"` file. The function is called when a client calls `messageActiveWorker` or `messageWaitingWorker`.
+ * The type of the optional export `handleCustomMessage` in your `"hooks.worker.ts"` (or .js) file. The function is called when a client calls `messageActiveWorker` or `messageWaitingWorker`.
  * 
  * Currently you can't send a specific reply but you can use `broadcast` to trigger the `ServiceWorker` component's `"message"` event on all clients.
  * 
@@ -222,7 +222,7 @@ export namespace CustomMessageHookData {
 }
 
 /**
- * The type of the optional export `handleResponse` in your `"hooks.worker.ts"` file. It allows you to modify a response before it's sent.
+ * The type of the optional export `handleResponse` in your `"hooks.worker.ts"` (or .js) file. It allows you to modify a response before it's sent.
  * 
  * To modify the response, you can either return a new `Response` or modify the `responseInfo.response` object itself.
  * 
@@ -657,7 +657,11 @@ declare var skipWaiting: SkipWaiting;
  * 
  * @param url The url to prefetch
  * @param init The second argument to the `fetch` function call
- * @returns `false` if it's already being prefetched, else `true`
+ * @returns `false` if it's already being prefetched, else `true`.
+ * 
+ * @note A regular `fetch` call won't benefit from this preload. You need to use `quickFetch` instead.
+ * 
+ * @see `quickFetch` in the module `"sveltekit-adapter-versioned-worker/svelte"` to see how to receive it
  */
 export function preloadQuickFetch(url: string, init?: RequestInit): boolean {
 	const request = new Request(url, init);
@@ -754,7 +758,7 @@ export function ignoreCrossOriginFetches(handler: HandleFetchHook): HandleFetchH
  * A fetch handler utility that calls a different `HandleFetchHook` function depending on the request's `virtualHref` or `href`. 
  * 
  * @param handlers An object where the key is the `href` and the value is the `HandleFetchHook` function to call if it matches.
- * @param ignoreCrossOriginFetches If cross origin requests should be ignored. If you set this to `false`, make sure you check the `request.origin` property in each of your `handlers`. **Default**: `true`.
+ * @param ignoreCrossOriginFetches If cross origin requests should be ignored. If you set this to `false`, make sure you check the `request.origin` property in each of your `handlers`. You'll probably also want to change `AdapterConfig.autoPassthroughCrossOriginRequests`. **Default**: `true`.
  * @returns A `HandleFetchHook` that calls a different one of your `handlers` depending on the request's `virtualHref` or `href`.
  * 
  * @note Whether or not each `href` starts with a slash is significant. If it does, the function will be called if the `href` matches it. If it doesn't, it's called based on the `virtualHref` instead. Generally, you should take the second approach.

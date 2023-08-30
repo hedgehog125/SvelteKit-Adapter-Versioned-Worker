@@ -2,6 +2,7 @@
 	"name": "internal-templates",
 	"version": "1.0.0",
 	"scripts": {
+		"package": "npm run build",
 		"build": "tsc",
 		"dev": "tsc --watch"
 	},

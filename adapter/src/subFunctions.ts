@@ -334,7 +334,7 @@ export async function categorizeFilesIntoModes(
 			if (output == null) continue;
 	
 			if (isStatic === false && MUST_BE_STATIC.has(output)) {
-				addBuildWarning(`This resource mode was set to "${output}" without it being made static. This means it has a hash in its filename and that will cause it be become unreferenced and deleted when it's changed. Consider making it static or changing its mode to "strict-lazy".`);
+				addBuildWarning(`This resource's mode was set to "${output}" without it being made static. This means it has a hash in its filename and that will cause it be become unreferenced and deleted when it's changed. Consider making it static or changing its mode to "strict-lazy".`);
 			}
 	
 			return output;
@@ -765,7 +765,7 @@ export function logOverallBuildInfo(processedBuild: ProcessedBuild, infoFile: In
 		const resources = processedBuild.categorizedFiles[key as keyof CategorizedBuildFiles];
 
 		const roundedPercent = Math.round((resources.length / processedBuild.categorizedFiles.completeList.length) * 1000) / 10;
-		const messageBase = `${displayName}: ${resources.length} file${resources.length === 1? "" : "s"} (${roundedPercent}% of build files)`;
+		const messageBase = `  ${displayName}: ${resources.length} file${resources.length === 1? "" : "s"} (${roundedPercent}% of build files)`;
 		if (key === "precache" && adapterConfig.logLevel !== "verbose") {
 			log.message(`${messageBase}.`, false);
 			return;
@@ -774,7 +774,7 @@ export function logOverallBuildInfo(processedBuild: ProcessedBuild, infoFile: In
 
 		log.message(`${messageBase}:`, false);
 		resources.forEach(filePath => {
-			log.message(` * ${filePath}`, false);
+			log.message(`   * ${filePath}`, false);
 		});
 		log.blankLine();
 	});
@@ -783,7 +783,7 @@ export function logFileSorterMessages({ fileSorterMessages }: ProcessedBuild) {
 	if (fileSorterMessages.size !== 0) {
 		log.blankLine();
 		log.blankLine();
-		log.message(`${fileSorterMessages.size} resource${fileSorterMessages.size === 1? "" : "s"} logged a message or warning:`);
+		log.message(`${fileSorterMessages.size} file${fileSorterMessages.size === 1? "" : "s"} logged a message or warning:`);
 		for (const [fileName, messagesForFile] of fileSorterMessages) {
 			for (const { message, isMessage } of messagesForFile) {
 				(isMessage? log.message : log.warn)(` * ${fileName} -> ${message}`, false);
