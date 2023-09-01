@@ -2,7 +2,7 @@
 Some of the Svelte module exports need to be used by the adapter or worker, those go here. They are then re-exported by svelte/src/lib/index.ts or util.ts.
 */
 
-import type { DataWithFormatVersion } from "./worker/staticVirtual";
+import type { DataWithFormatVersion } from "./worker/staticVirtual.js";
 
 /**
  * A class that produces `Promise`-like objects that can be made to resolve or reject externally.

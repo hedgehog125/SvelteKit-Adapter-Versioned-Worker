@@ -1,8 +1,21 @@
 <!-- @component
 The component that manages your service worker. Put it in your top level `+layout.svelte` file.
 
-Slots:
+**Slots**:
  * `"updatePrompt"` is displayed when there's an update
+
+**Example**:
+```html
+// src/routes/+layout.svelte
+
+<script lang="ts">
+  import { ServiceWorker } from "sveltekit-adapter-versioned-worker/svelte";
+  // ...
+</script>
+  
+<ServiceWorker></ServiceWorker>
+<slot></slot>
+```
 -->
 
 <script lang="ts">

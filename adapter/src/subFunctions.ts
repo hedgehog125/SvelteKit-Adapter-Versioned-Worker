@@ -214,7 +214,7 @@ export async function getInputFiles(
 export function checkInputFiles(inputFileContents: InputFilesContents) {
 	const [existingHooksFiles, manifestFilesContents] = inputFileContents;
 
-	if (! (existingHooksFiles[0] || existingHooksFiles[1])) {
+	if (existingHooksFiles[0] && existingHooksFiles[1]) {
 		throw new VersionedWorkerError("You can only have 1 hooks file. Please delete either the .js or .ts one.");
 	}
 	if (manifestFilesContents) {
@@ -236,7 +236,7 @@ export function getInputFilesConfiguration(
 		if (hooksIsTS) {
 			hooksFileName = hooksFileNames[0];
 		}
-		else if (hooksFileNames[1]) hooksFileName = hooksFileNames[1];
+		else if (existingHooksFiles[1]) hooksFileName = hooksFileNames[1];
 	}
 
 	const manifestJSONExtUsed = manifestFilesContents?.[1] != null;
@@ -615,10 +615,10 @@ export async function rollupBuild(
 			onwarn(warning, warn) {
 				if (warning.code === "MISSING_EXPORT") {
 					const isHooksModule = (
-						warning.exporter === "virtual:sveltekit-adapter-versioned-worker/internal/hooks"
-						|| (inputFiles.hooksFileName && warning.exporter === hooksPath)
+						warning.exporter === "\0virtual:sveltekit-adapter-versioned-worker/internal/hooks"
+						|| warning.exporter === hooksPath
 					);
-	
+					
 					if (isHooksModule) return; // There's a null check so missing exports are fine
 				}
 				if (warning.plugin === "typescript") {

@@ -1,5 +1,5 @@
 import { sveltekit } from "@sveltejs/kit/vite";
-import { manifestGenerator, shareValueWithSvelteConfig } from "internal-adapter";
+import { manifestGeneratorPlugin, shareValueWithSvelteConfig } from "internal-adapter";
 import virtualPlugin from "@rollup/plugin-virtual";
 import { defineConfig } from "vite";
 
@@ -33,7 +33,7 @@ export default defineConfig({
 		// TODO: fix the dependency issue with the development setup
 
 		sveltekit() as any,
-		manifestGenerator() as any,
+		manifestGeneratorPlugin() as any,
 		virtualPlugin({
 			"virtual-is-even": (() => {
 				const initialIf = "if (number === 0) return true;";

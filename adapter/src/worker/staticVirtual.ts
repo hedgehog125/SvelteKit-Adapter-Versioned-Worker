@@ -11,8 +11,10 @@ import { modifyResponseHeaders, summarizeRequest } from "sveltekit-adapter-versi
 /* Types */
 // These are defined here rather than in the worker.d.ts file so they can be accessed by the code here
 
-type Nullable<T> = T | null;
-type MaybePromise<T> = Promise<T> | T;
+export type Nullable<T> = T | null;
+export type MaybePromise<T> = T | Promise<T>;
+export type MaybeArray<T> = T | T[];
+
 export interface DataWithFormatVersion {
 	formatVersion: number,
 	data: unknown
@@ -146,6 +148,7 @@ export interface VWRequest {
  * 
  * @note Not to be confused by `Request`'s `"mode"` property.
  * 
+ * @see `statResource` in the module `"sveltekit-adapter-versioned-worker/svelte"` if you're just trying to check if something's cached 
  * @see `createURLWithVWMode` if you need to use a search parameter rather than a header for this
  * @see `FileSortMode` in the module `"sveltekit-adapter-versioned-worker"` for more information on file sort modes
  * @see `HandleFetchHook` for more information on handling fetches

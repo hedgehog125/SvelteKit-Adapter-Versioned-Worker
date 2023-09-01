@@ -142,7 +142,7 @@ export {
 	defaultManifestProcessor
 };
 
-let viteConfig: Nullable<ViteConfig> = null; // From manifestGenerator
+let viteConfig: Nullable<ViteConfig> = null; // From manifestGeneratorPlugin
 let viteBundle: Nullable<OutputBundle> = null;
 
 let minimalViteConfig: MinimalViteConfig; 
@@ -249,11 +249,24 @@ export function adapter(inputConfig: AdapterConfig): Adapter {
  * 
  * @note
  * You should still use this plugin even if you don't want to use its main feature, as it improves a few things about the adapter. To do this, set the `enable` property in the `inputConfig` to `false`.
+ * 
+ * @example
+ * // vite.config.ts
+ * import { manifestGeneratorPlugin } from "sveltekit-adapter-versioned-worker";
+ * // ...
+ * export default defineConfig({
+ *   // ...
+ *   plugins: [
+ *     // ...
+ *     manifestGeneratorPlugin()
+ *   ]
+ *   // ...
+ * });
  */
-export function manifestGenerator(inputConfig: ManifestPluginConfig = {}): Plugin[] {
+export function manifestGeneratorPlugin(inputConfig: ManifestPluginConfig = {}): Plugin[] {
 	manifestPluginConfig = applyManifestPluginConfigDefaults(inputConfig);
 	const config = manifestPluginConfig;
-	let manifestPlugin: Plugin = null as unknown as Plugin; // It'll be defined by the time its used
+	let manifestPlugin: Plugin;
 	const configResolved = new Promise<void>(resolveConfigPromise => {
 		manifestPlugin = {
 			name: "vite-plugin-vw2-manifest",
@@ -329,7 +342,7 @@ export function manifestGenerator(inputConfig: ManifestPluginConfig = {}): Plugi
 			enforce: "pre",
 			apply: "build" // The non-virtual module will be used instead in this case
 		},
-		manifestPlugin
+		manifestPlugin! // The callback in the promise constructor is called immediately
 	];
 }
 
@@ -543,33 +556,32 @@ export function readLast(filePath?: string): LastInfoProvider {
  * The `LastInfoProvider` that you want to use most of the time. It uses `readLast` for development builds and `fetchLast` for production ones.
  * 
  * @param url The URL of your versionedWorker.json file or where it will be.
- * @param isDev If this is a development build or not.
+ * @param isTestBuild If this is a development build or not.
  * @param filePath The path to your versionedWorker.json file or where it will be. **Default**: `<adapterConfig.outputDir>/versionedWorker.json`.
  * @returns A `LastInfoProvider` that will either fetch or read your last info file.
  * 
  * @example
  * // svelte.config.js
  * import { adapter, standardGetLast } from "sveltekit-adapter-versioned-worker";
- * 
- * const isDev = process.env.DEV_BUILD === "true";
+ * // ...
+ * const isTestBuild = process.env.IS_TEST_BUILD === "true";
  * // ...
  * const config = {
  *   kit: {
  *     // ...
  *     adapter: adapter({
- *       lastInfo: standardGetLast(
- *         "https://hedgehog125.github.io/SvelteKit-Adapter-Versioned-Worker/versionedWorker.json",
- *         isDev
- *       ),
- *       // ...
+ *       lastInfo: standardGetLast("https://hedgehog125.github.io/SvelteKit-Adapter-Versioned-Worker/versionedWorker.json", isTestBuild)
  *     })
- *     // ...
  *   }
  * };
  * // ...
  */
-export function standardGetLast(url: string, isDev: boolean, filePath?: string): LastInfoProvider {
-	return isDev?
+export function standardGetLast(url: string, isTestBuild: boolean, filePath?: string): LastInfoProvider {
+	if (isTestBuild as unknown === undefined) { // I made this mistake once because svelte.config.js doesn't support TypeScript
+		throw new VersionedWorkerError("The argument \"isTestBuild\" is undefined. Did you forget to specify it or are you reading an environment variable incorrectly?");
+	}
+
+	return isTestBuild?
 		readLast(filePath)
 		: fetchLast(url)
 	;

@@ -32,6 +32,7 @@ import { writable } from "svelte/store";
 
 export type Nullable<T> = T | null;
 export type MaybePromise<T> = T | Promise<T>;
+export type MaybeArray<T> = T | T[];
 
 /**
  * The type of the `detail` property of the `ServiceWorker` component's `"fail"` event.
@@ -285,7 +286,7 @@ export const REQUEST_RESUMABLE_STATE_TIMEOUT: number = 500;
  * 
  * @param navigateTo An optional URL to navigate to as part of the reload. You can also pass a `BeforeNavigate` object to use its destination URL.
  * @param resumableState An optional `ResumableState` object. If creating it uses significant resources, provide a `ResumableStateCallback` instead as it will only be called if there's an update and it's possible to install it.
- * @returns A promise that resolves to `false` if the page won't be reloaded. If a reload is triggered by this function, the promise will resolve to `true`, though the page will likely reload before that.
+ * @returns A promise that resolves to `false` if the page won't be reloaded. If a reload is triggered by this function, the promise will resolve to `true`, though the page might reload before that.
  * 
  * @note This works independently to `isReloadOnNavigateAllowed`, as when that's `true` it essentially just calls this function automatically.
  * @note If you're calling this within a `beforeNavigate`, make sure you pass the `BeforeNavigate` object as the first argument. If you choose to pass a URL instead as part of a navigation, make sure `navigation.willUnload` is `false` before you call this function.

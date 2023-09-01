@@ -135,8 +135,8 @@ addEventListener("install", e => {
 			]);
 			const toCopy = new Map<string, CopyInfo>(); // The key is the path
 			// TODO: during clean installs, download semi-lazy resources that were previously downloaded?
+			let foundInvalidInstall = false;
 			if (whenResourcesUpdated) { // Don't reuse anything if it's a clean install
-				let foundInvalidInstall = false;
 				const pathsInAllCaches = new Map<string, CopyInfo>();
 				await Promise.all(installedVersions.map(async cacheVersion => {
 					const cache = await caches.open(STORAGE_PREFIX + cacheVersion);
@@ -241,7 +241,7 @@ addEventListener("install", e => {
 				})
 			]);
 
-			await createInfoResource(updatePriority);
+			await createInfoResource(foundInvalidInstall? 2 : updatePriority);
 
 			function logCleanInstallMessage() {
 				if (installedVersions.length != 0) {

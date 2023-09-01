@@ -141,3 +141,5 @@ export function summarizeRequest(request: Request, headersToInclude?: string[]):
 		return 0;
 	}
 }
+
+export { ExposedPromise } from "../exportedBySvelteModule.js";

@@ -1,7 +1,5 @@
 Documentation
-
-# To include in readme
-No support for range requests means large assets have to download the whole thing first
+Test situations where the tag check fails. Is the update priority correctly defaulting to 2 now?
 
 # Svelte Utils
 
