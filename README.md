@@ -1,8 +1,10 @@
 # SvelteKit-Adapter-Versioned-Worker
 A SvelteKit adapter for generating service workers to make your SvelteKit sites work offline.
 
+[Source Code](https://github.com/hedgehog125/SvelteKit-Adapter-Versioned-Worker) | [NPM Package](https://www.npmjs.com/package/sveltekit-adapter-versioned-worker)
+
 Features:
- * No need to to deal with caching headers or durations
+ * No need to deal with caching headers or durations
  * Reload opportunity and resumable state system for more seamless updates
  * Different update priorities to avoid unnecessarily bothering users
  * An easy-to-use hooks system for virtual routes and more
@@ -110,8 +112,8 @@ Then, add the `ServiceWorker` component to your `src/routes/+layout.svelte` file
   // ...
 </script>
 
-<!-- ... -->
 <ServiceWorker></ServiceWorker>
+<!-- ... -->
 <slot></slot>
 ```
 
@@ -150,14 +152,14 @@ Like with the adapter, this just generates the file, so you need a little more c
 Then just make sure it actually has a manifest to process. To do this, make a `src/manifest.webmanifest` file. You might find this template useful, but just note that you don't have to fill in the details immediately if you're still early in development:
 ```json
 {
-	"icons": [],
-	"name": "**Insert value**",
-	"short_name": "**Insert value**",
-	"background_color": "**Insert value**",
-	"theme_color": "**Insert value**",
-	"description": "**Insert value**",
-	"display": "fullscreen",
-	"orientation": "any"
+  "icons": [],
+  "name": "**Insert value**",
+  "short_name": "**Insert value**",
+  "background_color": "**Insert value**",
+  "theme_color": "**Insert value**",
+  "description": "**Insert value**",
+  "display": "fullscreen",
+  "orientation": "any"
 }
 ```
 **See**: [The MDN docs](https://developer.mozilla.org/en-US/docs/Web/Manifest) for more information.
@@ -219,14 +221,14 @@ import { valuesFromViteConfig } from "sveltekit-adapter-versioned-worker";
 // ...
 ```
 
-You can share any value with your Svelte config but keys have to use the types you'd expect:
+You can share any value with your Svelte config but these keys have to use the types you'd expect:
  * `"lastInfo"` -> `LastInfoProvider` 
  * `"sortFile"` -> A `FileSorter` or an array of them (`MaybeArray<Nullable<FileSorter> | undefined | false>`)
  * `"configureWorkerTypescript"` -> `WorkerTypeScriptConfigHook`
  * `"onFinish"` -> `BuildFinishHook`
 
 ## Update Priorities and Prompts
-By default, updates have the `"patch"` priority, which doesn't prompt the user and instead relies on reload opportunities to update the app*. However, you can increase the priority in the `AdapterConfig`:
+By default, updates have the `patch` priority, which doesn't prompt the user and instead relies on reload opportunities to update the app*. However, you can increase the priority in the `AdapterConfig`:
 
 ```js
 // ...
@@ -240,7 +242,7 @@ By default, updates have the `"patch"` priority, which doesn't prompt the user a
 // ...
 ```
 
-\*Patch updates can become `"elevated patches"`, see the `UpdatePriority` type.
+\*Patch updates can become `elevated patches`, see the `UpdatePriority` type.
 
 See `UpdatePriority` in the module `"sveltekit-adapter-versioned-worker/worker"` for more information.
 
@@ -282,7 +284,56 @@ So instead, most of the time you'll want to call `reloadOpportunity` yourself, a
 By calling `reloadOpportunity` yourself, you might also be able to use it in more situations. This is because you can pass the function a `ResumableState` object or a `ResumableStateCallback`, which you can then get again with `resumeState` once the app has updated. You can then use the object to put the app back into roughly the state it was in before. Example:
 
 ```html
-TODO
+<!-- src/routes/+page.svelte -->
+
+<script lang="ts">
+  import { difficulty } from "$lib/state.js";
+
+  import { beforeNavigate } from "$app/navigation";
+  import { reloadOpportunity } from "sveltekit-adapter-versioned-worker/svelte";
+  import { link } from "sveltekit-adapter-versioned-worker/svelte/util";
+
+  beforeNavigate(navigation => {
+    reloadOpportunity(navigation, {
+      formatVersion: 1,
+      data: generateTheResumableState()
+      //    ^ You'll need to write a function like this yourself
+    });
+  });
+</script>
+
+<label>
+  Difficulty:
+  <input type="number" bind:value={$difficulty}>
+</label>
+<br><br>
+
+<!-- This would probably be done differently, but it works for the example -->
+<a href={link("game")}>Play</a>
+
+<!-- src/routes/game/+page.svelte -->
+<script lang="ts">
+  import { difficulty } from "$lib/state.js";
+
+  import { resumeState } from "sveltekit-adapter-versioned-worker/svelte";
+  import { onMount } from "svelte";
+
+  onMount(async () => {
+    const resumableState = await resumeState();
+    if (resumableState == null) return; // The page didn't reload for an update while navigating to here
+    if (resumableState.formatVersion !== 1) return;
+    const contents = resumableState.data as V1ResumableState;
+    // You'll need to make a type like V1ResumableState
+
+    $difficulty = contents.difficulty;
+  });
+</script>
+
+<p>
+  Selected difficulty: {$difficulty}
+</p>
+
+<!-- ... -->
 ```
 
 See:
@@ -296,7 +347,62 @@ See:
 in the module `"sveltekit-adapter-versioned-worker/svelte"`.
 
 ## Quick Fetch
-TODO
+An interesting optimisation* you can do with a service worker is preloading dynamic data while the page is loading. From my testing, this typically reduces the response time by 80ms. Versioned Worker makes this easy to do with the `preloadQuickFetch` and `quickFetch` methods. Example:
+```ts
+// In hooks.worker.ts
+import { preloadQuickFetch } from "sveltekit-adapter-versioned-worker/worker";
+// ...
+
+export const handleFetch = virtualRoutes({
+  // Make sure the ending slash matches your SvelteKit config
+  "/example/": () => {
+    preloadQuickFetch("https://api.example.com/v1/example");
+
+    // Since we don't actually want this to be a virtual route and just want a listener, no Response is returned
+  },
+  // ...
+});
+// ...
+```
+
+\*Of course, you can also do the same with SSR and that's probably better in most situations. But this way is a bit more flexible and also a bit cheaper.
+
+Then use `quickFetch` in a Svelte component or page:
+```html
+<script lang="ts">
+  import { quickFetch } from "sveltekit-adapter-versioned-worker/svelte";
+  import { loadOnMount } from "sveltekit-adapter-versioned-worker/svelte/util";
+  // ...
+
+  const loadPromise = loadOnMount(async () => {
+    const res = await quickFetch("https://api.example.com/v1/example");
+    return await res.text();
+  });
+  // ...
+</script>
+
+<p>
+  {#await loadPromise}
+    Loading...
+  {:then text}
+    Got: {text}
+  {:catch}
+    Failed to fetch.
+  {/await}
+</p>
+```
+
+See `preloadQuickFetch` in `"sveltekit-adapter-versioned-worker/worker"` and `quickFetch` in the `svelte` module for more information.
+
+<br>
+
+## Migrating from SvelteKit-*Plugin*-Versioned-Worker
+Remove the old package and follow the normal instructions. Once you build your SvelteKit project with this new package, your `versionedWorker.json` file will be automatically updated and the generated service worker will be able to handle updating from the plugin. However, no previous cache will be reused and you might also need to update some things before you deploy:
+ * `degitLast` was removed. See if you can use `fetchLast` instead or write your own `LastInfoProvider`.
+ * The `lazyCache` and `exclude` options were replaced by `AdapterConfig.sortFile`.
+ * `RegisterWorker` has been replaced by `ServiceWorker`.
+ * The export `handle` in the `hooks.worker.js` file was renamed to `handleFetch` and now has different parameters.
+
 
 <br>
 

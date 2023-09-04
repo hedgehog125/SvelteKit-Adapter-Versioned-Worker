@@ -241,7 +241,8 @@ addEventListener("install", e => {
 				})
 			]);
 
-			await createInfoResource(foundInvalidInstall? 2 : updatePriority);
+			// If the info was reset, the update priority should be made at least 2
+			await createInfoResource(foundInvalidInstall? Math.max(2, updatePriority) as UpdatePriority : updatePriority);
 
 			function logCleanInstallMessage() {
 				if (installedVersions.length != 0) {

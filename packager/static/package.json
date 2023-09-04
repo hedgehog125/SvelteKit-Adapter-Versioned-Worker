@@ -85,7 +85,7 @@
 		"service-worker",
 		"sveltekit-adapter"
 	],
-	"author": "Nicholas Clack (Hedgehog125 on GitHub)",
+	"author": "Nicholas Clack",
 	"license": "GNU LGPL 3.0",
 	"type": "module"
 }
