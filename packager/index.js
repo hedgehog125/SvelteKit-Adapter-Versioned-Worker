@@ -16,6 +16,7 @@ const COPY_LIST = [
 	["svelte/dist", "svelte"],
 	["packager/static", ""],
 
+	["README.md", "README.md"],
 	["LICENSE.md", "LICENSE.md"],
 	["COPYING.txt", "COPYING.txt"],
 	["COPYING.LESSER.txt", "COPYING.LESSER.txt"]
