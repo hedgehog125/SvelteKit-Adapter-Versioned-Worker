@@ -1,7 +1,7 @@
 # SvelteKit-Adapter-Versioned-Worker
 A SvelteKit adapter for generating service workers to make your SvelteKit sites work offline.
 
-[Source Code](https://github.com/hedgehog125/SvelteKit-Adapter-Versioned-Worker) | [NPM Package](https://www.npmjs.com/package/sveltekit-adapter-versioned-worker)
+[Source Code](https://github.com/hedgehog125/SvelteKit-Adapter-Versioned-Worker) | [NPM Package](https://www.npmjs.com/package/sveltekit-adapter-versioned-worker) | [Example](https://github.com/hedgehog125/Bagel-V2)
 
 Features:
  * No need to deal with caching headers or durations
@@ -59,7 +59,7 @@ const config = {
 // ...
 ```
 
-Next, you need to tell Versioned Worker where to find its last `versionedWorker.json` file. This file contains, among a few other things, the necessary metadata of the previous build to work out what's changed. For development, you probably want to read it from the disk, while for production you probably want to download it over HTTP(S). By doing it this way, you can test how your PWA updates between test builds and you can stop clients from having to download unnecessary test build metadata. You can do this with the `standardGetLast` method, which returns a `LastInfoProvider`:
+Next, you need to tell Versioned Worker where to find its last `versionedWorker.json` file. This file is outputted as part of a build and contains, among a few other things, the necessary metadata of the previous build to work out what's changed. For development, you probably want to read it from the disk, while for production you probably want to download it over HTTP(S). By doing it this way, you can test how your PWA updates between test builds and you can stop clients from having to download unnecessary test build metadata. You can do this with the `standardGetLast` method, which returns a `LastInfoProvider`:
 
 ```js
 import { adapter, standardGetLast } from "sveltekit-adapter-versioned-worker";
@@ -70,7 +70,7 @@ const config = {
   kit: {
     // ...
     adapter: adapter({
-      lastInfo: standardGetLast("<insert deployed site URL here>/versionedWorker.json", isTestBuild)
+      lastInfo: standardGetLast("<insert deployed site URL here, including the base URL if you have one>/versionedWorker.json", isTestBuild)
     })
   }
 };
@@ -97,7 +97,7 @@ Then install those 2 packages with:
 npm i cross-env http-server -D
 ```
 
-Note that that code assumes your `versionedWorker.json` file is at `<build directory location>/versionedWorker.json` (where it gets outputted). If you want to do something more advanced, you can specify a different path with the 3rd argument, use a different `LastInfoProvider` or write your own function that `satisfies` that type.
+Note that that code assumes your `versionedWorker.json` file is at `<build directory location>/versionedWorker.json` (where it gets outputted). If you want to do something more advanced, you can specify a different path with the 3rd argument, use a different `LastInfoProvider` or write your own function that `satisfies` that type. Also note that for your first build, Versioned Worker will create a `versionedWorker.json` file as the old one won't be able to be found.
 
 ---
 **Note**: It doesn't matter too much if you have to reset the `versionedWorker.json` file. The built service workers will perform a clean install in this case, redownloading everything.

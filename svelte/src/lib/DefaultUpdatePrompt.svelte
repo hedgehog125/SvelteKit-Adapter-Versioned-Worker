@@ -143,7 +143,7 @@ The default update prompt that the `ServiceWorker` component uses.
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		z-index: 99;
+		z-index: 999;
 		background-color: #2c2c30;
 		padding-left: 25px;
 		padding-right: 12.5px;
@@ -196,7 +196,7 @@ The default update prompt that the `ServiceWorker` component uses.
 		top: 0;
 		bottom: 0;
 
-		z-index: 99999;
+		z-index: 9999;
 		display: flex;
 		justify-content: center;
 		align-items: center;
