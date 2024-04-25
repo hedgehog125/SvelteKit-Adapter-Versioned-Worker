@@ -1,3 +1,7 @@
+**Announcement**: Do You Want Support for Other Frameworks, Modularity and Tests? Voice your interest on [this issue](https://github.com/hedgehog125/SvelteKit-Adapter-Versioned-Worker/issues/2).
+
+---
+
 # SvelteKit-Adapter-Versioned-Worker
 A SvelteKit adapter for generating service workers to make your SvelteKit sites work offline.
 
